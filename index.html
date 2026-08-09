@@ -1,1522 +1,392 @@
-<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Comercial Cloud</title>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <style>
-        :root {
-            --primary: #008200; --primary-dark: #005f00; --accent: #0b0c10; --bg: #f4f7f5; --card: #ffffff;
-            --text: #0b0c10; --muted: #657786; --border: #e1e8ed; --heineken-red: #ff2b2b;
-            /* Paleta de estados consolidada: azul (pendente/foco), verde (concluído), âmbar (negociado), vermelho (não ok), cinza (vazio) */
-            --foco-color: #2563eb; --foco-bg: #eff6ff;
-            --nok-color: var(--heineken-red); --nok-bg: #fff5f5;
-            --ok-color: #008200; --ok-bg: #e6f6e6;
-            --vazio-color: #94a3b8; --vazio-bg: #f5f8fa;
-            --negociado-color: #b45309; --negociado-bg: #fef3e2;
-            --focosemanal-color: #2563eb; --focosemanal-bg: #eff6ff;
-        }
-        * { box-sizing: border-box; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; }
-        @media (min-width: 768px) { body { padding: 24px; } }
-        .container { max-width: 1400px; margin: 0 auto; }
+const NOME_SEPARADOR = 'gonçalo';
+const NOME_CONFIG = 'config';
+const CABECALHO = ['id', 'cliente', 'numero', 'comercial', 'dia', 'semana', 'estadosJSON', 'historicoJSON', 'colocouJSON'];
+const CABECALHO_CONFIG = ['chave', 'valor'];
 
-        header {
-            margin-bottom: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 18px;
-            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
-        }
-        @media (min-width: 768px) {
-            header { flex-direction: row; align-items: center; justify-content: space-between; padding: 20px 28px; }
-            header .resumo-foco { padding-left: 24px; border-left: 1px solid var(--border); }
-        }
+function getSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(NOME_SEPARADOR);
+  if (!sheet) {
+    sheet = ss.insertSheet(NOME_SEPARADOR);
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(CABECALHO);
+  }
 
-        .actions-card {
-            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-            padding: 10px 12px; margin-bottom: 16px;
-            box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
-        }
-        @media (min-width: 768px) {
-            .actions-card { padding: 16px 20px; }
-        }
+  // Migração automática: se a folha já existia sem a coluna colocouJSON, acrescenta-a
+  const cabecalhoAtual = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0].map(h => String(h).trim().toLowerCase());
+  if (cabecalhoAtual.indexOf('colocoujson') === -1) {
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue('colocouJSON');
+  }
+  return sheet;
+}
 
-        .resumo-foco .resumo-card { padding: 0; }
-        .resumo-titulo { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 10px; }
-        .resumo-titulo span { color: var(--text); text-transform: none; letter-spacing: 0; }
-        .resumo-grid {
-            display: flex; gap: 14px; flex-wrap: nowrap;
-            overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch;
-        }
-        .resumo-col { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 46px; flex: 0 0 auto; }
-        .resumo-marca { font-size: 0.62rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
-        .resumo-pill { font-size: 0.82rem; font-weight: 700; border-radius: 8px; padding: 4px 0; width: 100%; text-align: center; line-height: 1.2; }
-        .resumo-pill.foco { background: var(--foco-bg); color: var(--foco-color); }
-        .resumo-pill.atingido { background: var(--ok-bg); color: var(--ok-color); }
-        .resumo-legenda { display: flex; gap: 16px; margin-top: 10px; font-size: 0.68rem; color: var(--muted); }
-        .resumo-legenda .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-        .resumo-legenda .dot.foco { background: var(--foco-color); }
-        .resumo-legenda .dot.atingido { background: var(--ok-color); }
-        header h1 {
-            margin: 0; color: var(--muted); font-size: 1.05rem; font-weight: 700;
-            display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; text-transform: uppercase;
-        }
-        header h1 .star-icon { width: 18px; height: 18px; flex: 0 0 auto; opacity: .7; }
-        .resumo-foco { flex: 1; }
-        @media (min-width: 768px) { header { flex-direction: row-reverse; } header .resumo-foco { padding-left: 0; padding-right: 24px; border-left: none; border-right: 1px solid var(--border); } }
-        
-        .actions-bar { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; justify-content: flex-start; align-items: center; }
-        .actions-divider { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; display: none; }
-        @media (min-width: 768px) { .actions-divider { display: block; } }
-        
-        .btn-action {
-            padding: 6px 10px; 
-            font-size: 0.78rem; 
-            font-weight: 700; 
-            border-radius: 8px;
-            cursor: pointer; 
-            border: none;
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 5px;
-            color: white;
-            box-shadow: 0 2px 4px rgba(11,12,16,.1);
-            transition: transform .15s ease, filter .15s ease;
-        }
-        .btn-action:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 4px 8px rgba(11,12,16,.15); }
-        .btn-action:active { transform: translateY(0); filter: brightness(0.95); box-shadow: 0 1px 2px rgba(11,12,16,.1); }
-        .btn-action svg { width: 14px; height: 14px; }
-        @media (min-width: 768px) {
-            .actions-bar { gap: 12px; }
-            .btn-action { padding: 10px 18px; font-size: 1rem; gap: 8px; }
-            .btn-action svg { width: 18px; height: 18px; }
-        }
-        
-        .btn-sync { background-color: #008200; }
-        .btn-pdf { background-color: #0b0c10; }
-        .btn-excel { background-color: #1e7b46; }
-        .btn-limpar {
-            background-color: transparent; color: #dc2626; border: 1.5px solid #fecaca; box-shadow: none;
-        }
-        .btn-limpar:hover { background-color: #dc2626; color: #fff; filter: none; }
-        .btn-focosemanal { background-color: #2563eb; }
+function getConfigSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(NOME_CONFIG);
+  if (!sheet) {
+    sheet = ss.insertSheet(NOME_CONFIG);
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(CABECALHO_CONFIG);
+  }
+  return sheet;
+}
 
-        .modal-foco-overlay {
-            display: none; position: fixed; inset: 0; background: rgba(11,12,16,.55);
-            align-items: center; justify-content: center; z-index: 1000; padding: 16px;
-        }
-        .modal-foco-overlay.aberto { display: flex; }
-        .modal-foco-box {
-            background: var(--card); border-radius: 14px; width: 100%; max-width: 420px;
-            max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px -20px rgba(11,12,16,.4);
-        }
-        .modal-foco-header {
-            padding: 18px 20px; border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .modal-foco-header h2 { margin: 0; font-size: 1.05rem; color: var(--text); }
-        .modal-foco-close { background: none; border: none; font-size: 1.3rem; color: var(--muted); cursor: pointer; line-height: 1; }
-        .modal-foco-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-        .modal-foco-linha label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
-        .modal-foco-linha select {
-            width: 100%; padding: 11px 12px; font-size: 0.92rem; border: 1px solid var(--border);
-            border-radius: 10px; font-weight: 600; background-color: #fff; appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;
-        }
-        .modal-foco-footer { padding: 16px 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; border-radius: 0 0 14px 14px; }
+function lerConfig_(chave) {
+  const sheet = getConfigSheet_();
+  const dados = sheet.getDataRange().getValues();
+  for (let i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]) === chave) {
+      try { return JSON.parse(dados[i][1] || 'null'); } catch (err) { return null; }
+    }
+  }
+  return null;
+}
 
-        /* Modal de código de acesso (PIN) para Excel / Marca Foco */
-        .modal-pin-body { padding: 22px 20px 6px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .modal-pin-body p { margin: 0 0 4px; color: var(--muted); font-size: 0.88rem; text-align: center; }
-        .modal-pin-input {
-            width: 140px; text-align: center; letter-spacing: 8px; font-size: 1.4rem; font-weight: 700;
-            padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; color: var(--text);
-        }
-        .modal-pin-input.erro { border-color: #dc2626; animation: abanarPin 0.3s; }
-        @keyframes abanarPin { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-        .modal-pin-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
+function gravarConfig_(chave, valor) {
+  const sheet = getConfigSheet_();
+  const dados = sheet.getDataRange().getValues();
+  for (let i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]) === chave) {
+      sheet.getRange(i + 1, 2).setValue(JSON.stringify(valor));
+      return;
+    }
+  }
+  sheet.appendRow([chave, JSON.stringify(valor)]);
+}
 
-        .filters-grid { display: grid; grid-template-columns: 1fr; gap: 16px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
-        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr; padding: 24px; } }
-        .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
-        .filter-control select { width: 100%; padding: 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px; font-weight: 600; background-color: #fff; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
-        .days-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px; }
-        .tab-btn { flex: 1; min-width: 90px; padding: 12px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
-        .tab-btn.active { background: var(--accent); color: white; }
+function saidaJSON_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-        .search-row { position: relative; margin-bottom: 14px; }
-        .search-row input {
-            width: 100%; padding: 12px 16px 12px 42px; font-size: 0.92rem; font-weight: 500;
-            border: 1px solid var(--border); border-radius: 12px; background: var(--card);
-            color: var(--text); box-sizing: border-box;
-        }
-        .search-row input:focus { outline: none; border-color: var(--accent); }
-        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; fill: var(--muted); pointer-events: none; }
-        .cliente-meta { display: block; font-size: 0.7rem; font-weight: 600; color: var(--muted); margin-top: 2px; }
-        .table-container { background: transparent; }
-        table { width: 100%; border-collapse: collapse; }
-        thead { display: none; }
-        tbody tr { display: block; background: var(--card); margin-bottom: 16px; padding: 16px; border-radius: 14px; border: 1px solid var(--border); }
-        tbody td { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 0.95rem; }
-        tbody td:last-child { border-bottom: none; }
-        tbody td:first-child { display: block; font-weight: 800; font-size: 1.1rem; color: var(--accent); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 8px; }
-        tbody td:not(:first-child)::before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 0.85rem; }
-        .cell-container { display: flex; align-items: center; gap: 12px; width: 65%; justify-content: flex-end; }
-        .icons-row { display: flex; gap: 8px; align-items: center; }
-        .icon-disabled { opacity: 0.12; filter: grayscale(100%); }
-        .texto-elegibilidade { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 3px 7px; border-radius: 6px; white-space: nowrap; }
-        .texto-elegibilidade.elegivel { background: var(--vazio-bg); color: var(--muted); }
-        .texto-elegibilidade.implementado { background: var(--ok-bg); color: var(--ok-color); }
-        
-        .btn-estado { padding: 6px 10px; border-radius: 20px; font-size: 0.76rem; font-weight: 700; cursor: pointer; width: 132px; height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid transparent; white-space: nowrap; }
-        .btn-estado.vazio { background-color: var(--vazio-bg); color: var(--vazio-color); border-color: var(--border); }
-        .btn-estado.foco { background-color: var(--foco-bg); color: var(--foco-color); border-color: #bfdbfe; }
-        .btn-estado.focosemanal { background-color: var(--focosemanal-bg); color: var(--focosemanal-color); border-color: #bfdbfe; }
-        .btn-estado.nao-ok { background-color: var(--nok-bg); color: var(--nok-color); border-color: #fecaca; }
-        .btn-estado.ok { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; }
-        .btn-estado.negociado { background-color: var(--negociado-bg); color: var(--negociado-color); border-color: #fde3b0; }
+/** Devolve {idx, ultimaLinha} com as colunas do cabeçalho em minúsculas, sem ler a folha toda */
+function obterCabecalhoIdx_(sheet) {
+  const ultimaLinha = sheet.getLastRow();
+  const ultimaColuna = Math.max(sheet.getLastColumn(), 1);
+  const cabecalho = sheet.getRange(1, 1, 1, ultimaColuna).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const idx = {};
+  cabecalho.forEach((h, i) => { idx[h] = i + 1; }); // 1-based (coluna de sheet)
+  return { idx, ultimaLinha };
+}
 
-        .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
-        .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
-        .badge-colocou.nao { background-color: var(--vazio-bg); color: var(--vazio-color); }
-        .svg-icon { width: 16px; height: 16px; fill: currentColor; }
-        @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
-        /* Cortina de carregamento a ecrã inteiro */
-        .loading-notice {
-            display: none;
-            position: fixed;
-            inset: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(30, 26, 10, 0.88);
-            backdrop-filter: blur(2px);
-            color: #fff3cd;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 22px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 1.1rem;
-            z-index: 10000;
-            padding: 20px;
-        }
-        .loading-notice.show { display: flex; }
-
-        .beer-loader { position: relative; width: 90px; height: 114px; flex-shrink: 0; }
-        .beer-loader svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
-        .beer-loader .copo-contorno { fill: none; stroke: #fff3cd; stroke-width: 2; }
-        .beer-loader .liquido-clip { }
-        .beer-loader .liquido { fill: #f5a623; }
-        .beer-loader .espuma { fill: #fffdf5; }
-        .beer-loader .bolha { fill: rgba(255,255,255,0.85); }
-
-        @keyframes encherCopo {
-            0%   { transform: translateY(24px); }
-            60%  { transform: translateY(4px); }
-            100% { transform: translateY(4px); }
-        }
-        @keyframes subirBolha {
-            0%   { transform: translateY(0); opacity: 0; }
-            15%  { opacity: 1; }
-            100% { transform: translateY(-16px); opacity: 0; }
-        }
-        .beer-loader .liquido-grupo { animation: encherCopo 1.6s ease-out infinite alternate; }
-        .beer-loader .bolha1 { animation: subirBolha 1.3s ease-in infinite; animation-delay: 0.1s; }
-        .beer-loader .bolha2 { animation: subirBolha 1.5s ease-in infinite; animation-delay: 0.5s; }
-        .beer-loader .bolha3 { animation: subirBolha 1.1s ease-in infinite; animation-delay: 0.9s; }
-
-        #impressaoSemanal { display: none; }
-        @media print {
-            body.imprimir-semana .container > *:not(#impressaoSemanal) { display: none !important; }
-            body.imprimir-semana #impressaoSemanal { display: block !important; }
-        }
-        @media (min-width: 768px) {
-            thead { display: table-header-group; }
-            th { background-color: var(--accent); color: white; padding: 16px; font-size: 0.85rem; text-transform: uppercase; }
-            tbody tr { display: table-row; background: transparent; }
-            tbody td { display: table-cell; padding: 16px; border-bottom: 1px solid var(--border); text-align: center; }
-            tbody td:first-child { text-align: left; }
-            tbody td:not(:first-child)::before { content: none; }
-            .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
-        }
-
-        /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
-        .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
-        .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(3px); }
-        .modal-container { background: var(--card); width: 95%; max-width: 700px; max-height: 85vh; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 15px 30px rgba(0,0,0,0.3); animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-        .modal-header { padding: 20px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; }
-        .modal-header h2 { margin: 0; font-size: 1.3rem; color: var(--accent); }
-        .modal-subtitle { margin: 5px 0 0 0; font-size: 0.85rem; color: var(--muted); }
-        .btn-close { background: none; border: none; font-size: 1.8rem; line-height: 1; cursor: pointer; color: var(--muted); transition: color 0.2s; }
-        .btn-close:hover { color: var(--accent); }
-        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-        .range-section { margin-bottom: 20px; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 15px; }
-        .range-title { font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 8px; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .badge-negociado-modal { font-size: 0.65rem; background: var(--negociado-bg); color: var(--negociado-color); padding: 3px 6px; border-radius: 6px; }
-        .product-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); }
-        .product-row:last-child { border-bottom: none; padding-bottom: 0; }
-        
-        .product-info { display: flex; align-items: center; gap: 10px; flex: 1; padding-right: 10px; }
-        .product-thumbnail-container { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--ok-bg); border: 1px solid var(--border); flex-shrink: 0; }
-        .product-svg-thumb { width: 18px; height: 18px; stroke: var(--primary); }
-        .product-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
-
-        .qty-counter { display: flex; align-items: center; gap: 5px; }
-        .btn-qty { width: 32px; height: 32px; border: 1px solid var(--border); background: var(--bg); border-radius: 6px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text); font-weight: bold; transition: background 0.2s;}
-        .btn-qty:hover { background: #e1e8ed; }
-        .input-qty { width: 45px; height: 32px; text-align: center; border: 1px solid var(--border); border-radius: 6px; font-weight: 700; font-size: 0.95rem; color: var(--text); }
-        .input-qty::-webkit-outer-spin-button, .input-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .modal-footer { padding: 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 12px 12px; flex-wrap: wrap; gap: 10px; }
-        .total-summary { font-size: 1rem; color: var(--text); font-weight: 600;}
-        .total-summary strong { color: var(--primary); font-size: 1.2rem; }
-        .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn-cancel { background: #fff; color: var(--muted); border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-        .btn-cancel:hover { background: var(--vazio-bg); }
-        .btn-submit { background: var(--primary); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: filter 0.2s; }
-        .btn-submit:hover { filter: brightness(1.1); }
-        .btn-whatsapp { background: #fff; color: #1e9e56; border: 1.5px solid #1e9e56; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: background 0.2s, color 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-whatsapp:hover { background: #1e9e56; color: #fff; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div id="loadingBox" class="loading-notice">
-        <span class="beer-loader">
-            <svg viewBox="0 0 30 38">
-                <defs>
-                    <clipPath id="clipCopo">
-                        <path d="M6 4 h18 l-1.5 28 a2 2 0 0 1 -2 2 h-11 a2 2 0 0 1 -2 -2 z" />
-                    </clipPath>
-                </defs>
-                <g clip-path="url(#clipCopo)">
-                    <g class="liquido-grupo">
-                        <rect class="liquido" x="0" y="10" width="30" height="30" />
-                        <rect class="espuma" x="0" y="8" width="30" height="4" />
-                        <circle class="bolha bolha1" cx="11" cy="30" r="1.2" />
-                        <circle class="bolha bolha2" cx="16" cy="32" r="1" />
-                        <circle class="bolha bolha3" cx="20" cy="29" r="1.3" />
-                    </g>
-                </g>
-                <path class="copo-contorno" d="M6 4 h18 l-1.5 28 a2 2 0 0 1 -2 2 h-11 a2 2 0 0 1 -2 -2 z" />
-                <g transform="translate(15,20) scale(0.024) translate(-288,-274.5)">
-                    <polygon fill="#ff2b2b" points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209" />
-                </g>
-            </svg>
-        </span>
-        <span>A ligar à nuvem e a atualizar dados...</span>
-    </div>
-
-    <header>
-        <h1>
-            <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
-            Roteiro Cloud Equipa
-        </h1>
-        <div id="resumoFoco" class="resumo-foco"></div>
-    </header>
-
-    <div class="actions-card">
-        <div class="actions-bar">
-            <button class="btn-action btn-sync" id="btnSync" onclick="sincronizarManualmente()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-                Sincronizar
-            </button>
-            <div class="actions-divider"></div>
-            <button class="btn-action btn-pdf" onclick="gravarRoteiroSemanalPDF()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                PDF
-            </button>
-            <button class="btn-action btn-excel" onclick="pedirCodigoAcesso_(() => document.getElementById('excelInput').click())">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-                Excel
-            </button>
-            <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="carregarDadosDesdeExcel(event)">
-            <div class="actions-divider"></div>
-            <button class="btn-action btn-limpar" onclick="limparFocoGestor()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                Limpar
-            </button>
-            <div class="actions-divider"></div>
-            <button class="btn-action btn-focosemanal" onclick="pedirCodigoAcesso_(() => abrirModalFocoSemanal())">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-                Marca Foco
-            </button>
-        </div>
-    </div>
-
-    <div id="impressaoSemanal"></div>
-
-    <div class="filters-grid">
-        <div class="filter-control">
-            <label>Gestor</label>
-            <select id="comercialSelect" onchange="atualizarVisualizacao()">
-                <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
-                <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
-                <option value="Rui Carlos Correia Pratas">Rui Carlos Correia Pratas</option>
-                <option value="Raphael Fernandes Cortez">Raphael Fernandes Cortez</option>
-                <option value="Yessica Karina de Frenza Goaldron">Yessica Karina de Frenza Goaldron</option>
-                <option value="Pedro Ricardo da Silva Guerreiro">Pedro Ricardo da Silva Guerreiro</option>
-            </select>
-        </div>
-        <div class="filter-control">
-            <label>Semana</label>
-            <select id="semanaSelect" onchange="atualizarVisualizacao()">
-                <option value="1">Semana 1</option>
-                <option value="2">Semana 2</option>
-                <option value="3">Semana 3</option>
-                <option value="4">Semana 4</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="search-row">
-        <svg class="svg-icon search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        <input type="text" id="pesquisaCliente" placeholder="Procurar por nome ou nº do estabelecimento (do gestor selecionado)..." oninput="atualizarVisualizacao()">
-    </div>
-
-    <div class="days-tabs" id="diasTabs">
-        <button class="tab-btn active" onclick="mudarDia('Segunda', this)">Segunda</button>
-        <button class="tab-btn" onclick="mudarDia('Terça', this)">Terça</button>
-        <button class="tab-btn" onclick="mudarDia('Quarta', this)">Quarta</button>
-        <button class="tab-btn" onclick="mudarDia('Quinta', this)">Quinta</button>
-        <button class="tab-btn" onclick="mudarDia('Sexta', this)">Sexta</button>
-    </div>
-
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr id="cabecalhoTabela"><th>Estabelecimento</th><th>0.0%</th><th>Bandida</th><th>Heineken</th><th>PRETA</th></tr>
-            </thead>
-            <tbody id="tabelaVisitas"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- MODAL DE ENCOMENDAS -->
-<div id="orderModal" class="modal-overlay" style="display: none;">
-    <div class="modal-container">
-        <div class="modal-header">
-            <div>
-                <h2 id="modalClientName">Nova Encomenda</h2>
-                <p class="modal-subtitle">Gere o pedido de acordo com o portefólio negociado.</p>
-            </div>
-            <button class="btn-close" onclick="fecharModalEncomenda()" aria-label="Fechar">&times;</button>
-        </div>
-        <div class="modal-body" id="modalCatalogBody">
-            <!-- Catálogo injetado via JS -->
-        </div>
-        <div class="modal-footer">
-            <div class="total-summary">
-                Total de itens: <strong id="totalItemCount">0</strong>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="fecharModalEncomenda()">Cancelar</button>
-                <button class="btn-whatsapp" onclick="gerarWhatsappEncomenda()">
-                    <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                    WhatsApp
-                </button>
-                <button class="btn-submit" onclick="gerarEmailEncomenda()">Gerar E-mail</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal-foco-overlay" id="modalFocoOverlay">
-    <div class="modal-foco-box">
-        <div class="modal-foco-header">
-            <h2>Marca Foco por Semana</h2>
-            <button class="modal-foco-close" onclick="fecharModalFocoSemanal()" aria-label="Fechar">&times;</button>
-        </div>
-        <div class="modal-foco-body" id="modalFocoBody">
-            <!-- Selects injetados via JS -->
-        </div>
-        <div class="modal-foco-footer">
-            <button class="btn-cancel" onclick="fecharModalFocoSemanal()">Cancelar</button>
-            <button class="btn-submit" onclick="guardarFocoSemanal()">Guardar</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal-foco-overlay" id="modalPinOverlay">
-    <div class="modal-foco-box" style="max-width: 300px;">
-        <div class="modal-foco-header">
-            <h2>Acesso restrito</h2>
-            <button class="modal-foco-close" onclick="fecharModalPin_()" aria-label="Fechar">&times;</button>
-        </div>
-        <div class="modal-pin-body">
-            <p>Introduz o código de acesso</p>
-            <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="modal-pin-input" id="modalPinInput" autocomplete="off">
-            <div class="modal-pin-erro-msg" id="modalPinErro"></div>
-        </div>
-        <div class="modal-foco-footer">
-            <button class="btn-cancel" onclick="fecharModalPin_()">Cancelar</button>
-            <button class="btn-submit" onclick="confirmarPin_()">Confirmar</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
-
-    // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
-    const PRODUCT_CATALOG = [
-        { id: "sagres_mini_ret_20", name: "Sagres Branca Mini Retornável (Grade 24×20cl)", range: "Sagres" },
-        { id: "sagres_media_ret_33", name: "Sagres Branca Média Retornável (Grade 24×33cl)", range: "Sagres" },
-        { id: "sagres_mini_tp_25", name: "Sagres Branca Mini Tara Perdida (Caixa 24×25cl)", range: "Sagres" },
-        { id: "sagres_media_tp_33", name: "Sagres Branca Média Tara Perdida (Tabuleiro 24×33cl)", range: "Sagres" },
-        { id: "heineken_ret_24_25", name: "Heineken Retornável 24×25cl", range: "Heineken" },
-        { id: "heineken_tara_perdida_24_25", name: "Heineken Tara Perdida 24×25cl", range: "Heineken" },
-        { id: "heineken_tara_perdida_24_33", name: "Heineken Tara Perdida 24×33cl", range: "Heineken" },
-        { id: "bandida_maca_ret_24_33", name: "Bandida Maçã Retornável 24×33cl", range: "Bandida" },
-        { id: "bandida_frutos_vermelhos_24_33", name: "Bandida Frutos Vermelhos 24×33cl", range: "Bandida" },
-        { id: "bandida_maca_24_33", name: "Bandida Maçã 24×33cl", range: "Bandida" },
-        { id: "sagres_00_4p", name: "Sagres Média 0.0% 4Packs 6×33cl", range: "0.0%" },
-        { id: "sagres_00_ret", name: "Sagres 0.0% Retornável 24×33cl", range: "0.0%" },
-        { id: "heineken_00_4p", name: "Heineken 0.0% 4Packs 6×25cl", range: "0.0%" },
-        { id: "sagres_preta_mini_ret", name: "Sagres Preta Mini Ret. 24×20cl", range: "PRETA" },
-        { id: "sagres_preta_med_ret", name: "Sagres Preta Média Ret. 24×33cl", range: "PRETA" },
-        { id: "guinness_6p", name: "Guinness 6Packs (4×44cl)", range: "PRETA" },
-        { id: "sagres_sol_mar_24", name: "Sagres Sol & Mar 24×33cl", range: "Sol & Mar" },
-        { id: "luso_ret_24", name: "Luso Retornável 24×25cl", range: "Luso Retornável" }
-    ];
-
-    let clienteAtualEncomenda = null;
-    let quantidadesEncomenda = {};
-
-    let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
-    const ordemMarcasFixa = ["Sagres", "Heineken", "Bandida", "0.0%", "PRETA"];
-
-    const MARCA_FOCO_POR_SEMANA_DEFAULT = {
-        "1": "0.0%",
-        "2": "bandida",
-        "3": "preta",
-        "4": "heineken"
-    };
-    let MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT };
-    (function carregarFocoSemanalGuardado() {
-        try {
-            const guardado = localStorage.getItem('marcaFocoPorSemana');
-            if (guardado) {
-                const obj = JSON.parse(guardado);
-                MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...obj };
-            }
-        } catch (e) { console.error('Erro ao carregar marca foco guardada:', e); }
-    })();
-
-    function abrirModalFocoSemanal() {
-        const corpo = document.getElementById('modalFocoBody');
-        const opcoesMarcas = (marcasLista && marcasLista.length > 0) ? marcasLista : ordemMarcasFixa;
-        const semanas = ['1', '2', '3', '4'];
-        corpo.innerHTML = semanas.map(sem => {
-            const valorAtual = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
-            const opcoesHtml = opcoesMarcas.map(m => {
-                const selecionado = m.trim().toLowerCase() === valorAtual ? 'selected' : '';
-                return `<option value="${m}" ${selecionado}>${m}</option>`;
-            }).join('');
-            return `
-                <div class="modal-foco-linha">
-                    <label>Semana ${sem}</label>
-                    <select id="focoSemana_${sem}">
-                        <option value="">— Sem marca foco —</option>
-                        ${opcoesHtml}
-                    </select>
-                </div>`;
-        }).join('');
-        document.getElementById('modalFocoOverlay').classList.add('aberto');
+/** GET — devolve todos os registos + configuração (marcaFocoPorSemana) num único pedido,
+ *  ou só a configuração se ?tipo=config (mantido para compatibilidade/outros usos) */
+function doGet(e) {
+  try {
+    if (e && e.parameter && e.parameter.tipo === 'config') {
+      const marcaFocoPorSemana = lerConfig_('marcaFocoPorSemana');
+      const ordemMarcas = lerConfig_('ordemMarcas');
+      return saidaJSON_({ ok: true, marcaFocoPorSemana: marcaFocoPorSemana || {}, ordemMarcas: ordemMarcas || [] });
     }
 
-    function fecharModalFocoSemanal() {
-        document.getElementById('modalFocoOverlay').classList.remove('aberto');
+    const sheet = getSheet_();
+    const dados = sheet.getDataRange().getValues();
+    const marcaFocoPorSemana = lerConfig_('marcaFocoPorSemana') || {};
+    const ordemMarcas = lerConfig_('ordemMarcas') || [];
+
+    if (!dados || dados.length <= 1) {
+      return saidaJSON_({ registos: [], marcaFocoPorSemana: marcaFocoPorSemana, ordemMarcas: ordemMarcas });
     }
 
-    function guardarFocoSemanal() {
-        const semanas = ['1', '2', '3', '4'];
-        const novoMapa = {};
-        semanas.forEach(sem => {
-            const select = document.getElementById('focoSemana_' + sem);
-            if (select) novoMapa[sem] = select.value;
-        });
-        MARCA_FOCO_POR_SEMANA = novoMapa;
-        localStorage.setItem('marcaFocoPorSemana', JSON.stringify(novoMapa));
-        limparFocoSemanalDesatualizado();
-        // Guarda a configuração no servidor para propagar a todos os GC (não só localStorage).
-        postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
-        fecharModalFocoSemanal();
-        atualizarVisualizacao();
+    const cabecalho = dados.shift().map(h => String(h).trim().toLowerCase());
+
+    const idx = {};
+    cabecalho.forEach((h, i) => { idx[h] = i; });
+
+    const linhas = dados
+      .filter(r => idx['id'] !== undefined && r[idx['id']] !== '' && r[idx['id']] !== null && r[idx['id']] !== undefined)
+      .map(r => {
+        let estados = {};
+        let historico = {};
+        let colocou = {};
+        try { estados = JSON.parse(r[idx['estadosjson']] || '{}'); } catch (err) { estados = {}; }
+        try { historico = JSON.parse(r[idx['historicojson']] || '{}'); } catch (err) { historico = {}; }
+        try { colocou = idx['colocoujson'] !== undefined ? JSON.parse(r[idx['colocoujson']] || '{}') : {}; } catch (err) { colocou = {}; }
+        return {
+          id: r[idx['id']],
+          cliente: r[idx['cliente']],
+          numero: idx['numero'] !== undefined ? r[idx['numero']] : '',
+          comercial: r[idx['comercial']],
+          dia: r[idx['dia']],
+          semana: String(r[idx['semana']]),
+          estados: estados,
+          historico: historico,
+          colocou: colocou
+        };
+      });
+
+    return saidaJSON_({ registos: linhas, marcaFocoPorSemana: marcaFocoPorSemana, ordemMarcas: ordemMarcas });
+  } catch (err) {
+    return saidaJSON_({ ok: false, erro: 'Erro no servidor (GET): ' + err.message });
+  }
+}
+
+/** POST — recebe ações do HTML */
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  let temLock = false;
+
+  try {
+    temLock = lock.tryLock(30000);
+    if (!temLock) {
+      return saidaJSON_({ ok: false, erro: 'Servidor ocupado. Tenta novamente.' });
     }
 
-    // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
-    // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
-    // de qualquer marca que já não seja a marca foco definida — em vez de
-    // disparar um pedido por cada registo alterado (o que sobrecarregava o
-    // servidor quando há muitos utilizadores em simultâneo).
-    function limparFocoSemanalDesatualizado() {
-        const semanas = ['1', '2', '3', '4'];
-        semanas.forEach(sem => {
-            const marcaFocoSemana = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
-            let houveAlteracao = false;
-
-            baseDadosRotas.forEach(item => {
-                if (item.semana !== sem || !item.estados) return;
-                Object.keys(item.estados).forEach(marca => {
-                    if (item.estados[marca] !== 'FOCOSEMANAL') return;
-                    const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
-                    if (!ehMarcaFocoAtual) {
-                        item.estados[marca] = '';
-                        houveAlteracao = true;
-                    }
-                });
-            });
-
-            if (houveAlteracao) {
-                postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
-                    .then(resultado => {
-                        if (!resultado || resultado.ok === false) mostrarAvisoSync_();
-                    });
-            }
-        });
+    let body;
+    try {
+      body = JSON.parse(e.postData.contents);
+    } catch (err) {
+      return saidaJSON_({ ok: false, erro: 'Corpo do pedido inválido' });
     }
 
-    const CABECALHOS_RESERVADOS = new Set([
-        'cliente', 'pdv', 'estabelecimento', 'comercial', 'gestor', 'vendedor',
-        'segmento de clientes', 'frequência de visitas', 'frequencia de visitas',
-        'dia', 'dia da semana', 'dia semana', 'semana', 'semana do mês', 'id',
-        'numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento',
-        'número do estabelecimento', 'codigo', 'código',
-        'estados', 'estadosjson', 'historico', 'historicojson',
-        'semana 1', 'semana 2', 'semana 3', 'semana 4', 'semana 5', 'semana 6'
-    ]);
-
-    function renderCabecalhoTabela() {
-        const linha = document.getElementById('cabecalhoTabela');
-        if (!linha) return;
-        linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => `<th>${m}</th>`).join('');
+    if (body.action === 'limpar_e_importar') {
+      return acaoLimparEImportar_(body.rows || []);
+    }
+    if (body.action === 'atualizar_estado') {
+      return acaoAtualizarEstado_(body.id, body.marca, body.novoEstado, body.colocou);
+    }
+    if (body.action === 'atualizar_colocou') {
+      return acaoAtualizarColocou_(body.id, body.marca, body.colocado);
+    }
+    if (body.action === 'limpar_foco_semanal') {
+      return acaoLimparFocoSemanal_(body.semana, body.marcaFoco);
+    }
+    if (body.action === 'guardar_config') {
+      gravarConfig_(body.chave, body.valor);
+      return saidaJSON_({ ok: true });
     }
 
-    function sincronizarMarcasVariaveis() {
-        const setMarcas = new Set();
-        baseDadosRotas.forEach(r => {
-            if (r.estados) Object.keys(r.estados).forEach(m => setMarcas.add(m));
-            if (r.historico) Object.keys(r.historico).forEach(m => setMarcas.add(m));
-        });
-        const chaves = Array.from(setMarcas);
-        if (chaves.length > 0) {
-            marcasLista = chaves.sort((a, b) => {
-                const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
-                const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
+    return saidaJSON_({ ok: false, erro: 'Ação desconhecida: ' + body.action });
+  } catch (err) {
+    return saidaJSON_({ ok: false, erro: 'Erro no servidor (POST): ' + err.message });
+  } finally {
+    if (temLock) lock.releaseLock();
+  }
+}
+
+/**
+ * Limpa TODAS as marcações (FOCO / FOCO SEMANAL / OK / NÃO OK / NEGOCIADO) de
+ * TODOS os registos — todos os dias, todas as semanas, todos os GC/comerciais.
+ * Não mexe em "colocouJSON" (histórico de produto efetivamente colocado).
+ * Pensada para correr automaticamente via gatilho (ver criarGatilhoLimpezaSemanal).
+ */
+function apagarTodosOsFocosSemanal() {
+  const lock = LockService.getScriptLock();
+  let temLock = false;
+  try {
+    temLock = lock.tryLock(30000);
+    if (!temLock) {
+      Logger.log('Limpeza semanal automática: não foi possível obter lock, tenta novamente mais tarde.');
+      return;
+    }
+
+    const sheet = getSheet_();
+    const ultimaLinha = sheet.getLastRow();
+    if (ultimaLinha < 2) {
+      Logger.log('Limpeza semanal automática: sem registos para limpar.');
+      return;
+    }
+
+    const numLinhas = ultimaLinha - 1;
+    const { idx } = obterCabecalhoIdx_(sheet);
+    const idxEstados = idx['estadosjson'];
+    if (!idxEstados) {
+      Logger.log('Limpeza semanal automática: coluna estadosJSON não encontrada.');
+      return;
+    }
+
+    const vazio = Array.from({ length: numLinhas }, () => ['{}']);
+    sheet.getRange(2, idxEstados, numLinhas, 1).setValues(vazio);
+    Logger.log('Limpeza semanal automática concluída: ' + numLinhas + ' registos limpos.');
+  } catch (err) {
+    Logger.log('Erro na limpeza semanal automática: ' + err.message);
+  } finally {
+    if (temLock) lock.releaseLock();
+  }
+}
+
+/**
+ * Corre isto UMA VEZ manualmente no editor do Apps Script (seleciona esta
+ * função na lista e clica em "Executar") para instalar o gatilho semanal.
+ * Depois disso já não precisas de fazer nada — corre sozinho todas as
+ * segundas-feiras por volta das 08:00, mesmo sem ninguém ter o site aberto.
+ */
+function criarGatilhoLimpezaSemanal() {
+  // Remove gatilhos antigos desta função, para nunca ficar duplicado
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'apagarTodosOsFocosSemanal') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('apagarTodosOsFocosSemanal')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(8)
+    .create();
+
+  Logger.log('Gatilho criado: todas as segundas-feiras às 08:00 (fuso horário do projeto).');
+}
+
+function acaoLimparEImportar_(rows) {
+  const sheet = getSheet_();
+  const dadosAntigos = sheet.getDataRange().getValues();
+  const colocouPorId = {};
+
+  if (dadosAntigos.length > 1) {
+    const cabecalhoAntigo = dadosAntigos[0].map(h => String(h).trim().toLowerCase());
+    const idxIdAntigo = cabecalhoAntigo.indexOf('id');
+    const idxColocouAntigo = cabecalhoAntigo.indexOf('colocoujson');
+    if (idxIdAntigo !== -1 && idxColocouAntigo !== -1) {
+      for (let i = 1; i < dadosAntigos.length; i++) {
+        const idAntigo = dadosAntigos[i][idxIdAntigo];
+        if (idAntigo !== '' && idAntigo !== null && idAntigo !== undefined) {
+          colocouPorId[String(idAntigo)] = dadosAntigos[i][idxColocouAntigo] || '{}';
         }
-        renderCabecalhoTabela();
+      }
     }
-    let baseDadosRotas = [];
-    let diaAtualSelecionado = "Segunda";
+  }
 
-    // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
-    const CODIGO_ACESSO_ = '2363';
-    let acaoPendentePin_ = null;
+  sheet.clearContents();
+  sheet.appendRow(CABECALHO);
 
-    function pedirCodigoAcesso_(acaoSeguinte) {
-        acaoPendentePin_ = acaoSeguinte;
-        const overlay = document.getElementById('modalPinOverlay');
-        const input = document.getElementById('modalPinInput');
-        document.getElementById('modalPinErro').textContent = '';
-        input.value = '';
-        input.classList.remove('erro');
-        overlay.classList.add('aberto');
-        setTimeout(() => input.focus(), 50);
-    }
+  if (rows.length > 0) {
+    const valores = rows.map(r => {
+      let colocouStr;
+      if (r.colocou !== undefined && r.colocou !== null) {
+        colocouStr = JSON.stringify(r.colocou);
+      } else {
+        colocouStr = colocouPorId[String(r.id)] || '{}';
+      }
+      return [
+        r.id,
+        r.cliente,
+        r.numero || '',
+        r.comercial,
+        r.dia,
+        r.semana,
+        JSON.stringify(r.estados || {}),
+        JSON.stringify(r.historico || {}),
+        colocouStr
+      ];
+    });
+    sheet.getRange(2, 1, valores.length, CABECALHO.length).setValues(valores);
+  }
+  return saidaJSON_({ ok: true, importados: rows.length });
+}
 
-    function fecharModalPin_() {
-        document.getElementById('modalPinOverlay').classList.remove('aberto');
-        acaoPendentePin_ = null;
-    }
+/**
+ * Atualiza o estado de UMA marca de UM registo.
+ * Otimizado: em vez de ler a folha inteira (getDataRange), lê apenas a
+ * coluna "id" para localizar a linha, e depois só toca nas 1-2 células
+ * necessárias. Reduz drasticamente o tempo de escrita quando há muitas
+ * linhas/colunas e muitos utilizadores em simultâneo.
+ */
+function acaoAtualizarEstado_(id, marca, novoEstado, colocouVal) {
+  const sheet = getSheet_();
+  const { idx, ultimaLinha } = obterCabecalhoIdx_(sheet);
+  if (ultimaLinha < 2) return saidaJSON_({ ok: false, erro: 'Sem dados' });
 
-    function confirmarPin_() {
-        const input = document.getElementById('modalPinInput');
-        if (input.value === CODIGO_ACESSO_) {
-            const acao = acaoPendentePin_;
-            fecharModalPin_();
-            if (typeof acao === 'function') acao();
-        } else {
-            input.classList.add('erro');
-            document.getElementById('modalPinErro').textContent = 'Código incorreto.';
-            input.value = '';
-            input.focus();
-            setTimeout(() => input.classList.remove('erro'), 350);
-        }
-    }
+  const idxId = idx['id'];
+  const idxEstados = idx['estadosjson'];
+  const idxColocou = idx['colocoujson'];
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const inputPin = document.getElementById('modalPinInput');
-        if (inputPin) {
-            inputPin.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') confirmarPin_();
-            });
-        }
+  const numLinhas = ultimaLinha - 1;
+  const idsColuna = sheet.getRange(2, idxId, numLinhas, 1).getValues();
+
+  let linha = -1;
+  for (let i = 0; i < idsColuna.length; i++) {
+    if (String(idsColuna[i][0]) === String(id)) { linha = i + 2; break; }
+  }
+  if (linha === -1) return saidaJSON_({ ok: false, erro: 'ID não encontrado: ' + id });
+
+  const celEstados = sheet.getRange(linha, idxEstados);
+  let estados = {};
+  try { estados = JSON.parse(celEstados.getValue() || '{}'); } catch (err) { estados = {}; }
+  estados[marca] = novoEstado;
+  celEstados.setValue(JSON.stringify(estados));
+
+  if (colocouVal !== undefined && colocouVal !== null && idxColocou) {
+    const celColocou = sheet.getRange(linha, idxColocou);
+    let colocou = {};
+    try { colocou = JSON.parse(celColocou.getValue() || '{}'); } catch (err) { colocou = {}; }
+    colocou[marca] = colocouVal;
+    celColocou.setValue(JSON.stringify(colocou));
+  }
+
+  return saidaJSON_({ ok: true });
+}
+
+function acaoAtualizarColocou_(id, marca, colocado) {
+  const sheet = getSheet_();
+  const { idx, ultimaLinha } = obterCabecalhoIdx_(sheet);
+  if (ultimaLinha < 2) return saidaJSON_({ ok: false, erro: 'Sem dados' });
+
+  const idxId = idx['id'];
+  const idxColocou = idx['colocoujson'];
+
+  const numLinhas = ultimaLinha - 1;
+  const idsColuna = sheet.getRange(2, idxId, numLinhas, 1).getValues();
+
+  let linha = -1;
+  for (let i = 0; i < idsColuna.length; i++) {
+    if (String(idsColuna[i][0]) === String(id)) { linha = i + 2; break; }
+  }
+  if (linha === -1) return saidaJSON_({ ok: false, erro: 'ID não encontrado: ' + id });
+
+  const celColocou = sheet.getRange(linha, idxColocou);
+  let colocou = {};
+  try { colocou = JSON.parse(celColocou.getValue() || '{}'); } catch (err) { colocou = {}; }
+  colocou[marca] = colocado;
+  celColocou.setValue(JSON.stringify(colocou));
+
+  return saidaJSON_({ ok: true });
+}
+
+/**
+ * Limpa, numa ÚNICA leitura/escrita em lote, a marca "FOCOSEMANAL" de
+ * qualquer marca (numa dada semana) que já não seja a marca foco atual.
+ * Substitui o antigo comportamento de disparar 1 pedido POST por registo
+ * alterado (que sobrecarregava o servidor com muitos utilizadores).
+ */
+function acaoLimparFocoSemanal_(semana, marcaFoco) {
+  const sheet = getSheet_();
+  const { idx, ultimaLinha } = obterCabecalhoIdx_(sheet);
+  if (ultimaLinha < 2) return saidaJSON_({ ok: true, alterados: 0 });
+
+  const idxSemana = idx['semana'];
+  const idxEstados = idx['estadosjson'];
+  const numLinhas = ultimaLinha - 1;
+
+  const semanaVals = sheet.getRange(2, idxSemana, numLinhas, 1).getValues();
+  const estadosVals = sheet.getRange(2, idxEstados, numLinhas, 1).getValues();
+
+  const marcaFocoNorm = String(marcaFoco || '').trim().toLowerCase();
+  let alterados = 0;
+
+  const novosEstados = estadosVals.map((linhaVal, i) => {
+    if (String(semanaVals[i][0]) !== String(semana)) return linhaVal;
+
+    let estados = {};
+    try { estados = JSON.parse(linhaVal[0] || '{}'); } catch (err) { estados = {}; }
+
+    let mudou = false;
+    Object.keys(estados).forEach(m => {
+      if (estados[m] === 'FOCOSEMANAL' && m.trim().toLowerCase() !== marcaFocoNorm) {
+        estados[m] = '';
+        mudou = true;
+      }
     });
 
-    function mostrarLoading(show) {
-        document.getElementById("loadingBox").classList.toggle("show", !!show);
+    if (mudou) {
+      alterados++;
+      return [JSON.stringify(estados)];
     }
-
-    function obterSemanaISO(data) {
-        const d = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
-        const diaSemana = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - diaSemana);
-        const inicioAno = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - inicioAno) / 86400000) + 1) / 7);
-    }
-
-    function calcularSemanaCiclo(semanaISO) {
-        const offset = (((semanaISO - 30) % 4) + 4) % 4;
-        return ((offset + 1) % 4) + 1;
-    }
-
-    function aplicarSemanaAtual() {
-        const semanaISO = obterSemanaISO(new Date());
-        const semanaCiclo = calcularSemanaCiclo(semanaISO);
-        const select = document.getElementById('semanaSelect');
-        Array.from(select.options).forEach(opt => {
-            const rotulo = 'Semana ' + opt.value;
-            opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
-        });
-        select.value = String(semanaCiclo);
-    }
-
-    // Envia um POST para o Apps Script com retry automático (com pequeno atraso)
-    // quando o servidor responde "ocupado" ou há uma falha de rede transitória.
-    // Isto evita perder marcações silenciosamente quando há muita gente a usar ao mesmo tempo.
-    async function postComRetry_(payload, tentativas = 3) {
-        for (let i = 0; i < tentativas; i++) {
-            try {
-                const resposta = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload)
-                });
-                if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
-                const dados = await resposta.json();
-                if (dados && dados.ok === false && /ocupado/i.test(dados.erro || '') && i < tentativas - 1) {
-                    await new Promise(r => setTimeout(r, 800 * (i + 1)));
-                    continue;
-                }
-                return dados;
-            } catch (e) {
-                if (i === tentativas - 1) {
-                    console.error('Falha ao sincronizar com a nuvem após ' + tentativas + ' tentativas:', e);
-                    return { ok: false, erro: e.message };
-                }
-                await new Promise(r => setTimeout(r, 800 * (i + 1)));
-            }
-        }
-    }
-
-    async function puxarDadosDaNuvem(silencioso) {
-        if (!silencioso) mostrarLoading(true);
-        try {
-            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now(), { cache: 'no-store' });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            const dados = await response.json();
-            baseDadosRotas = Array.isArray(dados) ? dados : (dados.registos || []);
-            if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0) {
-                MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
-                localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
-            }
-            sincronizarMarcasVariaveis();
-            atualizarVisualizacao();
-        } catch(e) {
-            console.error("Erro ao ler nuvem: ", e);
-            if (!silencioso) {
-                alert("Não foi possível carregar os dados da nuvem. Verifica a ligação ou o URL do Apps Script.\n\n" + e.message);
-            }
-        }
-        if (!silencioso) mostrarLoading(false);
-    }
-
-    async function enviarAlteracaoNuvem(id, marca, novoEstado) {
-        mostrarIndicadorSync_(true);
-        const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
-        if (!resultado || resultado.ok === false) {
-            console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
-            mostrarAvisoSync_();
-        }
-        mostrarIndicadorSync_(false);
-    }
-
-    async function enviarColocouNuvem(id, marca, colocado) {
-        mostrarIndicadorSync_(true);
-        const resultado = await postComRetry_({ action: "atualizar_colocou", id: id, marca: marca, colocado: colocado });
-        if (!resultado || resultado.ok === false) {
-            console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
-            mostrarAvisoSync_();
-        }
-        mostrarIndicadorSync_(false);
-    }
-
-    // Aviso discreto (sem bloquear com alert) quando algo não sincronizou mesmo após as tentativas.
-    function mostrarAvisoSync_() {
-        let aviso = document.getElementById('avisoSyncFalhou');
-        if (!aviso) {
-            aviso = document.createElement('div');
-            aviso.id = 'avisoSyncFalhou';
-            aviso.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2);';
-            aviso.textContent = 'Falha ao sincronizar uma alteração. Verifica a ligação — pode ser preciso repetir a ação.';
-            document.body.appendChild(aviso);
-        }
-        aviso.style.display = 'block';
-        clearTimeout(aviso._timeout);
-        aviso._timeout = setTimeout(() => { aviso.style.display = 'none'; }, 6000);
-    }
-
-    // Indicador pequeno e discreto (canto do ecrã) para sincronizações individuais
-    // (um clique de estado). Não bloqueia o ecrã como a cortina de carregamento —
-    // a UI já foi atualizada localmente antes de este pedido ser disparado.
-    let contadorSyncAtivos_ = 0;
-    function mostrarIndicadorSync_(ativo) {
-        let ind = document.getElementById('indicadorSyncMini');
-        if (!ind) {
-            ind = document.createElement('div');
-            ind.id = 'indicadorSyncMini';
-            ind.style.cssText = 'position:fixed;top:10px;right:10px;background:#fff3cd;color:#856404;padding:5px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;z-index:9998;box-shadow:0 2px 6px rgba(0,0,0,.15);display:none;align-items:center;gap:6px;';
-            ind.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#f5a623;display:inline-block;animation:pulsarSync 1s ease-in-out infinite;"></span> a sincronizar…';
-            document.body.appendChild(ind);
-            const estilo = document.createElement('style');
-            estilo.textContent = '@keyframes pulsarSync { 0%,100% { opacity:.35; } 50% { opacity:1; } }';
-            document.head.appendChild(estilo);
-        }
-        contadorSyncAtivos_ += ativo ? 1 : -1;
-        if (contadorSyncAtivos_ < 0) contadorSyncAtivos_ = 0;
-        ind.style.display = contadorSyncAtivos_ > 0 ? 'flex' : 'none';
-    }
-
-    function carregarDadosDesdeExcel(event) {
-        const ficheiro = event.target.files[0];
-        if (!ficheiro) return;
-        const leitor = new FileReader();
-        leitor.onload = async function(e) {
-            try {
-                const livro = XLSX.read(e.target.result, { type: 'binary' });
-                const folha = livro.Sheets[livro.SheetNames[0]];
-                const linhas = XLSX.utils.sheet_to_json(folha);
-                let idTemp = 1;
-                let listaNovosDados = [];
-
-                const linhaCabecalhos = XLSX.utils.sheet_to_json(folha, { header: 1 })[0] || [];
-                const todasColunas = linhaCabecalhos.filter(c => c !== undefined && c !== null && String(c).trim() !== '').map(String);
-                const colunasMarcasDetectadas = todasColunas.filter(c => {
-                    const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
-                    return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
-                });
-                if (colunasMarcasDetectadas.length > 0) {
-                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim()).sort((a, b) => {
-                        const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
-                        const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
-                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                        if (idxA !== -1) return -1;
-                        if (idxB !== -1) return 1;
-                        return a.localeCompare(b);
-                    });
-                    renderCabecalhoTabela();
-                }
-
-                linhas.forEach(linha => {
-                    const obterValor = (chaves) => {
-                        const k = Object.keys(linha).find(key => chaves.includes(key.trim().toLowerCase()));
-                        return k ? linha[k] : null;
-                    };
-                    
-                    let vEstadosStr = obterValor(['estadosjson', 'estados']);
-                    let vHistoricoStr = obterValor(['historicojson', 'historico']);
-                    
-                    const normalizarComercial = (nome) => {
-                        const mapa = { "Raphael Cortez": "Raphael Fernandes Cortez" };
-                        return mapa[nome] || nome;
-                    };
-
-                    let idVal = parseInt(obterValor(['id'])) || idTemp++;
-                    let clienteVal = String(obterValor(['cliente', 'pdv', 'estabelecimento']) || "PDV").trim();
-                    let numeroVal = String(obterValor(['numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento', 'número do estabelecimento', 'codigo', 'código']) || '').trim();
-                    let comercialVal = normalizarComercial(String(obterValor(['comercial', 'gestor']) || "Sem Gestor").trim());
-                    let semanaValRaw = obterValor(['semana', 'semana do mês']);
-                    let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
-                        ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
-                    let diaValRaw = obterValor(['dia', 'dia da semana', 'dia semana']);
-                    let diaVal = (diaValRaw === null || diaValRaw === undefined || String(diaValRaw).trim() === '' || String(diaValRaw).trim() === '0')
-                        ? '' : String(diaValRaw).trim();
-                    
-                    let estadosObj = {};
-                    let historicoObj = {};
-                    marcasLista.forEach(m => {
-                        estadosObj[m] = "";
-                        historicoObj[m] = { mes: false, ano: false, promo: false };
-                    });
-
-                    if (vEstadosStr) {
-                        try {
-                            estadosObj = typeof vEstadosStr === 'object' ? vEstadosStr : JSON.parse(vEstadosStr);
-                        } catch(err) { console.error(err); }
-                    }
-                    
-                    if (vHistoricoStr) {
-                        try {
-                            historicoObj = typeof vHistoricoStr === 'object' ? vHistoricoStr : JSON.parse(vHistoricoStr);
-                        } catch(err) { console.error(err); }
-                    }
-
-                    if (!vEstadosStr && !vHistoricoStr) {
-                        let diaNum = parseInt(diaVal);
-                        if (!isNaN(diaNum)) {
-                            let r = diaNum % 4;
-                            semanaVal = r === 1 ? "1" : r === 2 ? "2" : r === 3 ? "3" : "4";
-                            diaVal = "Segunda";
-                        } else {
-                            let textoDia = diaVal.toLowerCase();
-                            if (textoDia.includes("seg")) diaVal = "Segunda";
-                            else if (textoDia.includes("ter")) diaVal = "Terça";
-                            else if (textoDia.includes("qua")) diaVal = "Quarta";
-                            else if (textoDia.includes("qui")) diaVal = "Quinta";
-                            else if (textoDia.includes("sex")) diaVal = "Sexta";
-                        }
-                        
-                        historicoObj = {};
-                        colunasMarcasDetectadas.forEach(colunaExcel => {
-                            const colunaTrim = colunaExcel.trim();
-                            const ehPromo = colunaTrim.startsWith('*');
-                            const nomeExibido = colunaTrim.replace(/^\*+/, '').trim();
-                            const chaveComAsterisco = colunaTrim.toLowerCase();
-                            const chaveSemAsterisco = nomeExibido.toLowerCase();
-                            historicoObj[nomeExibido] = {
-                                mes: !!obterValor([chaveComAsterisco, chaveSemAsterisco]),
-                                ano: !!obterValor([chaveComAsterisco + '_yt', chaveSemAsterisco + '_yt']),
-                                promo: ehPromo
-                            };
-                        });
-                    }
-
-                    const chaveAtual = `${clienteVal}||${comercialVal}||${diaVal}||${semanaVal}`;
-                    const registoAnterior = baseDadosRotas.find(r =>
-                        `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
-                    if (registoAnterior && registoAnterior.estados) {
-                        estadosObj = Object.assign({}, estadosObj, registoAnterior.estados);
-                    }
-
-                    listaNovosDados.push({
-                        id: idVal,
-                        cliente: clienteVal,
-                        numero: numeroVal,
-                        comercial: comercialVal,
-                        dia: diaVal,
-                        semana: semanaVal,
-                        estados: estadosObj,
-                        historico: historicoObj
-                    });
-                });
-
-                if (colunasMarcasDetectadas.length === 0) {
-                    const setMarcasDados = new Set();
-                    listaNovosDados.forEach(r => {
-                        Object.keys(r.estados || {}).forEach(m => setMarcasDados.add(m));
-                        Object.keys(r.historico || {}).forEach(m => setMarcasDados.add(m));
-                    });
-                    if (setMarcasDados.size > 0) {
-                        marcasLista = Array.from(setMarcasDados).sort((a, b) => {
-                            const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
-                            const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
-                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                            if (idxA !== -1) return -1;
-                            if (idxB !== -1) return 1;
-                            return a.localeCompare(b);
-                        });
-                        renderCabecalhoTabela();
-                    }
-                }
-
-                mostrarLoading(true);
-                const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: "limpar_e_importar", rows: listaNovosDados })
-                });
-                if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
-                const resultadoImport = await respostaImport.json();
-                if (!resultadoImport || resultadoImport.ok !== true) {
-                    throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
-                }
-                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " registos)");
-                await puxarDadosDaNuvem();
-            } catch (erro) {
-                alert("Erro ao importar para o Google Sheets: " + erro.message);
-                console.error(erro);
-            }
-        };
-        leitor.readAsBinaryString(ficheiro);
-    }
-
-    function alternarEstado(idRegisto, marca) {
-        const registo = baseDadosRotas.find(item => item.id === idRegisto);
-        if (registo) {
-            const semanaSelecionada = document.getElementById('semanaSelect').value;
-            const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[semanaSelecionada];
-            const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
-            
-            const ciclo = ehMarcaFoco 
-                ? ["FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO", "FOCO"] 
-                : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"];
-
-            const atual = registo.estados[marca] || "";
-            let idxAtual = ciclo.indexOf(atual);
-            if (idxAtual === -1) idxAtual = 0;
-
-            const proximo = ciclo[(idxAtual + 1) % ciclo.length];
-            registo.estados[marca] = proximo;
-            atualizarVisualizacao();
-            enviarAlteracaoNuvem(idRegisto, marca, proximo);
-        }
-    }
-
-    function obterInnerHtmlBotao(est) {
-        if (est === "FOCO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO`;
-        if (est === "FOCOSEMANAL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO SEMANAL`;
-        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 12z"/></svg> NÃO OK`;
-        if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
-        if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
-        return `VAZIO`;
-    }
-
-    function atualizarVisualizacao() {
-        const com = document.getElementById('comercialSelect').value;
-        const sem = document.getElementById('semanaSelect').value;
-        
-        localStorage.setItem('gestorSelecionado', com);
-        localStorage.setItem('semanaSelecionada', sem);
-
-        const corpo = document.getElementById('tabelaVisitas');
-        if (!corpo) return;
-        corpo.innerHTML = '';
-
-        const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[sem] || "";
-
-        baseDadosRotas.forEach(item => {
-            if (item.semana === sem) {
-                marcasLista.forEach(m => {
-                    if (m.trim().toLowerCase() === marcaFocoSemana.trim().toLowerCase()) {
-                        if (!item.estados[m] || item.estados[m] === "") {
-                            item.estados[m] = "FOCOSEMANAL";
-                        }
-                    }
-                });
-            }
-        });
-
-        const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
-        const emModoPesquisa = termoPesquisa.length > 0;
-        const diasTabs = document.getElementById('diasTabs');
-        if (diasTabs) diasTabs.style.display = emModoPesquisa ? 'none' : '';
-
-        const filtrados = emModoPesquisa
-            ? baseDadosRotas.filter(i => i.comercial === com && (
-                (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
-                String(i.numero || '').toLowerCase().includes(termoPesquisa)
-              ))
-            : baseDadosRotas.filter(i => i.comercial === com && i.semana === sem && i.dia === diaAtualSelecionado);
-
-        renderResumoFoco(com, sem);
-        if(filtrados.length === 0) {
-            const mensagem = emModoPesquisa ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.` : 'Sem rota agendada.';
-            corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
-            return;
-        }
-
-        filtrados.forEach(item => {
-            const tr = document.createElement('tr');
-            const numeroMeta = item.numero ? `<span class="cliente-meta">Nº ${item.numero}</span>` : '';
-            const diaMeta = emModoPesquisa ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>` : '';
-            
-            const temNegociado = Object.values(item.estados || {}).includes("NEGOCIADO");
-            const botaoEncomendarHtml = temNegociado ? `
-                <div>
-                    <button class="btn-cart" onclick="abrirModalEncomenda(${item.id})">
-                        <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor;"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                        Encomendar
-                    </button>
-                </div>` : '';
-
-            let html = `<td>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div>${item.cliente}${numeroMeta}${diaMeta}</div>
-                    ${botaoEncomendarHtml}
-                </div>
-            </td>`;
-            
-            marcasLista.forEach(m => {
-                const est = item.estados[m] || "";
-                const hist = item.historico[m] || { mes: false, ano: false, promo: false };
-                const ehPromoMensal = !!hist.promo;
-
-                let badgeColocouHtml = '';
-                if (est === "NEGOCIADO") {
-                    const estaColocou = !!(item.colocou && item.colocou[m]);
-                    badgeColocouHtml = `<span class="badge-colocou ${estaColocou ? 'sim' : 'nao'}">${estaColocou ? '✓ Colocou' : 'Não colocou'}</span>`;
-                }
-
-                html += `
-                    <td data-label="${m}">
-                        <div class="cell-container">
-                            <div class="icons-row">
-                                ${ehPromoMensal
-                                    ? `<span class="texto-elegibilidade ${hist.mes ? 'implementado' : 'elegivel'}">${hist.mes ? 'Implementado' : 'Elegível'}</span>`
-                                    : `<svg class="${hist.mes?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>
-                                       <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
-                                }
-                            </div>
-                            <button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>
-                            ${badgeColocouHtml}
-                        </div>
-                    </td>`;
-            });
-            tr.innerHTML = html;
-            corpo.appendChild(tr);
-        });
-    }
-
-    function renderResumoFoco(com, sem) {
-        const el = document.getElementById('resumoFoco');
-        if (!el) return;
-
-        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
-
-        const colunas = marcasLista.map(m => {
-            const foco = registos.filter(r => (r.estados && r.estados[m]) === 'FOCO' || (r.estados && r.estados[m]) === 'FOCOSEMANAL').length;
-            const atingido = registos.filter(r => {
-                const est = r.estados && r.estados[m];
-                if (est === 'OK') return true;
-                if (est === 'NEGOCIADO' && r.colocou && r.colocou[m]) return true;
-                return false;
-            }).length;
-            return `
-                <div class="resumo-col">
-                    <div class="resumo-marca">${m}</div>
-                    <div class="resumo-pill foco">${foco}</div>
-                    <div class="resumo-pill atingido">${atingido}</div>
-                </div>`;
-        }).join('');
-
-        el.innerHTML = `
-            <div class="resumo-card">
-                <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
-                <div class="resumo-grid">${colunas}</div>
-                <div class="resumo-legenda">
-                    <span><span class="dot foco"></span>Foco</span>
-                    <span><span class="dot atingido"></span>Atingido</span>
-                </div>
-            </div>`;
-    }
-
-    function mudarDia(d, btn) {
-        diaAtualSelecionado = d;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        atualizarVisualizacao();
-    }
-
-    async function limparFocoGestor() {
-        const com = document.getElementById('comercialSelect').value;
-        const semanaSelect = document.getElementById('semanaSelect');
-        const sem = semanaSelect.value;
-        const semanaLabel = semanaSelect.selectedOptions[0].textContent.replace(' 📍 (atual)', '');
-
-        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
-        if (registos.length === 0) {
-            alert('Não há clientes para "' + com + '" nesta semana.');
-            return;
-        }
-        const totalMarcados = registos.reduce((n, r) => n + Object.values(r.estados || {}).filter(Boolean).length, 0);
-        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — ${semanaLabel}, em todos os dias?\n\nIsto vai apagar ${totalMarcados} marcações e não pode ser desfeito.`)) return;
-
-        mostrarLoading(true);
-        registos.forEach(r => { r.estados = {}; });
-
-        try {
-            const resposta = await fetch(GOOGLE_SCRIPT_URL, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ action: "limpar_e_importar", rows: baseDadosRotas })
-            });
-            if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
-            atualizarVisualizacao();
-        } catch (e) {
-            console.error(e);
-            alert('Erro ao limpar na nuvem: ' + e.message);
-        }
-        mostrarLoading(false);
-    }
-
-    const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
-
-    function rotuloEstado(est) {
-        if (est === 'FOCO') return 'foco';
-        if (est === 'FOCOSEMANAL') return 'foco semanal';
-        if (est === 'NAO OK') return 'não ok';
-        if (est === 'OK') return 'ok';
-        if (est === 'NEGOCIADO') return 'negociado';
-        return '';
-    }
-
-    function obterPrimeiroEUltimoNome(nomeCompleto) {
-        if (!nomeCompleto) return "gestor";
-        const partes = nomeCompleto.trim().split(/\s+/);
-        if (partes.length === 1) return partes[0].toLowerCase();
-        return `${partes[0]} ${partes[partes.length - 1]}`.toLowerCase();
-    }
-
-    function construirRoteiroSemanalPDF() {
-        if (!window.jspdf) {
-            alert('A biblioteca de geração de PDF ainda não carregou. Verifica a ligação à internet e tenta novamente.');
-            return null;
-        }
-        const com = document.getElementById('comercialSelect').value;
-        const semanaSelect = document.getElementById('semanaSelect');
-        const sem = semanaSelect.value;
-        const semanaLabel = semanaSelect.selectedOptions[0].textContent.replace(' 📍 (atual)', '');
-
-        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
-        if (registos.length === 0) {
-            alert('Não há clientes para "' + com + '" nesta semana.');
-            return null;
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-        const margem = 40;
-        let y = margem;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text('Roteiro Semanal — ' + com, margem, y);
-        y += 18;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(120);
-        doc.text(semanaLabel + ' · Gerado em ' + new Date().toLocaleDateString('pt-PT'), margem, y);
-        doc.setTextColor(0);
-        y += 16;
-
-        const estiloTabela = {
-            theme: 'grid',
-            styles: { fontSize: 8, halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.5, textColor: [0, 0, 0] },
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
-            margin: { left: margem, right: margem }
-        };
-
-        const larguraPaginaUtil = 595.28 - (margem * 2);
-        const larguraNome = 180;
-        const larguraMarca = (larguraPaginaUtil - larguraNome) / marcasLista.length;
-        const columnStylesDia = { 0: { halign: 'center', cellWidth: larguraNome } };
-        marcasLista.forEach((_, idx) => { columnStylesDia[idx + 1] = { cellWidth: larguraMarca }; });
-
-        doc.autoTable(Object.assign({}, estiloTabela, {
-            startY: y,
-            head: [['', ...marcasLista]],
-            body: [
-                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => (r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length)))],
-                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
-            ],
-            columnStyles: columnStylesDia
-        }));
-        y = doc.lastAutoTable.finalY + 20;
-
-        const desenharTabelaDia = (titulo, lista) => {
-            if (y > 740) { doc.addPage(); y = margem; }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.text(titulo, margem, y);
-            y += 8;
-            doc.autoTable(Object.assign({}, estiloTabela, {
-                startY: y,
-                head: [['Estabelecimento', ...marcasLista]],
-                body: lista.map(item => [item.cliente, ...marcasLista.map(m => rotuloEstado((item.estados && item.estados[m]) || ''))]),
-                columnStyles: columnStylesDia
-            }));
-            y = doc.lastAutoTable.finalY + 20;
-        };
-
-        DIAS_ORDEM.forEach(dia => {
-            const doDia = registos.filter(r => r.dia === dia);
-            if (doDia.length > 0) desenharTabelaDia(`${dia}-feira (${doDia.length} clientes)`, doDia);
-        });
-
-        const semDia = registos.filter(r => !DIAS_ORDEM.includes(r.dia));
-        if (semDia.length > 0) desenharTabelaDia(`Sem dia definido (${semDia.length} clientes)`, semDia);
-
-        const nomeGestorResumido = obterPrimeiroEUltimoNome(com);
-        const numeroSemanaAno = obterSemanaISO(new Date());
-        
-        const nomeFicheiro = `${nomeGestorResumido} semana ${numeroSemanaAno}.pdf`;
-
-        return { doc, nomeFicheiro, com, semanaLabel };
-    }
-
-    function gravarRoteiroSemanalPDF() {
-        const resultado = construirRoteiroSemanalPDF();
-        if (!resultado) return;
-        resultado.doc.save(resultado.nomeFicheiro);
-    }
-
-    async function sincronizarManualmente() {
-        const btn = document.getElementById('btnSync');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '🔄 A ligar...';
-        }
-        await puxarDadosDaNuvem();
-        if (btn) {
-            btn.innerHTML = '✅ Atualizado';
-            btn.style.backgroundColor = '#16974f';
-            setTimeout(() => {
-                btn.innerHTML = '🔄 Sincronizar';
-                btn.style.backgroundColor = '';
-            }, 1500);
-            btn.disabled = false;
-        }
-    }
-
-    // --- LÓGICA DO MODAL DE ENCOMENDAS ---
-    function abrirModalEncomenda(id) {
-        clienteAtualEncomenda = baseDadosRotas.find(c => c.id === id);
-        if (!clienteAtualEncomenda) return;
-
-        quantidadesEncomenda = {};
-        document.getElementById("modalClientName").innerText = `Encomenda: ${clienteAtualEncomenda.cliente}`;
-        
-        const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {})
-            .filter(m => clienteAtualEncomenda.estados[m] === "NEGOCIADO")
-            .map(m => m.toLowerCase());
-        
-        renderizarCatalogo(gamasNegociadas);
-        atualizarTotalEncomenda();
-        
-        document.getElementById("orderModal").style.display = "flex";
-    }
-
-    function fecharModalEncomenda() {
-        document.getElementById("orderModal").style.display = "none";
-        clienteAtualEncomenda = null;
-    }
-
-    function renderizarCatalogo(gamasNegociadas) {
-        const container = document.getElementById("modalCatalogBody");
-        container.innerHTML = "";
-
-        const agrupadosPorGama = PRODUCT_CATALOG.reduce((acc, product) => {
-            if (!acc[product.range]) acc[product.range] = [];
-            acc[product.range].push(product);
-            return acc;
-        }, {});
-
-        let encontrouAlguma = false;
-
-        for (const [nomeGama, produtos] of Object.entries(agrupadosPorGama)) {
-            const estaNegociada = gamasNegociadas.includes(nomeGama.toLowerCase());
-            if (!estaNegociada) continue;
-
-            encontrouAlguma = true;
-            const rangeBlock = document.createElement("div");
-            rangeBlock.className = "range-section";
-            
-            const badge = `<span class="badge-negociado-modal">NEGOCIADO</span>`;
-            
-            let html = `<h3 class="range-title">${nomeGama} ${badge}</h3>`;
-            
-            produtos.forEach(prod => {
-                html += `
-                    <div class="product-row">
-                        <div class="product-info">
-                            <div class="product-thumbnail-container">
-                                <svg class="product-svg-thumb" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2a2 2 0 0 1-2-2V2z"/></svg>
-                            </div>
-                            <span class="product-name">${prod.name}</span>
-                        </div>
-                        <div class="qty-counter">
-                            <button class="btn-qty" onclick="ajustarQtd('${prod.id}', -1)">-</button>
-                            <input type="number" id="qty-${prod.id}" class="input-qty" value="0" min="0" onchange="definirQtd('${prod.id}', this.value)">
-                            <button class="btn-qty" onclick="ajustarQtd('${prod.id}', 1)">+</button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            rangeBlock.innerHTML = html;
-            container.appendChild(rangeBlock);
-        }
-
-        if (!encontrouAlguma) {
-            container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted);">Nenhuma gama negociada encontrada para este cliente.</div>`;
-        }
-    }
-
-    function ajustarQtd(productId, change) {
-        const input = document.getElementById(`qty-${productId}`);
-        let currentVal = parseInt(input.value, 10) || 0;
-        currentVal = Math.max(0, currentVal + change);
-        input.value = currentVal;
-        definirQtd(productId, currentVal);
-    }
-
-    function definirQtd(productId, val) {
-        const qty = Math.max(0, parseInt(val, 10) || 0);
-        if (qty > 0) {
-            quantidadesEncomenda[productId] = qty;
-        } else {
-            delete quantidadesEncomenda[productId];
-        }
-        atualizarTotalEncomenda();
-    }
-
-    function atualizarTotalEncomenda() {
-        const total = Object.values(quantidadesEncomenda).reduce((acc, count) => acc + count, 0);
-        document.getElementById("totalItemCount").innerText = total;
-    }
-
-    // --- AUTOMAÇÃO: MARCAR "NEGOCIADO" COMO "Colocou" AO ENVIAR ENCOMENDA ---
-    function processarColocacaoAutomatica() {
-        if (!clienteAtualEncomenda || !clienteAtualEncomenda.estados) return;
-        if (!clienteAtualEncomenda.colocou) clienteAtualEncomenda.colocou = {};
-
-        let houveAlteracao = false;
-        Object.keys(clienteAtualEncomenda.estados).forEach(marca => {
-            if (clienteAtualEncomenda.estados[marca] === "NEGOCIADO") {
-                clienteAtualEncomenda.colocou[marca] = true;
-                enviarColocouNuvem(clienteAtualEncomenda.id, marca, true);
-                houveAlteracao = true;
-            }
-        });
-
-        if (houveAlteracao) {
-            atualizarVisualizacao();
-        }
-    }
-
-    function gerarEmailEncomenda() {
-        if (Object.keys(quantidadesEncomenda).length === 0) {
-            alert("Por favor, seleciona pelo menos um produto para encomendar.");
-            return;
-        }
-
-        // Executa a marcação automática para "Colocou"
-        processarColocacaoAutomatica();
-
-        const emailDestination = "apoioaocliente@novadis.pt";
-        const numeroCliente = clienteAtualEncomenda.numero ? ` (Nº ${clienteAtualEncomenda.numero})` : '';
-        const subject = `Novo Pedido Comercial: ${clienteAtualEncomenda.cliente}${numeroCliente}`;
-
-        let bodyLines = [
-            `Pedido de Encomenda`,
-            `Cliente: ${clienteAtualEncomenda.cliente}`,
-            `Nº Estabelecimento: ${clienteAtualEncomenda.numero || 'N/A'}`,
-            ``,
-            `PRODUTO                                     | QUANTIDADE`,
-            `------------------------------------------------------`
-        ];
-
-        PRODUCT_CATALOG.forEach(prod => {
-            if (quantidadesEncomenda[prod.id]) {
-                const namePadded = prod.name.padEnd(43, ' ');
-                bodyLines.push(`${namePadded} : ${quantidadesEncomenda[prod.id]} un.`);
-            }
-        });
-
-        bodyLines.push(`------------------------------------------------------`);
-        bodyLines.push(`Total de Caixas/Packs Solicitados: ${document.getElementById("totalItemCount").innerText}`);
-        bodyLines.push(``);
-        bodyLines.push(`Por favor, confirmar receção e agendamento da entrega.`);
-
-        const mailtoUrl = `mailto:${emailDestination}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-        window.location.href = mailtoUrl;
-
-        fecharModalEncomenda();
-    }
-
-    function gerarWhatsappEncomenda() {
-        if (Object.keys(quantidadesEncomenda).length === 0) {
-            alert("Por favor, seleciona pelo menos um produto para encomendar.");
-            return;
-        }
-
-        // Executa a marcação automática para "Colocou"
-        processarColocacaoAutomatica();
-
-        const numeroCliente = clienteAtualEncomenda.numero ? ` (Nº ${clienteAtualEncomenda.numero})` : '';
-
-        let bodyLines = [
-            `*Pedido de Encomenda*`,
-            `*Cliente:* ${clienteAtualEncomenda.cliente}${numeroCliente}`,
-            ``,
-            `*Produtos solicitados:*`
-        ];
-
-        PRODUCT_CATALOG.forEach(prod => {
-            if (quantidadesEncomenda[prod.id]) {
-                bodyLines.push(`• ${prod.name}: *${quantidadesEncomenda[prod.id]} un.*`);
-            }
-        });
-
-        bodyLines.push(``);
-        bodyLines.push(`*Total de Caixas/Packs:* ${document.getElementById("totalItemCount").innerText}`);
-        bodyLines.push(`Por favor, confirmar receção e agendamento da entrega.`);
-
-        const text = bodyLines.join("\n");
-        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-        window.open(whatsappUrl, '_blank');
-
-        fecharModalEncomenda();
-    }
-
-    // --- INICIALIZAÇÃO COM LOCALSTORAGE ---
-    const gestorSalvo = localStorage.getItem('gestorSelecionado');
-    if (gestorSalvo) {
-        document.getElementById('comercialSelect').value = gestorSalvo;
-    }
-
-    const semanaSalva = localStorage.getItem('semanaSelecionada');
-    if (semanaSalva) {
-        const selectSemana = document.getElementById('semanaSelect');
-        selectSemana.value = semanaSalva;
-        const semanaISO = obterSemanaISO(new Date());
-        const semanaCiclo = calcularSemanaCiclo(semanaISO);
-        Array.from(selectSemana.options).forEach(opt => {
-            const rotulo = 'Semana ' + opt.value;
-            opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
-        });
-    } else {
-        aplicarSemanaAtual();
-    }
-
-    puxarDadosDaNuvem();
-
-    const INTERVALO_AUTO_SYNC_MS = 5 * 60 * 1000;
-    setInterval(() => {
-        if (document.visibilityState === 'visible') {
-            puxarDadosDaNuvem(true);
-        }
-    }, INTERVALO_AUTO_SYNC_MS);
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            puxarDadosDaNuvem(true);
-        }
-    });
-</script>
-</body>
-</html>
+    return linhaVal;
+  });
+
+  sheet.getRange(2, idxEstados, numLinhas, 1).setValues(novosEstados);
+  return saidaJSON_({ ok: true, alterados: alterados });
+}
