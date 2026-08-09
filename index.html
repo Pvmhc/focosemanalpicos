@@ -932,7 +932,13 @@
                     const registoAnterior = baseDadosRotas.find(r =>
                         `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
                     if (registoAnterior && registoAnterior.estados) {
-                        estadosObj = Object.assign({}, estadosObj, registoAnterior.estados);
+                        // Só se traz o estado antigo de marcas que AINDA existem no Excel atual.
+                        // Marcas antigas (ex.: descontinuadas) deixam de "fantasma" aparecer.
+                        marcasLista.forEach(m => {
+                            if (registoAnterior.estados[m] !== undefined) {
+                                estadosObj[m] = registoAnterior.estados[m];
+                            }
+                        });
                     }
 
                     listaNovosDados.push({
