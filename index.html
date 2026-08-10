@@ -492,32 +492,13 @@
     let quantidadesEncomenda = {};
 
     let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
-    // Ordem de fallback, só usada enquanto ainda não existe nenhuma ordem
-    // guardada a partir de um Excel importado (ex.: primeiríssima utilização).
-    const ordemMarcasFallback = ["Sagres", "Heineken", "Bandida", "0.0%", "PRETA", "Sol&Mar", "Kit Verao"];
-    // Ordem "viva", atualizada sempre que se importa um Excel — reflete
-    // sempre a ordem real das colunas no ficheiro, em vez de uma lista fixa.
-    let ordemMarcasFixa = [...ordemMarcasFallback];
-    (function carregarOrdemMarcasGuardada() {
-        try {
-            const guardada = JSON.parse(localStorage.getItem('ordemMarcasExcel') || 'null');
-            if (Array.isArray(guardada) && guardada.length > 0) ordemMarcasFixa = guardada;
-        } catch (e) { console.error('Erro ao carregar ordem de marcas guardada:', e); }
-    })();
-    function definirOrdemMarcas(novaOrdem) {
-        const ordemLimpa = [];
-        novaOrdem.forEach(m => { if (m && !ordemLimpa.includes(m)) ordemLimpa.push(m); });
-        if (ordemLimpa.length === 0) return;
-        ordemMarcasFixa = ordemLimpa;
-        try { localStorage.setItem('ordemMarcasExcel', JSON.stringify(ordemMarcasFixa)); }
-        catch (e) { console.error('Erro ao guardar ordem de marcas:', e); }
-    }
+    const ordemMarcasFixa = ["Sagres", "Heineken", "Bandida", "0.0%", "PRETA"];
 
     const MARCA_FOCO_POR_SEMANA_DEFAULT = {
-        "1": "bandida",
-        "2": "preta",
-        "3": "heineken",
-        "4": "0.0%"
+        "1": "0.0%",
+        "2": "bandida",
+        "3": "preta",
+        "4": "heineken"
     };
     let MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT };
     (function carregarFocoSemanalGuardado() {
@@ -636,11 +617,6 @@
                 if (idxB !== -1) return 1;
                 return a.localeCompare(b);
             });
-            // Se surgirem marcas novas que ainda não constam da ordem guardada,
-            // a ordem guardada é atualizada para as incluir também.
-            if (marcasLista.some(m => !ordemMarcasFixa.some(o => o.toLowerCase() === m.toLowerCase()))) {
-                definirOrdemMarcas(marcasLista);
-            }
         }
         renderCabecalhoTabela();
     }
@@ -754,9 +730,6 @@
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
             baseDadosRotas = Array.isArray(dados) ? dados : (dados.registos || []);
-            if (!Array.isArray(dados) && Array.isArray(dados.ordemMarcas) && dados.ordemMarcas.length > 0) {
-                definirOrdemMarcas(dados.ordemMarcas);
-            }
             if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
@@ -847,10 +820,14 @@
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 if (colunasMarcasDetectadas.length > 0) {
-                    // A ordem das colunas no Excel É a ordem a usar — sem reordenar.
-                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim());
-                    definirOrdemMarcas(marcasLista);
-                    postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: marcasLista });
+                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim()).sort((a, b) => {
+                        const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
+                        const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                        return a.localeCompare(b);
+                    });
                     renderCabecalhoTabela();
                 }
 
@@ -932,13 +909,7 @@
                     const registoAnterior = baseDadosRotas.find(r =>
                         `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
                     if (registoAnterior && registoAnterior.estados) {
-                        // Só se traz o estado antigo de marcas que AINDA existem no Excel atual.
-                        // Marcas antigas (ex.: descontinuadas) deixam de "fantasma" aparecer.
-                        marcasLista.forEach(m => {
-                            if (registoAnterior.estados[m] !== undefined) {
-                                estadosObj[m] = registoAnterior.estados[m];
-                            }
-                        });
+                        estadosObj = Object.assign({}, estadosObj, registoAnterior.estados);
                     }
 
                     listaNovosDados.push({
@@ -968,9 +939,6 @@
                             if (idxB !== -1) return 1;
                             return a.localeCompare(b);
                         });
-                        if (marcasLista.some(m => !ordemMarcasFixa.some(o => o.toLowerCase() === m.toLowerCase()))) {
-                            definirOrdemMarcas(marcasLista);
-                        }
                         renderCabecalhoTabela();
                     }
                 }
@@ -1004,7 +972,7 @@
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
             const ciclo = ehMarcaFoco 
-                ? ["FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO", ""] 
+                ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
                 : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"];
 
             const atual = registo.estados[marca] || "";
@@ -1037,20 +1005,6 @@
         const corpo = document.getElementById('tabelaVisitas');
         if (!corpo) return;
         corpo.innerHTML = '';
-
-        const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[sem] || "";
-
-        baseDadosRotas.forEach(item => {
-            if (item.semana === sem) {
-                marcasLista.forEach(m => {
-                    if (m.trim().toLowerCase() === marcaFocoSemana.trim().toLowerCase()) {
-                        if (!item.estados[m] || item.estados[m] === "") {
-                            item.estados[m] = "FOCOSEMANAL";
-                        }
-                    }
-                });
-            }
-        });
 
         const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
         const emModoPesquisa = termoPesquisa.length > 0;
