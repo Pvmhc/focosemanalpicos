@@ -1004,7 +1004,7 @@
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
             const ciclo = ehMarcaFoco 
-                ? ["FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO", "FOCO"] 
+                ? ["FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO", ""] 
                 : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"];
 
             const atual = registo.estados[marca] || "";
