@@ -552,6 +552,10 @@
         fecharModalFocoSemanal();
         atualizarVisualizacao();
 
+        // Enquanto a gravação estiver em curso, o polling automático não pode
+        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor
+        // (evita que a marca foco recém-escolhida "volte atrás" por corrida
+        // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
         focoSemanalASalvar = true;
         try {
             const resultado = await postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
@@ -561,12 +565,25 @@
         }
     }
 
+    // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
+    // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
+    // de qualquer marca que já não seja a marca foco definida — em vez de
+    // disparar um pedido por cada registo alterado (o que sobrecarregava o
+    // servidor quando há muitos utilizadores em simultâneo).
+    //
+    // IMPORTANTE: o pedido ao servidor é SEMPRE enviado, mesmo que os dados
+    // carregados neste browser (baseDadosRotas) não mostrem nenhuma marca
+    // desatualizada. Isto porque o browser de quem grava a "Marca Foco" pode
+    // não ter a versão mais recente de todos os registos (de outros dias e
+    // GCs) — se só enviássemos o pedido quando detectássemos uma alteração
+    // localmente, marcas FOCO SEMANAL desatualizadas noutros GCs nunca eram
+    // limpas no servidor e continuavam a aparecer.
     function limparFocoSemanalDesatualizado() {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
             const marcaFocoSemana = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
-            let houveAlteracao = false;
 
+            // Atualização local imediata (feedback visual), quando há dados carregados.
             baseDadosRotas.forEach(item => {
                 if (item.semana !== sem || !item.estados) return;
                 Object.keys(item.estados).forEach(marca => {
@@ -574,17 +591,16 @@
                     const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
                     if (!ehMarcaFocoAtual) {
                         item.estados[marca] = '';
-                        houveAlteracao = true;
                     }
                 });
             });
 
-            if (houveAlteracao) {
-                postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
-                    .then(resultado => {
-                        if (!resultado || resultado.ok === false) mostrarAvisoSync_();
-                    });
-            }
+            // Pedido ao servidor SEMPRE enviado (não depende de deteção local),
+            // para garantir que a limpeza cobre todos os dias e GCs na Sheet.
+            postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
+                .then(resultado => {
+                    if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+                });
         });
     }
 
@@ -698,6 +714,9 @@
         select.value = String(semanaCiclo);
     }
 
+    // Envia um POST para o Apps Script com retry automático (com pequeno atraso)
+    // quando o servidor responde "ocupado" ou há uma falha de rede transitória.
+    // Isto evita perder marcações silenciosamente quando há muita gente a usar ao mesmo tempo.
     async function postComRetry_(payload, tentativas = 3) {
         for (let i = 0; i < tentativas; i++) {
             try {
@@ -735,7 +754,6 @@
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
             sincronizarMarcasVariaveis();
-            limparFocoSemanalDesatualizado();
             atualizarVisualizacao();
         } catch(e) {
             console.error("Erro ao ler nuvem: ", e);
@@ -766,6 +784,7 @@
         mostrarIndicadorSync_(false);
     }
 
+    // Aviso discreto (sem bloquear com alert) quando algo não sincronizou mesmo após as tentativas.
     function mostrarAvisoSync_() {
         let aviso = document.getElementById('avisoSyncFalhou');
         if (!aviso) {
@@ -780,6 +799,9 @@
         aviso._timeout = setTimeout(() => { aviso.style.display = 'none'; }, 6000);
     }
 
+    // Indicador pequeno e discreto (canto do ecrã) para sincronizações individuais
+    // (um clique de estado). Não bloqueia o ecrã como a cortina de carregamento —
+    // a UI já foi atualizada localmente antes de este pedido ser disparado.
     let contadorSyncAtivos_ = 0;
     function mostrarIndicadorSync_(ativo) {
         let ind = document.getElementById('indicadorSyncMini');
@@ -986,7 +1008,7 @@
     function obterInnerHtmlBotao(est) {
         if (est === "FOCO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO`;
         if (est === "FOCOSEMANAL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO SEMANAL`;
-        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> NÃO OK`;
+        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 12z"/></svg> NÃO OK`;
         if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
         if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
         return `VAZIO`;
@@ -1213,11 +1235,8 @@
             startY: y,
             head: [['', ...marcasLista]],
             body: [
-                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length))],
-                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => {
-                    const est = r.estados && r.estados[m];
-                    return est === 'OK' || (est === 'NEGOCIADO' && r.colocou && r.colocou[m]);
-                }).length))]
+                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => (r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length)))],
+                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
             ],
             columnStyles: columnStylesDia
         }));
@@ -1400,6 +1419,7 @@
             return;
         }
 
+        // Executa a marcação automática para "Colocou"
         processarColocacaoAutomatica();
 
         const emailDestination = "apoioaocliente@novadis.pt";
@@ -1439,6 +1459,7 @@
             return;
         }
 
+        // Executa a marcação automática para "Colocou"
         processarColocacaoAutomatica();
 
         const numeroCliente = clienteAtualEncomenda.numero ? ` (Nº ${clienteAtualEncomenda.numero})` : '';
