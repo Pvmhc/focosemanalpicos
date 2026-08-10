@@ -11,7 +11,7 @@
         :root {
             --primary: #008200; --primary-dark: #005f00; --accent: #0b0c10; --bg: #f4f7f5; --card: #ffffff;
             --text: #0b0c10; --muted: #657786; --border: #e1e8ed; --heineken-red: #ff2b2b;
-            /* Paleta de estados consolidada */
+            /* Paleta de estados consolidada: azul (pendente/foco), verde (concluído), âmbar (negociado), vermelho (não ok), cinza (vazio) */
             --foco-color: #2563eb; --foco-bg: #eff6ff;
             --nok-color: var(--heineken-red); --nok-bg: #fff5f5;
             --ok-color: #008200; --ok-bg: #e6f6e6;
@@ -129,6 +129,7 @@
         }
         .modal-foco-footer { padding: 16px 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; border-radius: 0 0 14px 14px; }
 
+        /* Modal de código de acesso (PIN) para Excel / Marca Foco */
         .modal-pin-body { padding: 22px 20px 6px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
         .modal-pin-body p { margin: 0 0 4px; color: var(--muted); font-size: 0.88rem; text-align: center; }
         .modal-pin-input {
@@ -184,18 +185,32 @@
         .badge-colocou.nao { background-color: var(--vazio-bg); color: var(--vazio-color); }
         .svg-icon { width: 16px; height: 16px; fill: currentColor; }
         @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
-
+        /* Cortina de carregamento a ecrã inteiro */
         .loading-notice {
-            display: none; position: fixed; inset: 0; width: 100vw; height: 100vh;
-            background: rgba(30, 26, 10, 0.88); backdrop-filter: blur(2px); color: #fff3cd;
-            flex-direction: column; align-items: center; justify-content: center; gap: 22px;
-            text-align: center; font-weight: 700; font-size: 1.1rem; z-index: 10000; padding: 20px;
+            display: none;
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(30, 26, 10, 0.88);
+            backdrop-filter: blur(2px);
+            color: #fff3cd;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            z-index: 10000;
+            padding: 20px;
         }
         .loading-notice.show { display: flex; }
 
         .beer-loader { position: relative; width: 90px; height: 114px; flex-shrink: 0; }
         .beer-loader svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
         .beer-loader .copo-contorno { fill: none; stroke: #fff3cd; stroke-width: 2; }
+        .beer-loader .liquido-clip { }
         .beer-loader .liquido { fill: #f5a623; }
         .beer-loader .espuma { fill: #fffdf5; }
         .beer-loader .bolha { fill: rgba(255,255,255,0.85); }
@@ -230,6 +245,7 @@
             .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
         }
 
+        /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
         .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
         .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
@@ -394,7 +410,9 @@
             </div>
             <button class="btn-close" onclick="fecharModalEncomenda()" aria-label="Fechar">&times;</button>
         </div>
-        <div class="modal-body" id="modalCatalogBody"></div>
+        <div class="modal-body" id="modalCatalogBody">
+            <!-- Catálogo injetado via JS -->
+        </div>
         <div class="modal-footer">
             <div class="total-summary">
                 Total de itens: <strong id="totalItemCount">0</strong>
@@ -417,7 +435,9 @@
             <h2>Marca Foco por Semana</h2>
             <button class="modal-foco-close" onclick="fecharModalFocoSemanal()" aria-label="Fechar">&times;</button>
         </div>
-        <div class="modal-foco-body" id="modalFocoBody"></div>
+        <div class="modal-foco-body" id="modalFocoBody">
+            <!-- Selects injetados via JS -->
+        </div>
         <div class="modal-foco-footer">
             <button class="btn-cancel" onclick="fecharModalFocoSemanal()">Cancelar</button>
             <button class="btn-submit" onclick="guardarFocoSemanal()">Guardar</button>
@@ -446,6 +466,7 @@
 <script>
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
+    // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
     const PRODUCT_CATALOG = [
         { id: "sagres_mini_ret_20", name: "Sagres Branca Mini Retornável (Grade 24×20cl)", range: "Sagres" },
         { id: "sagres_media_ret_33", name: "Sagres Branca Média Retornável (Grade 24×33cl)", range: "Sagres" },
@@ -540,7 +561,6 @@
         }
     }
 
-    // Limpa automaticamente o FOCO SEMANAL de marcas desatualizadas para todos os gestores e dias
     function limparFocoSemanalDesatualizado() {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
@@ -548,7 +568,7 @@
             let houveAlteracao = false;
 
             baseDadosRotas.forEach(item => {
-                if (String(item.semana).trim() !== String(sem) || !item.estados) return;
+                if (item.semana !== sem || !item.estados) return;
                 Object.keys(item.estados).forEach(marca => {
                     if (item.estados[marca] !== 'FOCOSEMANAL') return;
                     const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
@@ -606,6 +626,7 @@
     let baseDadosRotas = [];
     let diaAtualSelecionado = "Segunda";
 
+    // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
     const CODIGO_ACESSO_ = '2363';
     let acaoPendentePin_ = null;
 
@@ -714,10 +735,7 @@
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
             sincronizarMarcasVariaveis();
-            
-            // Limpeza automática ao descarregar/sincronizar dados
             limparFocoSemanalDesatualizado();
-            
             atualizarVisualizacao();
         } catch(e) {
             console.error("Erro ao ler nuvem: ", e);
@@ -968,7 +986,7 @@
     function obterInnerHtmlBotao(est) {
         if (est === "FOCO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO`;
         if (est === "FOCOSEMANAL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO SEMANAL`;
-        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 12z"/></svg> NÃO OK`;
+        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> NÃO OK`;
         if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
         if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
         return `VAZIO`;
@@ -1195,8 +1213,11 @@
             startY: y,
             head: [['', ...marcasLista]],
             body: [
-                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => (r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length)))],
-                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
+                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length))],
+                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => {
+                    const est = r.estados && r.estados[m];
+                    return est === 'OK' || (est === 'NEGOCIADO' && r.colocou && r.colocou[m]);
+                }).length))]
             ],
             columnStyles: columnStylesDia
         }));
@@ -1257,6 +1278,7 @@
         }
     }
 
+    // --- LÓGICA DO MODAL DE ENCOMENDAS ---
     function abrirModalEncomenda(id) {
         clienteAtualEncomenda = baseDadosRotas.find(c => c.id === id);
         if (!clienteAtualEncomenda) return;
@@ -1353,6 +1375,7 @@
         document.getElementById("totalItemCount").innerText = total;
     }
 
+    // --- AUTOMAÇÃO: MARCAR "NEGOCIADO" COMO "Colocou" AO ENVIAR ENCOMENDA ---
     function processarColocacaoAutomatica() {
         if (!clienteAtualEncomenda || !clienteAtualEncomenda.estados) return;
         if (!clienteAtualEncomenda.colocou) clienteAtualEncomenda.colocou = {};
@@ -1444,6 +1467,7 @@
         fecharModalEncomenda();
     }
 
+    // --- INICIALIZAÇÃO COM LOCALSTORAGE ---
     const gestorSalvo = localStorage.getItem('gestorSelecionado');
     if (gestorSalvo) {
         document.getElementById('comercialSelect').value = gestorSalvo;
