@@ -537,7 +537,9 @@
         document.getElementById('modalFocoOverlay').classList.remove('aberto');
     }
 
-    function guardarFocoSemanal() {
+    let focoSemanalASalvar = false;
+
+    async function guardarFocoSemanal() {
         const semanas = ['1', '2', '3', '4'];
         const novoMapa = {};
         semanas.forEach(sem => {
@@ -547,10 +549,20 @@
         MARCA_FOCO_POR_SEMANA = novoMapa;
         localStorage.setItem('marcaFocoPorSemana', JSON.stringify(novoMapa));
         limparFocoSemanalDesatualizado();
-        // Guarda a configuração no servidor para propagar a todos os GC (não só localStorage).
-        postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
         fecharModalFocoSemanal();
         atualizarVisualizacao();
+
+        // Enquanto a gravação estiver em curso, o polling automático não pode
+        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor
+        // (evita que a marca foco recém-escolhida "volte atrás" por corrida
+        // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
+        focoSemanalASalvar = true;
+        try {
+            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
+            if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+        } finally {
+            focoSemanalASalvar = false;
+        }
     }
 
     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
@@ -730,7 +742,7 @@
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
             baseDadosRotas = Array.isArray(dados) ? dados : (dados.registos || []);
-            if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0) {
+            if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0 && !focoSemanalASalvar) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
