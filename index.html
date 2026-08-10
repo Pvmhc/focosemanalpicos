@@ -1491,7 +1491,7 @@
 
     puxarDadosDaNuvem();
 
-    const INTERVALO_AUTO_SYNC_MS = 5 * 60 * 1000;
+    const INTERVALO_AUTO_SYNC_MS = 15 * 1000;
     setInterval(() => {
         if (document.visibilityState === 'visible') {
             puxarDadosDaNuvem(true);
