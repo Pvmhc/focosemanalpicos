@@ -440,7 +440,7 @@
         </div>
         <div class="modal-foco-footer">
             <button class="btn-cancel" onclick="fecharModalFocoSemanal()">Cancelar</button>
-            <button class="btn-submit" onclick="guardarFocoSemanal()">Guardar</button>
+            <button class="btn-submit" id="btnGuardarFocoSemanal" onclick="guardarFocoSemanal()">Guardar</button>
         </div>
     </div>
 </div>
@@ -538,6 +538,7 @@
     }
 
     let focoSemanalASalvar = false;
+    let focoSemanalSequencia = 0;
 
     async function guardarFocoSemanal() {
         const semanas = ['1', '2', '3', '4'];
@@ -548,20 +549,37 @@
         });
         MARCA_FOCO_POR_SEMANA = novoMapa;
         localStorage.setItem('marcaFocoPorSemana', JSON.stringify(novoMapa));
-        limparFocoSemanalDesatualizado();
         fecharModalFocoSemanal();
         atualizarVisualizacao();
 
+        // Sequência própria: se entretanto for feita outra gravação mais recente,
+        // esta resposta (se chegar atrasada, ex. por retry de rede) é ignorada —
+        // evita que um pedido antigo "vença a corrida" e reverta uma alteração
+        // mais recente para o valor anterior.
+        const minhaSequencia = ++focoSemanalSequencia;
+
+        const btn = document.getElementById('btnGuardarFocoSemanal');
+        if (btn) btn.disabled = true;
+
         // Enquanto a gravação estiver em curso, o polling automático não pode
-        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor
-        // (evita que a marca foco recém-escolhida "volte atrás" por corrida
-        // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
+        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor.
         focoSemanalASalvar = true;
         try {
-            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
-            if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+            // UM ÚNICO pedido atómico: grava a nova config E limpa em lote as
+            // marcas "FOCO SEMANAL" desatualizadas, tudo dentro do mesmo lock
+            // no servidor — elimina a corrida entre dois pedidos separados.
+            const resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
+            if (minhaSequencia !== focoSemanalSequencia) return; // já há uma gravação mais recente; ignora esta resposta
+            if (!resultado || resultado.ok === false) {
+                mostrarAvisoSync_();
+            } else {
+                await puxarDadosDaNuvem(true);
+            }
         } finally {
-            focoSemanalASalvar = false;
+            if (minhaSequencia === focoSemanalSequencia) {
+                focoSemanalASalvar = false;
+                if (btn) btn.disabled = false;
+            }
         }
     }
 
@@ -570,20 +588,12 @@
     // de qualquer marca que já não seja a marca foco definida — em vez de
     // disparar um pedido por cada registo alterado (o que sobrecarregava o
     // servidor quando há muitos utilizadores em simultâneo).
-    //
-    // IMPORTANTE: o pedido ao servidor é SEMPRE enviado, mesmo que os dados
-    // carregados neste browser (baseDadosRotas) não mostrem nenhuma marca
-    // desatualizada. Isto porque o browser de quem grava a "Marca Foco" pode
-    // não ter a versão mais recente de todos os registos (de outros dias e
-    // GCs) — se só enviássemos o pedido quando detectássemos uma alteração
-    // localmente, marcas FOCO SEMANAL desatualizadas noutros GCs nunca eram
-    // limpas no servidor e continuavam a aparecer.
     function limparFocoSemanalDesatualizado() {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
             const marcaFocoSemana = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
+            let houveAlteracao = false;
 
-            // Atualização local imediata (feedback visual), quando há dados carregados.
             baseDadosRotas.forEach(item => {
                 if (item.semana !== sem || !item.estados) return;
                 Object.keys(item.estados).forEach(marca => {
@@ -591,16 +601,17 @@
                     const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
                     if (!ehMarcaFocoAtual) {
                         item.estados[marca] = '';
+                        houveAlteracao = true;
                     }
                 });
             });
 
-            // Pedido ao servidor SEMPRE enviado (não depende de deteção local),
-            // para garantir que a limpeza cobre todos os dias e GCs na Sheet.
-            postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
-                .then(resultado => {
-                    if (!resultado || resultado.ok === false) mostrarAvisoSync_();
-                });
+            if (houveAlteracao) {
+                postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
+                    .then(resultado => {
+                        if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+                    });
+            }
         });
     }
 
@@ -752,6 +763,13 @@
             if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0 && !focoSemanalASalvar) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
+            }
+            // Limpeza automática: sempre que os dados chegam da nuvem, verifica se
+            // alguma marca ficou marcada como "FOCO SEMANAL" sem já ser a marca foco
+            // atual (de qualquer dia/gestor) e apaga-a — sem depender de alguém abrir
+            // e gravar o modal manualmente.
+            if (!focoSemanalASalvar) {
+                limparFocoSemanalDesatualizado();
             }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
