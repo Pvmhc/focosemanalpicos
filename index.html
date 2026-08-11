@@ -809,7 +809,7 @@
             aviso = document.createElement('div');
             aviso.id = 'avisoSyncFalhou';
             aviso.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2);';
-            aviso.textContent = 'Falha ao sincronizar uma alteração. Verifica a ligação — pode ser preciso repetir a ação.';
+            aviso.textContent = '';
             document.body.appendChild(aviso);
         }
         aviso.style.display = 'block';
