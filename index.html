@@ -440,7 +440,7 @@
         </div>
         <div class="modal-foco-footer">
             <button class="btn-cancel" onclick="fecharModalFocoSemanal()">Cancelar</button>
-            <button class="btn-submit" id="btnGuardarFocoSemanal" onclick="guardarFocoSemanal()">Guardar</button>
+            <button class="btn-submit" onclick="guardarFocoSemanal()">Guardar</button>
         </div>
     </div>
 </div>
@@ -538,7 +538,6 @@
     }
 
     let focoSemanalASalvar = false;
-    let focoSemanalSequencia = 0;
 
     async function guardarFocoSemanal() {
         const semanas = ['1', '2', '3', '4'];
@@ -549,37 +548,20 @@
         });
         MARCA_FOCO_POR_SEMANA = novoMapa;
         localStorage.setItem('marcaFocoPorSemana', JSON.stringify(novoMapa));
+        limparFocoSemanalDesatualizado();
         fecharModalFocoSemanal();
         atualizarVisualizacao();
 
-        // Sequência própria: se entretanto for feita outra gravação mais recente,
-        // esta resposta (se chegar atrasada, ex. por retry de rede) é ignorada —
-        // evita que um pedido antigo "vença a corrida" e reverta uma alteração
-        // mais recente para o valor anterior.
-        const minhaSequencia = ++focoSemanalSequencia;
-
-        const btn = document.getElementById('btnGuardarFocoSemanal');
-        if (btn) btn.disabled = true;
-
         // Enquanto a gravação estiver em curso, o polling automático não pode
-        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor.
+        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor
+        // (evita que a marca foco recém-escolhida "volte atrás" por corrida
+        // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
         focoSemanalASalvar = true;
         try {
-            // UM ÚNICO pedido atómico: grava a nova config E limpa em lote as
-            // marcas "FOCO SEMANAL" desatualizadas, tudo dentro do mesmo lock
-            // no servidor — elimina a corrida entre dois pedidos separados.
-            const resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
-            if (minhaSequencia !== focoSemanalSequencia) return; // já há uma gravação mais recente; ignora esta resposta
-            if (!resultado || resultado.ok === false) {
-                mostrarAvisoSync_();
-            } else {
-                await puxarDadosDaNuvem(true);
-            }
+            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
+            if (!resultado || resultado.ok === false) mostrarAvisoSync_();
         } finally {
-            if (minhaSequencia === focoSemanalSequencia) {
-                focoSemanalASalvar = false;
-                if (btn) btn.disabled = false;
-            }
+            focoSemanalASalvar = false;
         }
     }
 
@@ -588,12 +570,20 @@
     // de qualquer marca que já não seja a marca foco definida — em vez de
     // disparar um pedido por cada registo alterado (o que sobrecarregava o
     // servidor quando há muitos utilizadores em simultâneo).
+    //
+    // IMPORTANTE: o pedido ao servidor é SEMPRE enviado, mesmo que os dados
+    // carregados neste browser (baseDadosRotas) não mostrem nenhuma marca
+    // desatualizada. Isto porque o browser de quem grava a "Marca Foco" pode
+    // não ter a versão mais recente de todos os registos (de outros dias e
+    // GCs) — se só enviássemos o pedido quando detectássemos uma alteração
+    // localmente, marcas FOCO SEMANAL desatualizadas noutros GCs nunca eram
+    // limpas no servidor e continuavam a aparecer.
     function limparFocoSemanalDesatualizado() {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
             const marcaFocoSemana = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
-            let houveAlteracao = false;
 
+            // Atualização local imediata (feedback visual), quando há dados carregados.
             baseDadosRotas.forEach(item => {
                 if (item.semana !== sem || !item.estados) return;
                 Object.keys(item.estados).forEach(marca => {
@@ -601,17 +591,16 @@
                     const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
                     if (!ehMarcaFocoAtual) {
                         item.estados[marca] = '';
-                        houveAlteracao = true;
                     }
                 });
             });
 
-            if (houveAlteracao) {
-                postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
-                    .then(resultado => {
-                        if (!resultado || resultado.ok === false) mostrarAvisoSync_();
-                    });
-            }
+            // Pedido ao servidor SEMPRE enviado (não depende de deteção local),
+            // para garantir que a limpeza cobre todos os dias e GCs na Sheet.
+            postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
+                .then(resultado => {
+                    if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+                });
         });
     }
 
@@ -753,26 +742,53 @@
         }
     }
 
+    // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
+    // Guarda localmente qualquer alteração (estado FOCO/OK/etc. ou "colocou")
+    // que já foi aplicada no ecrã mas cujo POST ainda não teve resposta do
+    // Apps Script. O polling automático (a cada 15s) lê SEMPRE a folha
+    // inteira; se a escrita anterior ainda não tiver propagado na Sheet
+    // quando esse GET acontece, a resposta do servidor traz o valor antigo
+    // e, sem esta proteção, esse valor antigo "pisava" a alteração recém-feita
+    // no ecrã — dando a sensação de que o foco "volta ao que estava".
+    const alteracoesPendentes_ = new Map();
+    function marcarAlteracaoPendente_(tipo, id, marca, valor) {
+        alteracoesPendentes_.set(tipo + '::' + id + '::' + marca, valor);
+    }
+    function limparAlteracaoPendente_(tipo, id, marca) {
+        alteracoesPendentes_.delete(tipo + '::' + id + '::' + marca);
+    }
+    function fundirComPendentes_(novosDados) {
+        if (alteracoesPendentes_.size === 0) return novosDados;
+        alteracoesPendentes_.forEach((valor, chave) => {
+            const [tipo, id, marca] = chave.split('::');
+            const registo = novosDados.find(r => String(r.id) === id);
+            if (!registo) return;
+            if (tipo === 'estado') {
+                if (!registo.estados) registo.estados = {};
+                registo.estados[marca] = valor;
+            } else if (tipo === 'colocou') {
+                if (!registo.colocou) registo.colocou = {};
+                registo.colocou[marca] = valor;
+            }
+        });
+        return novosDados;
+    }
+
     async function puxarDadosDaNuvem(silencioso) {
         if (!silencioso) mostrarLoading(true);
         try {
             let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now(), { cache: 'no-store' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
-            baseDadosRotas = Array.isArray(dados) ? dados : (dados.registos || []);
+            const novosDados = Array.isArray(dados) ? dados : (dados.registos || []);
+            baseDadosRotas = fundirComPendentes_(novosDados);
             if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0 && !focoSemanalASalvar) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
-            // Limpeza automática: sempre que os dados chegam da nuvem, verifica se
-            // alguma marca ficou marcada como "FOCO SEMANAL" sem já ser a marca foco
-            // atual (de qualquer dia/gestor) e apaga-a — sem depender de alguém abrir
-            // e gravar o modal manualmente.
-            if (!focoSemanalASalvar) {
-                limparFocoSemanalDesatualizado();
-            }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
+            try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
         } catch(e) {
             console.error("Erro ao ler nuvem: ", e);
             if (!silencioso) {
@@ -785,6 +801,7 @@
     async function enviarAlteracaoNuvem(id, marca, novoEstado) {
         mostrarIndicadorSync_(true);
         const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
+        limparAlteracaoPendente_('estado', id, marca);
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
             mostrarAvisoSync_();
@@ -795,6 +812,7 @@
     async function enviarColocouNuvem(id, marca, colocado) {
         mostrarIndicadorSync_(true);
         const resultado = await postComRetry_({ action: "atualizar_colocou", id: id, marca: marca, colocado: colocado });
+        limparAlteracaoPendente_('colocou', id, marca);
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
             mostrarAvisoSync_();
@@ -809,7 +827,7 @@
             aviso = document.createElement('div');
             aviso.id = 'avisoSyncFalhou';
             aviso.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2);';
-            aviso.textContent = '';
+            aviso.textContent = 'Falha ao sincronizar uma alteração. Verifica a ligação — pode ser preciso repetir a ação.';
             document.body.appendChild(aviso);
         }
         aviso.style.display = 'block';
@@ -1004,8 +1022,12 @@
     function alternarEstado(idRegisto, marca) {
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
         if (registo) {
-            const semanaSelecionada = document.getElementById('semanaSelect').value;
-            const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[semanaSelecionada];
+            // Usa SEMPRE a semana do próprio registo (registo.semana), nunca o valor
+            // do dropdown "Semana". Em modo de pesquisa a tabela mostra clientes de
+            // qualquer semana (o filtro de pesquisa ignora a semana selecionada), pelo
+            // que usar o dropdown aqui aplicava o ciclo de estados errado (com ou sem
+            // "FOCO SEMANAL") a clientes de semanas diferentes da selecionada.
+            const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[registo.semana];
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
             const ciclo = ehMarcaFoco 
@@ -1018,6 +1040,7 @@
 
             const proximo = ciclo[(idxAtual + 1) % ciclo.length];
             registo.estados[marca] = proximo;
+            marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
             atualizarVisualizacao();
             enviarAlteracaoNuvem(idRegisto, marca, proximo);
         }
@@ -1165,20 +1188,42 @@
             alert('Não há clientes para "' + com + '" nesta semana.');
             return;
         }
-        const totalMarcados = registos.reduce((n, r) => n + Object.values(r.estados || {}).filter(Boolean).length, 0);
-        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — ${semanaLabel}, em todos os dias?\n\nIsto vai apagar ${totalMarcados} marcações e não pode ser desfeito.`)) return;
+
+        // Lista apenas os pares (id, marca) que têm efetivamente um estado marcado.
+        const marcasParaLimpar = [];
+        registos.forEach(r => {
+            Object.keys(r.estados || {}).forEach(m => {
+                if (r.estados[m]) marcasParaLimpar.push({ id: r.id, marca: m });
+            });
+        });
+
+        if (marcasParaLimpar.length === 0) {
+            alert('Não há marcações para limpar em "' + com + '" — ' + semanaLabel + '.');
+            return;
+        }
+
+        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — ${semanaLabel}, em todos os dias?\n\nIsto vai apagar ${marcasParaLimpar.length} marcações e não pode ser desfeito.`)) return;
 
         mostrarLoading(true);
-        registos.forEach(r => { r.estados = {}; });
 
+        // Atualização local imediata (feedback visual).
+        registos.forEach(r => { r.estados = {}; });
+        atualizarVisualizacao();
+
+        // IMPORTANTE: em vez de reenviar baseDadosRotas inteira via "limpar_e_importar"
+        // (o que reescrevia TODA a folha, incluindo registos de outros gestores/GCs que
+        // este browser podia não ter atualizados nos últimos segundos — risco real de
+        // apagar alterações concorrentes feitas por outra pessoa entretanto), envia-se
+        // agora um pedido "atualizar_estado" por cada (id, marca) afetado, usando a
+        // mesma ação já usada em enviarAlteracaoNuvem(). Mais pedidos, mas seguro.
         try {
-            const resposta = await fetch(GOOGLE_SCRIPT_URL, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ action: "limpar_e_importar", rows: baseDadosRotas })
-            });
-            if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
-            atualizarVisualizacao();
+            let falhas = 0;
+            for (const { id, marca } of marcasParaLimpar) {
+                const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: "" });
+                if (!resultado || resultado.ok === false) falhas++;
+            }
+            if (falhas > 0) mostrarAvisoSync_();
+            await puxarDadosDaNuvem(true);
         } catch (e) {
             console.error(e);
             alert('Erro ao limpar na nuvem: ' + e.message);
@@ -1421,6 +1466,7 @@
         Object.keys(clienteAtualEncomenda.estados).forEach(marca => {
             if (clienteAtualEncomenda.estados[marca] === "NEGOCIADO") {
                 clienteAtualEncomenda.colocou[marca] = true;
+                marcarAlteracaoPendente_('colocou', clienteAtualEncomenda.id, marca, true);
                 enviarColocouNuvem(clienteAtualEncomenda.id, marca, true);
                 houveAlteracao = true;
             }
@@ -1526,7 +1572,20 @@
         aplicarSemanaAtual();
     }
 
-    puxarDadosDaNuvem();
+    // Mostra imediatamente os últimos dados conhecidos (cache local) enquanto
+    // o pedido real à nuvem ainda vai a caminho — evita o ecrã de "a carregar"
+    // demorado sempre que o Apps Script demora a responder (arranque a frio,
+    // muitos GCs em simultâneo, etc.). Os dados são substituídos assim que a
+    // resposta da nuvem chegar.
+    try {
+        const cache = localStorage.getItem('baseDadosRotasCache');
+        if (cache) {
+            baseDadosRotas = JSON.parse(cache);
+            atualizarVisualizacao();
+        }
+    } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
+
+    puxarDadosDaNuvem(!!localStorage.getItem('baseDadosRotasCache'));
 
     const INTERVALO_AUTO_SYNC_MS = 15 * 1000;
     setInterval(() => {
