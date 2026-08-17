@@ -464,7 +464,7 @@
 </div>
 
 <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJoWQTZASCbn_nQXDNA3plu-kUa4qwnx24T8Hx2nzjJ8q4jlDFw8HLzd6yQycQlEA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
     // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
     const PRODUCT_CATALOG = [
@@ -569,21 +569,36 @@
         }
     }
 
-    // Só a parte de feedback visual imediato (local); o pedido ao servidor
-    // agora vai dentro de guardar_foco_semanal_completo, num único POST.
+    // Feedback visual imediato (local); a gravação/aplicação real acontece no
+    // servidor dentro de guardar_foco_semanal_completo, num único POST.
+    // Espelha exatamente a lógica do backend: limpa FOCOSEMANAL desatualizado
+    // e aplica-o à nova marca foco, exceto onde já há um estado final.
+    const ESTADOS_FINAIS_FOCO_ = new Set(['OK', 'NAO OK', 'NEGOCIADO']);
     function limparFocoSemanalDesatualizadoLocal_(mapaNovo) {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
-            const marcaFocoSemana = (mapaNovo[sem] || '').trim().toLowerCase();
+            const marcaFocoOriginal = (mapaNovo[sem] || '').trim();
+            const marcaFocoNorm = marcaFocoOriginal.toLowerCase();
             baseDadosRotas.forEach(item => {
                 if (item.semana !== sem || !item.estados) return;
+
+                // a) limpa FOCOSEMANAL de marcas que já não são a foco
                 Object.keys(item.estados).forEach(marca => {
-                    if (item.estados[marca] !== 'FOCOSEMANAL') return;
-                    const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
-                    if (!ehMarcaFocoAtual) {
+                    if (item.estados[marca] === 'FOCOSEMANAL' && marca.trim().toLowerCase() !== marcaFocoNorm) {
                         item.estados[marca] = '';
                     }
                 });
+
+                // b) aplica FOCOSEMANAL à marca foco escolhida, exceto se já
+                //    houver um estado final (OK / NÃO OK / NEGOCIADO)
+                if (marcaFocoOriginal) {
+                    const chaveExistente = Object.keys(item.estados).find(m => m.trim().toLowerCase() === marcaFocoNorm);
+                    const chave = chaveExistente || marcaFocoOriginal;
+                    const atual = item.estados[chave] || '';
+                    if (!ESTADOS_FINAIS_FOCO_.has(atual)) {
+                        item.estados[chave] = 'FOCOSEMANAL';
+                    }
+                }
             });
         });
     }
@@ -601,32 +616,6 @@
     // GCs) — se só enviássemos o pedido quando detectássemos uma alteração
     // localmente, marcas FOCO SEMANAL desatualizadas noutros GCs nunca eram
     // limpas no servidor e continuavam a aparecer.
-    function limparFocoSemanalDesatualizado() {
-        const semanas = ['1', '2', '3', '4'];
-        semanas.forEach(sem => {
-            const marcaFocoSemana = (MARCA_FOCO_POR_SEMANA[sem] || '').trim().toLowerCase();
-
-            // Atualização local imediata (feedback visual), quando há dados carregados.
-            baseDadosRotas.forEach(item => {
-                if (item.semana !== sem || !item.estados) return;
-                Object.keys(item.estados).forEach(marca => {
-                    if (item.estados[marca] !== 'FOCOSEMANAL') return;
-                    const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
-                    if (!ehMarcaFocoAtual) {
-                        item.estados[marca] = '';
-                    }
-                });
-            });
-
-            // Pedido ao servidor SEMPRE enviado (não depende de deteção local),
-            // para garantir que a limpeza cobre todos os dias e GCs na Sheet.
-            postComRetry_({ action: 'limpar_foco_semanal', semana: sem, marcaFoco: MARCA_FOCO_POR_SEMANA[sem] || '' })
-                .then(resultado => {
-                    if (!resultado || resultado.ok === false) mostrarAvisoSync_();
-                });
-        });
-    }
-
     const CABECALHOS_RESERVADOS = new Set([
         'cliente', 'pdv', 'estabelecimento', 'comercial', 'gestor', 'vendedor',
         'segmento de clientes', 'frequência de visitas', 'frequencia de visitas',
