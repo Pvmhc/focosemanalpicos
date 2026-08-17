@@ -548,7 +548,7 @@
         });
         MARCA_FOCO_POR_SEMANA = novoMapa;
         localStorage.setItem('marcaFocoPorSemana', JSON.stringify(novoMapa));
-        limparFocoSemanalDesatualizado();
+        limparFocoSemanalDesatualizadoLocal_(novoMapa);
         fecharModalFocoSemanal();
         atualizarVisualizacao();
 
@@ -558,11 +558,34 @@
         // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
         focoSemanalASalvar = true;
         try {
-            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'marcaFocoPorSemana', valor: novoMapa });
+            // UM ÚNICO pedido (em vez de 5 em simultâneo: guardar_config + 4x
+            // limpar_foco_semanal), que sobrecarregava o lock do Apps Script e
+            // fazia falhar a sincronização deste botão especificamente.
+            // O backend já tinha a ação atómica pronta — só faltava usá-la aqui.
+            const resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
             if (!resultado || resultado.ok === false) mostrarAvisoSync_();
         } finally {
             focoSemanalASalvar = false;
         }
+    }
+
+    // Só a parte de feedback visual imediato (local); o pedido ao servidor
+    // agora vai dentro de guardar_foco_semanal_completo, num único POST.
+    function limparFocoSemanalDesatualizadoLocal_(mapaNovo) {
+        const semanas = ['1', '2', '3', '4'];
+        semanas.forEach(sem => {
+            const marcaFocoSemana = (mapaNovo[sem] || '').trim().toLowerCase();
+            baseDadosRotas.forEach(item => {
+                if (item.semana !== sem || !item.estados) return;
+                Object.keys(item.estados).forEach(marca => {
+                    if (item.estados[marca] !== 'FOCOSEMANAL') return;
+                    const ehMarcaFocoAtual = marca.trim().toLowerCase() === marcaFocoSemana;
+                    if (!ehMarcaFocoAtual) {
+                        item.estados[marca] = '';
+                    }
+                });
+            });
+        });
     }
 
     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
