@@ -464,7 +464,7 @@
 </div>
 
 <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJoWQTZASCbn_nQXDNA3plu-kUa4qwnx24T8Hx2nzjJ8q4jlDFw8HLzd6yQycQlEA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
     // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
     const PRODUCT_CATALOG = [
@@ -493,6 +493,11 @@
 
     let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
     const ordemMarcasFixa = ["Sagres", "Heineken", "Bandida", "0.0%", "PRETA"];
+    // Ordem real das colunas de marca, tal como aparece no cabeçalho do último
+    // Excel importado. Persistida no servidor (config 'ordemMarcas') para que
+    // todos os GC vejam sempre a mesma ordem — em vez de recalculada a cada
+    // sincronização por ordem alfabética.
+    let ORDEM_MARCAS_SERVIDOR = [];
 
     const MARCA_FOCO_POR_SEMANA_DEFAULT = {
         "1": "0.0%",
@@ -643,7 +648,17 @@
             if (r.historico) Object.keys(r.historico).forEach(m => setMarcas.add(m));
         });
         const chaves = Array.from(setMarcas);
-        if (chaves.length > 0) {
+        if (chaves.length === 0) { renderCabecalhoTabela(); return; }
+
+        if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
+            // Segue a ordem persistida do último Excel importado. Marcas que já não
+            // aparecem em nenhum registo são omitidas; marcas que aparecem nos dados
+            // mas não estão na ordem guardada (caso raro/desalinhado) vão no fim.
+            const ordemNorm = ORDEM_MARCAS_SERVIDOR.map(m => m.trim().toLowerCase());
+            const naOrdem = ORDEM_MARCAS_SERVIDOR.filter(m => chaves.some(c => c.trim().toLowerCase() === m.trim().toLowerCase()));
+            const foraDaOrdem = chaves.filter(c => !ordemNorm.includes(c.trim().toLowerCase()));
+            marcasLista = naOrdem.concat(foraDaOrdem.sort((a, b) => a.localeCompare(b)));
+        } else {
             marcasLista = chaves.sort((a, b) => {
                 const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
                 const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
@@ -802,6 +817,10 @@
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
+            if (!Array.isArray(dados) && Array.isArray(dados.ordemMarcas) && dados.ordemMarcas.length > 0) {
+                ORDEM_MARCAS_SERVIDOR = dados.ordemMarcas;
+                try { localStorage.setItem('ordemMarcasCache', JSON.stringify(ORDEM_MARCAS_SERVIDOR)); } catch (e) { /* ignora */ }
+            }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
             try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
@@ -891,14 +910,11 @@
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 if (colunasMarcasDetectadas.length > 0) {
-                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim()).sort((a, b) => {
-                        const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
-                        const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
-                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                        if (idxA !== -1) return -1;
-                        if (idxB !== -1) return 1;
-                        return a.localeCompare(b);
-                    });
+                    // Segue exatamente a ordem do cabeçalho do Excel — nada de reordenar
+                    // por lista fixa ou alfabeticamente. Se acrescentares uma coluna,
+                    // entra nessa posição; se tirares uma, deixa de aparecer.
+                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim());
+                    ORDEM_MARCAS_SERVIDOR = marcasLista.slice();
                     renderCabecalhoTabela();
                 }
 
@@ -980,7 +996,16 @@
                     const registoAnterior = baseDadosRotas.find(r =>
                         `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
                     if (registoAnterior && registoAnterior.estados) {
-                        estadosObj = Object.assign({}, estadosObj, registoAnterior.estados);
+                        // Só traz o estado antigo de marcas que AINDA existem no Excel
+                        // atual — caso contrário, marcas removidas do cabeçalho (ex.:
+                        // "Sol&Mar") voltavam sempre a aparecer como fantasmas.
+                        const estadosAntigosValidos = {};
+                        Object.keys(registoAnterior.estados).forEach(marcaAntiga => {
+                            const aindaExisteNoExcel = colunasMarcasDetectadas.some(c =>
+                                c.trim().replace(/^\*+/, '').trim().toLowerCase() === marcaAntiga.trim().toLowerCase());
+                            if (aindaExisteNoExcel) estadosAntigosValidos[marcaAntiga] = registoAnterior.estados[marcaAntiga];
+                        });
+                        estadosObj = Object.assign({}, estadosObj, estadosAntigosValidos);
                     }
 
                     listaNovosDados.push({
@@ -1024,6 +1049,13 @@
                 const resultadoImport = await respostaImport.json();
                 if (!resultadoImport || resultadoImport.ok !== true) {
                     throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
+                }
+                // Guarda a ordem das colunas (tal como veio do Excel) no servidor, para
+                // que todos os GC vejam sempre a mesma ordem em vez de recalculada
+                // localmente e de forma diferente em cada dispositivo.
+                if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
+                    postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR })
+                        .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
                 }
                 alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " registos)");
                 await puxarDadosDaNuvem();
