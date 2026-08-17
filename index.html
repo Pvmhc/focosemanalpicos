@@ -563,7 +563,11 @@
             // fazia falhar a sincronização deste botão especificamente.
             // O backend já tinha a ação atómica pronta — só faltava usá-la aqui.
             const resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
-            if (!resultado || resultado.ok === false) mostrarAvisoSync_();
+            if (!resultado || resultado.ok === false) {
+                // DEBUG TEMPORÁRIO — mostra o erro real no ecrã. Remover depois de resolvido.
+                alert('DEBUG — falha ao guardar Marca Foco:\n' + JSON.stringify(resultado));
+                mostrarAvisoSync_();
+            }
         } finally {
             focoSemanalASalvar = false;
         }
