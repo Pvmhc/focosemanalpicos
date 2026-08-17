@@ -463,6 +463,19 @@
     </div>
 </div>
 
+<div class="modal-foco-overlay" id="modalResumoClientesOverlay">
+    <div class="modal-foco-box" style="max-width: 420px;">
+        <div class="modal-foco-header">
+            <h2>Clientes importados por gestor</h2>
+            <button class="modal-foco-close" onclick="fecharModalResumoClientes_()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="modal-foco-body" id="modalResumoClientesBody"></div>
+        <div class="modal-foco-footer">
+            <button class="btn-submit" onclick="fecharModalResumoClientes_()">Fechar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
@@ -635,10 +648,95 @@
         'semana 1', 'semana 2', 'semana 3', 'semana 4', 'semana 5', 'semana 6'
     ]);
 
+    /**
+     * Conta clientes ÚNICOS por gestor/comercial numa lista de registos vinda do
+     * import Excel. Um mesmo cliente pode aparecer várias vezes (dias/semanas
+     * diferentes) — conta-se só 1 vez por gestor. A identidade do cliente usa o
+     * "número" do estabelecimento quando existe (mais fiável), caindo para o
+     * nome (normalizado) quando não há número.
+     */
+    function contarClientesUnicosPorGestor_(linhas) {
+        const porGestor = {}; // comercial -> Set de chaves únicas
+        linhas.forEach(r => {
+            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
+            const chave = numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+            const gestor = String(r.comercial || 'Sem Gestor').trim();
+            if (!porGestor[gestor]) porGestor[gestor] = new Set();
+            porGestor[gestor].add(chave);
+        });
+        const linhasResumo = Object.keys(porGestor)
+            .map(gestor => ({ gestor, total: porGestor[gestor].size }))
+            .sort((a, b) => b.total - a.total || a.gestor.localeCompare(b.gestor));
+        const totalGeral = new Set(linhas.map(r => {
+            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
+            return numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+        })).size;
+        return { linhasResumo, totalGeral };
+    }
+
+    function mostrarResumoClientesPorGestor_(linhas) {
+        const { linhasResumo, totalGeral } = contarClientesUnicosPorGestor_(linhas);
+        const corpo = document.getElementById('modalResumoClientesBody');
+        if (!corpo) return;
+        const linhasHtml = linhasResumo.map(l =>
+            `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+                <span>${l.gestor}</span>
+                <strong>${l.total}</strong>
+            </div>`
+        ).join('');
+        corpo.innerHTML = `
+            <div style="display:flex;justify-content:space-between;padding:8px 0 12px 0;font-weight:700;font-size:1.05rem;">
+                <span>Total geral (clientes únicos)</span>
+                <span>${totalGeral}</span>
+            </div>
+            ${linhasHtml || '<p>Sem dados de gestores.</p>'}
+        `;
+        document.getElementById('modalResumoClientesOverlay').style.display = 'flex';
+    }
+
+    function fecharModalResumoClientes_() {
+        const overlay = document.getElementById('modalResumoClientesOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    /**
+     * Calcula, para cada marca, a % de clientes ÚNICOS (sem duplicados por
+     * dia/semana) que já a colocaram este ano (historico.ano). Serve apenas
+     * de referência visual no cabeçalho — não interfere com FOCO/OK/etc.
+     */
+    function calcularCoberturaPorMarca_() {
+        const clientesUnicos = {}; // chave única do cliente -> { marca: true/false }
+        baseDadosRotas.forEach(r => {
+            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
+            const chave = numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+            if (!clientesUnicos[chave]) clientesUnicos[chave] = {};
+            marcasLista.forEach(m => {
+                const hist = (r.historico && r.historico[m]) || {};
+                if (hist.ano) clientesUnicos[chave][m] = true;
+            });
+        });
+        const totalClientes = Object.keys(clientesUnicos).length;
+        const cobertura = {};
+        marcasLista.forEach(m => {
+            if (totalClientes === 0) { cobertura[m] = null; return; }
+            let comMarca = 0;
+            Object.values(clientesUnicos).forEach(obj => { if (obj[m]) comMarca++; });
+            cobertura[m] = Math.round((comMarca / totalClientes) * 100);
+        });
+        return cobertura;
+    }
+
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
-        linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => `<th>${m}</th>`).join('');
+        const cobertura = calcularCoberturaPorMarca_();
+        linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
+            const pct = cobertura[m];
+            const pctHtml = (pct === null || pct === undefined)
+                ? ''
+                : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
+            return `<th>${m}${pctHtml}</th>`;
+        }).join('');
     }
 
     function sincronizarMarcasVariaveis() {
@@ -1058,6 +1156,7 @@
                         .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
                 }
                 alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " registos)");
+                mostrarResumoClientesPorGestor_(listaNovosDados);
                 await puxarDadosDaNuvem();
             } catch (erro) {
                 alert("Erro ao importar para o Google Sheets: " + erro.message);
