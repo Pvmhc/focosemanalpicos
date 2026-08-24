@@ -59,6 +59,55 @@
         .resumo-legenda .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
         .resumo-legenda .dot.foco { background: var(--foco-color); }
         .resumo-legenda .dot.atingido { background: var(--ok-color); }
+
+        /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
+        .resumo-foco-linha { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+        .resumo-foco-linha .resumo-card { flex: 1; min-width: 0; }
+        .picos-card {
+            background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 10px 14px; flex: 0 0 auto; min-width: 190px;
+            box-shadow: 0 1px 2px rgba(11,12,16,.04);
+        }
+        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .picos-card-titulo {
+            font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+            display: flex; align-items: center; gap: 5px;
+        }
+        .picos-card-titulo .star-mini { width: 11px; height: 11px; fill: var(--heineken-red); flex: 0 0 auto; }
+        .picos-editar-btn { background: none; border: none; padding: 3px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 6px; }
+        .picos-editar-btn:hover { color: var(--primary); background: var(--ok-bg); }
+        .picos-editar-btn svg { width: 13px; height: 13px; }
+
+        .picos-stats { display: flex; gap: 6px; margin-bottom: 9px; }
+        .picos-stat { flex: 1; text-align: center; padding: 5px 2px; border-radius: 9px; background: var(--bg); }
+        .picos-stat-valor { font-size: 1.28rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+        .picos-stat-valor.cor-total { color: var(--text); }
+        .picos-stat-valor.cor-efetuadas { color: var(--ok-color); }
+        .picos-stat-valor.cor-diferenca.pendente { color: var(--negociado-color); }
+        .picos-stat-valor.cor-diferenca.concluido { color: var(--ok-color); }
+        .picos-stat-label {
+            font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+            color: var(--muted); margin-top: 2px; white-space: nowrap;
+        }
+
+        .picos-progress-track { height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+        .picos-progress-fill { height: 100%; background: var(--ok-color); border-radius: 999px; transition: width .3s ease; }
+        .picos-progress-label { font-size: 0.64rem; color: var(--muted); margin-top: 5px; text-align: right; font-weight: 700; }
+
+        .picos-edit-grid { display: flex; gap: 8px; margin-bottom: 9px; }
+        .picos-edit-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .picos-edit-field label { font-size: 0.6rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+        .picos-edit-field input {
+            width: 100%; text-align: center; font-size: 1rem; font-weight: 800; padding: 6px 4px;
+            border: 1.5px solid var(--border); border-radius: 9px; font-family: inherit; color: var(--text);
+        }
+        .picos-edit-field input:focus { outline: none; border-color: var(--primary); }
+        .picos-guardar-btn {
+            width: 100%; background: var(--primary); color: #fff; border: none;
+            border-radius: 8px; padding: 7px; font-size: 0.76rem; font-weight: 700; cursor: pointer;
+        }
+        .picos-guardar-btn:hover { filter: brightness(1.1); }
         header h1 {
             margin: 0; color: var(--muted); font-size: 1.05rem; font-weight: 700;
             display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; text-transform: uppercase;
@@ -483,7 +532,7 @@
 </div>
 
 <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJoWQTZASCbn_nQXDNA3plu-kUa4qwnx24T8Hx2nzjJ8q4jlDFw8HLzd6yQycQlEA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
     // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
     const PRODUCT_CATALOG = [
@@ -517,6 +566,21 @@
     // todos os GC vejam sempre a mesma ordem — em vez de recalculada a cada
     // sincronização por ordem alfabética.
     let ORDEM_MARCAS_SERVIDOR = [];
+
+    // Dados manuais "PICOS" (DN Total / DN efetuadas) por Gestor + Semana — editáveis
+    // apenas com o código de acesso, e sincronizados no servidor via 'guardar_config'
+    // (mesmo mecanismo já usado para marcaFocoPorSemana / ordemMarcas).
+    let DADOS_PICOS_ = {};
+    (function carregarPicosCache_() {
+        try {
+            const guardado = localStorage.getItem('dadosPicosCache');
+            if (guardado) DADOS_PICOS_ = JSON.parse(guardado) || {};
+        } catch (e) { console.error('Erro ao carregar cache de Picos:', e); }
+    })();
+    function chavePicos_(com, sem) { return com + '__' + sem; }
+    // Chave atualmente em modo de edição (null = nenhuma), para saber qual
+    // cartão "PICOS" deve mostrar os campos editáveis em vez dos valores.
+    let picosEmEdicao_ = null;
 
     const MARCA_FOCO_POR_SEMANA_DEFAULT = {
         "1": "0.0%",
@@ -934,6 +998,10 @@
                 ORDEM_MARCAS_SERVIDOR = dados.ordemMarcas;
                 try { localStorage.setItem('ordemMarcasCache', JSON.stringify(ORDEM_MARCAS_SERVIDOR)); } catch (e) { /* ignora */ }
             }
+            if (!Array.isArray(dados) && dados.dadosPicos && typeof dados.dadosPicos === 'object') {
+                DADOS_PICOS_ = dados.dadosPicos;
+                try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+            }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
             try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
@@ -1228,6 +1296,15 @@
      * Se o vendedor previamente selecionado deixar de existir na lista, o
      * filtro volta a "Todos" em vez de ficar preso a um valor inválido.
      */
+    // Nomes que nunca devem ser tratados como "Vendedor" mesmo que apareçam
+    // nessa coluna por engano (ex.: linhas com células desalinhadas no Excel
+    // de origem, onde o dia da semana acaba a cair na coluna errada).
+    const VALORES_INVALIDOS_VENDEDOR_ = new Set([
+        'segunda', 'segunda-feira', 'terça', 'terca', 'terça-feira', 'terca-feira',
+        'quarta', 'quarta-feira', 'quinta', 'quinta-feira', 'sexta', 'sexta-feira',
+        'sábado', 'sabado', 'domingo', 'anual', 'mensal', 'semana', 'todos'
+    ]);
+
     function popularFiltroVendedor_() {
         const selectVendedor = document.getElementById('vendedorSelect');
         if (!selectVendedor) return;
@@ -1238,6 +1315,7 @@
             baseDadosRotas
                 .filter(i => i.comercial === com && i.vendedor && String(i.vendedor).trim() !== '')
                 .map(i => String(i.vendedor).trim())
+                .filter(v => !VALORES_INVALIDOS_VENDEDOR_.has(v.toLowerCase()))
         )).sort((a, b) => a.localeCompare(b));
 
         selectVendedor.innerHTML = `<option value="">Todos</option>` +
@@ -1367,14 +1445,114 @@
         }).join('');
 
         el.innerHTML = `
-            <div class="resumo-card">
-                <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
-                <div class="resumo-grid">${colunas}</div>
-                <div class="resumo-legenda">
-                    <span><span class="dot foco"></span>Foco</span>
-                    <span><span class="dot atingido"></span>Atingido</span>
+            <div class="resumo-foco-linha">
+                <div class="resumo-card">
+                    <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
+                    <div class="resumo-grid">${colunas}</div>
+                    <div class="resumo-legenda">
+                        <span><span class="dot foco"></span>Foco</span>
+                        <span><span class="dot atingido"></span>Atingido</span>
+                    </div>
                 </div>
+                ${renderPicosCardHtml_(com, sem)}
             </div>`;
+    }
+
+    /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
+     *  para o Gestor + Semana atuais — em modo leitura ou em modo edição
+     *  consoante picosEmEdicao_. */
+    function renderPicosCardHtml_(com, sem) {
+        const chave = chavePicos_(com, sem);
+        const dados = DADOS_PICOS_[chave] || { total: 0, efetuadas: 0 };
+        const total = Number(dados.total) || 0;
+        const efetuadas = Number(dados.efetuadas) || 0;
+        const diferenca = total - efetuadas;
+        const comEscapado = String(com || '').replace(/'/g, "\\'");
+        const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((efetuadas / total) * 100))) : 0;
+        const corDiferenca = diferenca > 0 ? 'pendente' : 'concluido';
+
+        const cabecalho = `
+            <div class="picos-card-header">
+                <span class="picos-card-titulo">
+                    <svg class="star-mini" viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+                    Picos
+                </span>`;
+
+        if (picosEmEdicao_ === chave) {
+            return `
+                <div class="picos-card">
+                    ${cabecalho}
+                    </div>
+                    <div class="picos-edit-grid">
+                        <div class="picos-edit-field">
+                            <label>DN Total</label>
+                            <input type="number" min="0" inputmode="numeric" id="picosInputTotal" value="${total}">
+                        </div>
+                        <div class="picos-edit-field">
+                            <label>DN efetuadas</label>
+                            <input type="number" min="0" inputmode="numeric" id="picosInputEfetuadas" value="${efetuadas}">
+                        </div>
+                    </div>
+                    <button class="picos-guardar-btn" onclick="guardarPicos_('${comEscapado}', '${sem}')">Guardar</button>
+                </div>`;
+        }
+
+        return `
+            <div class="picos-card">
+                ${cabecalho}
+                    <button class="picos-editar-btn" title="Editar" onclick="pedirCodigoAcesso_(() => editarPicos_('${comEscapado}', '${sem}'))">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </button>
+                </div>
+                <div class="picos-stats">
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-total">${total}</div>
+                        <div class="picos-stat-label">DN Total</div>
+                    </div>
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
+                        <div class="picos-stat-label">Efetuadas</div>
+                    </div>
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-diferenca ${corDiferenca}">${diferenca}</div>
+                        <div class="picos-stat-label">Diferença</div>
+                    </div>
+                </div>
+                <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
+                <div class="picos-progress-label">${percent}% concluído</div>
+            </div>`;
+    }
+
+    /** Ativa o modo de edição do cartão Picos para este Gestor+Semana
+     *  (chamada depois do código de acesso ser confirmado). */
+    function editarPicos_(com, sem) {
+        picosEmEdicao_ = chavePicos_(com, sem);
+        renderResumoFoco(com, sem);
+        setTimeout(() => {
+            const input = document.getElementById('picosInputTotal');
+            if (input) input.focus();
+        }, 30);
+    }
+
+    /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
+    async function guardarPicos_(com, sem) {
+        const inputTotal = document.getElementById('picosInputTotal');
+        const inputEfetuadas = document.getElementById('picosInputEfetuadas');
+        const total = Math.max(0, parseInt(inputTotal && inputTotal.value, 10) || 0);
+        const efetuadas = Math.max(0, parseInt(inputEfetuadas && inputEfetuadas.value, 10) || 0);
+
+        DADOS_PICOS_[chavePicos_(com, sem)] = { total: total, efetuadas: efetuadas };
+        picosEmEdicao_ = null;
+        renderResumoFoco(com, sem);
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+
+        mostrarIndicadorSync_(true);
+        const resultado = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+        if (!resultado || resultado.ok === false) {
+            console.error('Erro ao guardar Picos na nuvem:', resultado && resultado.erro);
+            mostrarAvisoSync_();
+        }
+        mostrarIndicadorSync_(false);
     }
 
     function mudarDia(d, btn) {
