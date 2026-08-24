@@ -141,7 +141,7 @@
         .modal-pin-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
 
         .filters-grid { display: grid; grid-template-columns: 1fr; gap: 16px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
-        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr; padding: 24px; } }
+        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr 1fr; padding: 24px; } }
         .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
         .filter-control select { width: 100%; padding: 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px; font-weight: 600; background-color: #fff; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
         .days-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px; }
@@ -357,7 +357,7 @@
     <div class="filters-grid">
         <div class="filter-control">
             <label>Gestor</label>
-            <select id="comercialSelect" onchange="atualizarVisualizacao()">
+            <select id="comercialSelect" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
                 <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
                 <option value="Rui Carlos Correia Pratas">Rui Carlos Correia Pratas</option>
@@ -373,6 +373,12 @@
                 <option value="2">Semana 2</option>
                 <option value="3">Semana 3</option>
                 <option value="4">Semana 4</option>
+            </select>
+        </div>
+        <div class="filter-control">
+            <label>Vendedor</label>
+            <select id="vendedorSelect" onchange="atualizarVisualizacao()">
+                <option value="">Todos</option>
             </select>
         </div>
     </div>
@@ -477,7 +483,7 @@
 </div>
 
 <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJoWQTZASCbn_nQXDNA3plu-kUa4qwnx24T8Hx2nzjJ8q4jlDFw8HLzd6yQycQlEA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzBKW2SN43kQBzm-GUE9ZfYNgVcz3jPDiVPX5JaqWg6HjtPWTZv_166uL49A1lrXjQ/exec"; 
 
     // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
     const PRODUCT_CATALOG = [
@@ -640,6 +646,7 @@
     // limpas no servidor e continuavam a aparecer.
     const CABECALHOS_RESERVADOS = new Set([
         'cliente', 'pdv', 'estabelecimento', 'comercial', 'gestor', 'vendedor',
+        'nome vendedor', 'nome do vendedor', 'tipologia',
         'segmento de clientes', 'frequência de visitas', 'frequencia de visitas',
         'dia', 'dia da semana', 'dia semana', 'semana', 'semana do mês', 'id',
         'numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento',
@@ -647,6 +654,14 @@
         'estados', 'estadosjson', 'historico', 'historicojson',
         'semana 1', 'semana 2', 'semana 3', 'semana 4', 'semana 5', 'semana 6'
     ]);
+
+    // Nomes normalizados das colunas "0.0%" e "Preta" — usados para decidir,
+    // por cliente/linha, qual das duas aparece (ver ehColunaZeroZero_ / ehColunaPreta_).
+    function ehColunaZeroZero_(m) { return String(m || '').trim().toLowerCase() === '0.0%'; }
+    function ehColunaPreta_(m) {
+        const n = String(m || '').trim().toLowerCase();
+        return n === 'preta' || n === 'sagres preta';
+    }
 
     /**
      * Conta clientes ÚNICOS por gestor/comercial numa lista de registos vinda do
@@ -1034,6 +1049,8 @@
                     let clienteVal = String(obterValor(['cliente', 'pdv', 'estabelecimento']) || "PDV").trim();
                     let numeroVal = String(obterValor(['numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento', 'número do estabelecimento', 'codigo', 'código']) || '').trim();
                     let comercialVal = normalizarComercial(String(obterValor(['comercial', 'gestor']) || "Sem Gestor").trim());
+                    let vendedorVal = String(obterValor(['vendedor', 'nome vendedor', 'nome do vendedor']) || '').trim();
+                    let tipologiaVal = String(obterValor(['tipologia']) || '').trim();
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
                         ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
@@ -1111,6 +1128,8 @@
                         cliente: clienteVal,
                         numero: numeroVal,
                         comercial: comercialVal,
+                        vendedor: vendedorVal,
+                        tipologia: tipologiaVal,
                         dia: diaVal,
                         semana: semanaVal,
                         estados: estadosObj,
@@ -1202,9 +1221,37 @@
         return `VAZIO`;
     }
 
+    /**
+     * Reconstrói as opções do dropdown "Vendedor" com os vendedores únicos
+     * encontrados nos registos do Gestor atualmente selecionado. Chamada sempre
+     * que o Gestor muda e sempre que chegam novos dados (import Excel / sync).
+     * Se o vendedor previamente selecionado deixar de existir na lista, o
+     * filtro volta a "Todos" em vez de ficar preso a um valor inválido.
+     */
+    function popularFiltroVendedor_() {
+        const selectVendedor = document.getElementById('vendedorSelect');
+        if (!selectVendedor) return;
+        const com = document.getElementById('comercialSelect').value;
+        const valorAnterior = selectVendedor.value;
+
+        const vendedores = Array.from(new Set(
+            baseDadosRotas
+                .filter(i => i.comercial === com && i.vendedor && String(i.vendedor).trim() !== '')
+                .map(i => String(i.vendedor).trim())
+        )).sort((a, b) => a.localeCompare(b));
+
+        selectVendedor.innerHTML = `<option value="">Todos</option>` +
+            vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
+
+        selectVendedor.value = vendedores.includes(valorAnterior) ? valorAnterior : '';
+    }
+
     function atualizarVisualizacao() {
         const com = document.getElementById('comercialSelect').value;
         const sem = document.getElementById('semanaSelect').value;
+        popularFiltroVendedor_();
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const vend = vendedorSelect ? vendedorSelect.value : '';
         
         localStorage.setItem('gestorSelecionado', com);
         localStorage.setItem('semanaSelecionada', sem);
@@ -1218,12 +1265,14 @@
         const diasTabs = document.getElementById('diasTabs');
         if (diasTabs) diasTabs.style.display = emModoPesquisa ? 'none' : '';
 
+        const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
+
         const filtrados = emModoPesquisa
-            ? baseDadosRotas.filter(i => i.comercial === com && (
+            ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && (
                 (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
                 String(i.numero || '').toLowerCase().includes(termoPesquisa)
               ))
-            : baseDadosRotas.filter(i => i.comercial === com && i.semana === sem && i.dia === diaAtualSelecionado);
+            : baseDadosRotas.filter(i => i.comercial === com && i.semana === sem && i.dia === diaAtualSelecionado && passaVendedor(i));
 
         renderResumoFoco(com, sem);
         if(filtrados.length === 0) {
@@ -1253,7 +1302,18 @@
                 </div>
             </td>`;
             
+            const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+            const ehBar = tipologiaNorm === 'bar';
+
             marcasLista.forEach(m => {
+                // Colunas "0.0%" e "Preta" são mutuamente exclusivas consoante a
+                // Tipologia do cliente: Bar -> só Preta; qualquer outra -> só 0.0%.
+                // Quando não há Tipologia definida, mostra ambas normalmente.
+                if (tipologiaNorm) {
+                    if (ehColunaZeroZero_(m) && ehBar) { html += `<td data-label="${m}"></td>`; return; }
+                    if (ehColunaPreta_(m) && !ehBar) { html += `<td data-label="${m}"></td>`; return; }
+                }
+
                 const est = item.estados[m] || "";
                 const hist = item.historico[m] || { mes: false, ano: false, promo: false };
                 const ehPromoMensal = !!hist.promo;
