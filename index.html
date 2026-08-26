@@ -108,6 +108,11 @@
             border-radius: 8px; padding: 7px; font-size: 0.76rem; font-weight: 700; cursor: pointer;
         }
         .picos-guardar-btn:hover { filter: brightness(1.1); }
+        @media (max-width: 767px) {
+            .resumo-foco-linha { flex-direction: column; align-items: stretch; }
+            .picos-card { width: 100%; min-width: 0; }
+            .picos-stat-valor { font-size: 1.1rem; }
+        }
         header h1 {
             margin: 0; color: var(--muted); font-size: 1.05rem; font-weight: 700;
             display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; text-transform: uppercase;
@@ -577,7 +582,9 @@
             if (guardado) DADOS_PICOS_ = JSON.parse(guardado) || {};
         } catch (e) { console.error('Erro ao carregar cache de Picos:', e); }
     })();
-    function chavePicos_(com, sem) { return com + '__' + sem; }
+    // Nota: a chave ignora propositadamente a semana — os valores de Picos
+    // são por Gestor e devem manter-se visíveis/iguais seja qual for a semana selecionada.
+    function chavePicos_(com, sem) { return com; }
     // Chave atualmente em modo de edição (null = nenhuma), para saber qual
     // cartão "PICOS" deve mostrar os campos editáveis em vez dos valores.
     let picosEmEdicao_ = null;
@@ -1344,13 +1351,16 @@
         if (diasTabs) diasTabs.style.display = emModoPesquisa ? 'none' : '';
 
         const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
+        // Com um Vendedor selecionado, o filtro passa a abranger as 4 semanas
+        // (a Semana escolhida no dropdown deixa de restringir os resultados).
+        const passaSemana = i => vend || i.semana === sem;
 
         const filtrados = emModoPesquisa
             ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && (
                 (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
                 String(i.numero || '').toLowerCase().includes(termoPesquisa)
               ))
-            : baseDadosRotas.filter(i => i.comercial === com && i.semana === sem && i.dia === diaAtualSelecionado && passaVendedor(i));
+            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && i.dia === diaAtualSelecionado && passaVendedor(i));
 
         renderResumoFoco(com, sem);
         if(filtrados.length === 0) {
@@ -1362,7 +1372,9 @@
         filtrados.forEach(item => {
             const tr = document.createElement('tr');
             const numeroMeta = item.numero ? `<span class="cliente-meta">Nº ${item.numero}</span>` : '';
-            const diaMeta = emModoPesquisa ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>` : '';
+            const diaMeta = (emModoPesquisa || vend)
+                ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>`
+                : '';
             
             const temNegociado = Object.values(item.estados || {}).includes("NEGOCIADO");
             const botaoEncomendarHtml = temNegociado ? `
