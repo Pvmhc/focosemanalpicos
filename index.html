@@ -627,6 +627,17 @@
             .replace(/\s+/g, ' ')
             .trim();
     }
+
+    /** Deteta se um cabeçalho de coluna do Excel é a coluna "Comprou Este Mês",
+     *  tolerando erros de escrita comuns (ex.: "Compou" sem R, acentos em
+     *  falta, maiúsculas/minúsculas, espaços a mais). Compara só as letras,
+     *  ignorando espaços e pontuação. */
+    function ehCabecalhoComprouMes_(header) {
+        const n = normalizarTexto_(header).replace(/[^a-z]/g, '');
+        if (!n) return false;
+        if (!n.includes('mes')) return n === 'comprou' || n === 'compra';
+        return n.includes('compr') || n.includes('compo') || n.includes('compra');
+    }
     const REGRAS_TIPOLOGIA_ = [
         { match: ['bares'], marcas: ['sagres_bar', 'sagres_garrafa', 'heineken', 'bandida', 'preta'] },
         { match: ['cafe/snack', 'cafe', 'snack'], marcas: ['sagres_bar', 'sagres_garrafa', 'heineken', 'bandida', '0.0%'] },
@@ -662,12 +673,14 @@
         const achar = (fn) => cols.find(fn);
         switch (chaveCanonica) {
             case 'sagres_bar': {
-                let col = achar(c => normalizarTexto_(c).includes('sagres') && normalizarTexto_(c).includes('bar'));
+                let col = achar(c => normalizarTexto_(c).includes('barril'));
+                if (!col) col = achar(c => normalizarTexto_(c).includes('sagres') && normalizarTexto_(c).includes('bar'));
                 if (!col) col = achar(c => normalizarTexto_(c) === 'sagres');
                 return col || null;
             }
             case 'sagres_garrafa': {
-                let col = achar(c => normalizarTexto_(c).includes('sagres') && (normalizarTexto_(c).includes('garrafa') || normalizarTexto_(c).includes('gar')));
+                let col = achar(c => normalizarTexto_(c).includes('garrafa'));
+                if (!col) col = achar(c => normalizarTexto_(c).includes('sagres') && (normalizarTexto_(c).includes('garrafa') || normalizarTexto_(c).includes('gar')));
                 if (!col) col = achar(c => normalizarTexto_(c) === 'sagres');
                 return col || null;
             }
@@ -1317,6 +1330,7 @@
                 const todasColunas = linhaCabecalhos.filter(c => c !== undefined && c !== null && String(c).trim() !== '').map(String);
                 const colunasMarcasDetectadas = todasColunas.filter(c => {
                     const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
+                    if (ehCabecalhoComprouMes_(c)) return false;
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 if (colunasMarcasDetectadas.length > 0) {
@@ -1356,7 +1370,8 @@
                     let comercialVal = normalizarComercial(String(obterValor(['comercial', 'gestor']) || "Sem Gestor").trim());
                     let vendedorVal = String(obterValor(['vendedor', 'nome vendedor', 'nome do vendedor']) || '').trim();
                     let tipologiaVal = String(obterValor(['tipologia']) || '').trim();
-                    let comprouMesRaw = obterValor(['comprou este mes', 'comprou este mês', 'comprou mes', 'comprou mês', 'compra este mes', 'compra este mês', 'já comprou', 'ja comprou', 'comprou']);
+                    const chaveColunaComprouMes = Object.keys(linha).find(k => ehCabecalhoComprouMes_(k));
+                    let comprouMesRaw = chaveColunaComprouMes ? linha[chaveColunaComprouMes] : null;
                     let comprouMesVal = ['sim', 's', 'true', '1', 'x', 'yes'].includes(String(comprouMesRaw || '').trim().toLowerCase());
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
