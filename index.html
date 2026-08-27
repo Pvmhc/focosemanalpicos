@@ -226,9 +226,10 @@
         @keyframes abanarPin { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
         .modal-pin-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
 
-        .filters-grid { display: grid; grid-template-columns: 1fr; gap: 16px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
-        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr 1fr; padding: 24px; } }
-        .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
+        .filters-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
+        .filter-control.full-largura { grid-column: 1 / -1; }
+        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 16px; padding: 24px; } .filter-control.full-largura { grid-column: auto; } }
+        .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .filter-control select { width: 100%; padding: 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px; font-weight: 600; background-color: #fff; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
         .days-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px; }
         .tab-btn { flex: 1; min-width: 90px; padding: 12px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
@@ -448,7 +449,7 @@
     <div id="impressaoSemanal"></div>
 
     <div class="filters-grid">
-        <div class="filter-control">
+        <div class="filter-control full-largura">
             <label>Gestor</label>
             <select id="comercialSelect" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
@@ -472,6 +473,17 @@
             <label>Vendedor</label>
             <select id="vendedorSelect" onchange="atualizarVisualizacao()">
                 <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-control full-largura">
+            <label>Marcas colocadas (mês)</label>
+            <select id="marcasColocadasSelect" onchange="atualizarVisualizacao()">
+                <option value="">Todas</option>
+                <option value="0">0 marcas</option>
+                <option value="1">1 marca</option>
+                <option value="2">2 marcas</option>
+                <option value="3">3 marcas</option>
+                <option value="4+">4+ marcas</option>
             </select>
         </div>
     </div>
@@ -1675,25 +1687,48 @@
 
         const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
         const emModoPesquisa = termoPesquisa.length > 0;
+
+        const marcasColocadasSelect = document.getElementById('marcasColocadasSelect');
+        const marcasColocadasFiltro = marcasColocadasSelect ? marcasColocadasSelect.value : '';
+        const emModoMarcasColocadas = marcasColocadasFiltro !== '';
+
         const diasTabs = document.getElementById('diasTabs');
-        if (diasTabs) diasTabs.style.display = emModoPesquisa ? 'none' : '';
+        if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas) ? 'none' : '';
 
         const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
-        // Com um Vendedor selecionado, o filtro passa a abranger o mês todo:
-        // ignora tanto a Semana escolhida no dropdown como o Dia (tab) atual.
-        const passaSemana = i => vend || i.semana === sem;
-        const passaDia = i => vend || i.dia === diaAtualSelecionado;
+        // Com um Vendedor selecionado, OU com o filtro "Marcas colocadas (mês)"
+        // ativo, o filtro passa a abranger o mês todo: ignora tanto a Semana
+        // escolhida no dropdown como o Dia (tab) atual.
+        const passaSemana = i => vend || emModoMarcasColocadas || i.semana === sem;
+        const passaDia = i => vend || emModoMarcasColocadas || i.dia === diaAtualSelecionado;
 
-        const filtrados = emModoPesquisa
-            ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && (
+        const passaMarcasColocadas = i => {
+            if (marcasColocadasFiltro === '') return true;
+            const n = contarMarcasColocadasMes_(i);
+            if (marcasColocadasFiltro === '4+') return n >= 4;
+            return n === parseInt(marcasColocadasFiltro, 10);
+        };
+
+        let filtrados = emModoPesquisa
+            ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && passaMarcasColocadas(i) && (
                 (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
                 String(i.numero || '').toLowerCase().includes(termoPesquisa)
               ))
-            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i));
+            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i) && passaMarcasColocadas(i));
+
+        // Com o filtro "Marcas colocadas (mês)" ativo, o mesmo cliente pode
+        // aparecer em várias linhas (dias/semanas diferentes da rota) — como
+        // agora se abrange o mês todo, remove-se as repetições e mantém-se
+        // apenas 1 linha por cliente único.
+        if (emModoMarcasColocadas) {
+            filtrados = deduplicarClientesUnicos_(filtrados);
+        }
 
         renderResumoFoco(com, sem);
         if(filtrados.length === 0) {
-            const mensagem = emModoPesquisa ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.` : 'Sem rota agendada.';
+            const mensagem = emModoPesquisa
+                ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.`
+                : (emModoMarcasColocadas ? 'Sem clientes com esse número de marcas colocadas este mês.' : 'Sem rota agendada.');
             corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
             return;
         }
@@ -1704,7 +1739,7 @@
                 ? `<span class="icone-comprou sim" title="Já comprou este mês">✅ Comprou</span>`
                 : `<span class="icone-comprou nao" title="Ainda não comprou este mês">○ Não comprou</span>`;
             const numeroMeta = item.numero ? `<span class="cliente-meta">Nº ${item.numero} ${iconeComprouHtml}</span>` : '';
-            const diaMeta = (emModoPesquisa || vend)
+            const diaMeta = (emModoPesquisa || vend || emModoMarcasColocadas)
                 ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>`
                 : '';
             
@@ -1781,6 +1816,26 @@
         const marcasReq = obterRegraTipologia_(tipologiaRaw);
         if (marcasReq === null) return true;
         return marcasReq.some(chaveCanonica => resolverColunaMarca_(chaveCanonica) === coluna);
+    }
+
+    /** Conta quantas marcas um cliente já tem "colocadas" (comprou) este mês —
+     *  ou seja, colunas com o círculo do mês aceso (historico[m].mes === true).
+     *  Segue a mesma lógica de exclusão 0.0%/Preta usada na tabela, para não
+     *  contar colunas que nem sequer se aplicam à Tipologia do cliente. */
+    function contarMarcasColocadasMes_(item) {
+        const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+        const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+        const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
+        let total = 0;
+        marcasLista.forEach(m => {
+            if (tipologiaNorm) {
+                if (ehColunaZeroZero_(m) && ehBar) return;
+                if (ehColunaPreta_(m) && !ehBar) return;
+            }
+            const hist = (item.historico && item.historico[m]) || {};
+            if (hist.mes) total++;
+        });
+        return total;
     }
 
     function renderResumoFoco(com, sem) {
