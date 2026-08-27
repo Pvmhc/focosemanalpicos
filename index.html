@@ -1087,6 +1087,27 @@
             try {
                 const livro = XLSX.read(e.target.result, { type: 'binary' });
                 const folha = livro.Sheets[livro.SheetNames[0]];
+
+                // Preenche células fundidas (merged cells): o SheetJS só devolve
+                // valor na célula "principal" (canto superior-esquerdo) de uma
+                // fusão; as restantes ficam undefined. Isto causava, por exemplo,
+                // o "vendedor" aparecer vazio em linhas cobertas por uma célula
+                // fundida que repete o mesmo nome ao longo de várias linhas.
+                if (folha['!merges']) {
+                    folha['!merges'].forEach(fusao => {
+                        const celulaPrincipalRef = XLSX.utils.encode_cell({ r: fusao.s.r, c: fusao.s.c });
+                        const celulaPrincipal = folha[celulaPrincipalRef];
+                        if (!celulaPrincipal) return;
+                        for (let r = fusao.s.r; r <= fusao.e.r; r++) {
+                            for (let c = fusao.s.c; c <= fusao.e.c; c++) {
+                                if (r === fusao.s.r && c === fusao.s.c) continue;
+                                const ref = XLSX.utils.encode_cell({ r, c });
+                                folha[ref] = { t: celulaPrincipal.t, v: celulaPrincipal.v, w: celulaPrincipal.w };
+                            }
+                        }
+                    });
+                }
+
                 const linhas = XLSX.utils.sheet_to_json(folha);
                 let idTemp = 1;
                 let listaNovosDados = [];
