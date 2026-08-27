@@ -113,6 +113,38 @@
             .picos-card { width: 100%; min-width: 0; }
             .picos-stat-valor { font-size: 1.1rem; }
         }
+
+        /* --- Link para o Vendedor / Modo de leitura --- */
+        .link-vendedor-row { display: flex; justify-content: flex-end; margin: -6px 0 4px; }
+        .btn-link-vendedor {
+            display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+            border-radius: 8px; border: 1px solid var(--border); background: #fff;
+            color: var(--muted); font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        }
+        .btn-link-vendedor svg { width: 15px; height: 15px; }
+        .btn-link-vendedor:hover { border-color: #ff2b2b; color: #ff2b2b; }
+        .cabecalho-modo-vendedor { display: none; }
+        body.modo-vendedor-view .cabecalho-modo-vendedor {
+            display: block; background: #fff; border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 14px; margin-bottom: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem;
+        }
+        /* Neste modo é só de leitura — escondem-se os controlos de gestão/edição */
+        body.modo-vendedor-view .actions-card,
+        body.modo-vendedor-view .filters-grid,
+        body.modo-vendedor-view .search-row,
+        body.modo-vendedor-view .days-tabs,
+        body.modo-vendedor-view .link-vendedor-row,
+        body.modo-vendedor-view #resumoFoco,
+        body.modo-vendedor-view .btn-cart {
+            display: none !important;
+        }
+        body.modo-vendedor-view .btn-estado { cursor: default; }
+        /* Destaque das marcas Negociado no modo vendedor */
+        body.modo-vendedor-view tr.linha-negociado { background: var(--negociado-bg); }
+        body.modo-vendedor-view .btn-estado.negociado {
+            border: 2px solid var(--negociado-color); font-weight: 800; box-shadow: 0 0 0 2px var(--negociado-bg);
+        }
+
         header h1 {
             margin: 0; color: var(--muted); font-size: 1.05rem; font-weight: 700;
             display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; text-transform: uppercase;
@@ -435,6 +467,15 @@
                 <option value="">Todos</option>
             </select>
         </div>
+    </div>
+
+    <div id="cabecalhoModoVendedor" class="cabecalho-modo-vendedor"></div>
+
+    <div class="link-vendedor-row">
+        <button class="btn-action btn-link-vendedor" id="btnCopiarLinkVendedor" onclick="copiarLinkVendedor_()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 007.07 7.07l1.5-1.5"/></svg>
+            Copiar link para o Vendedor
+        </button>
     </div>
 
     <div class="search-row">
@@ -857,6 +898,72 @@
     let baseDadosRotas = [];
     let diaAtualSelecionado = "Segunda";
 
+    // --- MODO "LINK PARA O VENDEDOR" (via parâmetros na URL) ---
+    // Quando o link é aberto com ?modo=vendedor&comercial=...&vendedor=...,
+    // a página fica só de leitura: seleciona automaticamente o Gestor/Vendedor,
+    // esconde os controlos de edição e mostra os clientes todos do mês, com as
+    // marcas Negociado destacadas.
+    const PARAMS_URL_ = new URLSearchParams(window.location.search);
+    const MODO_VENDEDOR_ATIVO_ = PARAMS_URL_.get('modo') === 'vendedor';
+    const COMERCIAL_URL_ = PARAMS_URL_.get('comercial') || '';
+    const VENDEDOR_URL_ = PARAMS_URL_.get('vendedor') || '';
+    let modoVendedorAplicado_ = false;
+    if (MODO_VENDEDOR_ATIVO_) document.body.classList.add('modo-vendedor-view');
+
+    function aplicarModoVendedorSeNecessario_() {
+        if (!MODO_VENDEDOR_ATIVO_ || modoVendedorAplicado_) return;
+        const selectComercial = document.getElementById('comercialSelect');
+        const selectVendedor = document.getElementById('vendedorSelect');
+        if (COMERCIAL_URL_ && Array.from(selectComercial.options).some(o => o.value === COMERCIAL_URL_)) {
+            selectComercial.value = COMERCIAL_URL_;
+        }
+        popularFiltroVendedor_();
+        if (VENDEDOR_URL_ && Array.from(selectVendedor.options).some(o => o.value === VENDEDOR_URL_)) {
+            selectVendedor.value = VENDEDOR_URL_;
+            modoVendedorAplicado_ = true;
+        }
+        document.body.classList.add('modo-vendedor-view');
+        const cabecalho = document.getElementById('cabecalhoModoVendedor');
+        if (cabecalho) {
+            cabecalho.textContent = `Vendedor: ${selectVendedor.value || VENDEDOR_URL_} · Gestor: ${selectComercial.value}`;
+        }
+        atualizarVisualizacao();
+    }
+
+    function copiarLinkVendedor_() {
+        const com = document.getElementById('comercialSelect').value;
+        const vend = document.getElementById('vendedorSelect').value;
+        if (!vend) { alert('Seleciona primeiro um Vendedor específico (não "Todos").'); return; }
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.searchParams.set('modo', 'vendedor');
+        url.searchParams.set('comercial', com);
+        url.searchParams.set('vendedor', vend);
+        const link = url.toString();
+
+        const feedback = (ok) => {
+            const btn = document.getElementById('btnCopiarLinkVendedor');
+            if (!btn) return;
+            const textoOriginal = btn.textContent;
+            btn.textContent = ok ? 'Link copiado!' : 'Erro ao copiar';
+            setTimeout(() => { btn.textContent = textoOriginal; }, 1800);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(() => feedback(true)).catch(() => feedback(false));
+        } else {
+            try {
+                const tmp = document.createElement('textarea');
+                tmp.value = link;
+                document.body.appendChild(tmp);
+                tmp.select();
+                document.execCommand('copy');
+                document.body.removeChild(tmp);
+                feedback(true);
+            } catch (e) { feedback(false); }
+        }
+    }
+
     // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
     const CODIGO_ACESSO_ = '2363';
     let acaoPendentePin_ = null;
@@ -1011,6 +1118,7 @@
             }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
+            aplicarModoVendedorSeNecessario_();
             try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
         } catch(e) {
             console.error("Erro ao ler nuvem: ", e);
@@ -1290,6 +1398,7 @@
     }
 
     function alternarEstado(idRegisto, marca) {
+        if (MODO_VENDEDOR_ATIVO_) return; // link do vendedor é só de leitura
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
         if (registo) {
             // Usa SEMPRE a semana do próprio registo (registo.semana), nunca o valor
@@ -1370,6 +1479,9 @@
         localStorage.setItem('gestorSelecionado', com);
         localStorage.setItem('semanaSelecionada', sem);
 
+        const btnLinkVendedor = document.getElementById('btnCopiarLinkVendedor');
+        if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = vend ? '' : 'none';
+
         const corpo = document.getElementById('tabelaVisitas');
         if (!corpo) return;
         corpo.innerHTML = '';
@@ -1380,16 +1492,17 @@
         if (diasTabs) diasTabs.style.display = emModoPesquisa ? 'none' : '';
 
         const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
-        // Com um Vendedor selecionado, o filtro passa a abranger as 4 semanas
-        // (a Semana escolhida no dropdown deixa de restringir os resultados).
+        // Com um Vendedor selecionado, o filtro passa a abranger o mês todo:
+        // ignora tanto a Semana escolhida no dropdown como o Dia (tab) atual.
         const passaSemana = i => vend || i.semana === sem;
+        const passaDia = i => vend || i.dia === diaAtualSelecionado;
 
         const filtrados = emModoPesquisa
             ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && (
                 (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
                 String(i.numero || '').toLowerCase().includes(termoPesquisa)
               ))
-            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && i.dia === diaAtualSelecionado && passaVendedor(i));
+            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i));
 
         renderResumoFoco(com, sem);
         if(filtrados.length === 0) {
@@ -1458,6 +1571,7 @@
                         </div>
                     </td>`;
             });
+            if (temNegociado) tr.classList.add('linha-negociado');
             tr.innerHTML = html;
             corpo.appendChild(tr);
         });
@@ -2008,6 +2122,7 @@
         if (cache) {
             baseDadosRotas = JSON.parse(cache);
             atualizarVisualizacao();
+            aplicarModoVendedorSeNecessario_();
         }
     } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
 
