@@ -692,22 +692,45 @@
     }
 
     /** Calcula automaticamente, para um Gestor, o total de marcas POSSÍVEIS
-     *  a fazer (todos os clientes que já compraram este mês × marcas
-     *  exigidas pela Tipologia de cada um), e quantas dessas já estão
-     *  efetivamente feitas (OK, ou Negociado + Colocou). */
+     *  a fazer (todos os clientes ÚNICOS que já compraram este mês × marcas
+     *  exigidas pela Tipologia de cada um), e quantas dessas já têm a "bola"
+     *  de compra do mês (hist.mes) ativa para essa marca.
+     *
+     *  Cada cliente pode aparecer várias vezes em baseDadosRotas — uma linha
+     *  por cada dia/semana em que é visitado na rota do mês — por isso é
+     *  agrupado por identidade única (número do estabelecimento, ou nome
+     *  quando não há número) antes de contar, para não multiplicar o mesmo
+     *  cliente/marca por cada semana em que aparece. */
     function calcularPicosAutomatico_(com) {
-        const registosGestor = (baseDadosRotas || []).filter(r => r.comercial === com && r.comprouMes);
-        let totalPossivel = 0, efetuadas = 0;
+        const registosGestor = (baseDadosRotas || []).filter(r => r.comercial === com);
+
+        const porCliente = {};
         registosGestor.forEach(r => {
-            const marcasReq = obterRegraTipologia_(r.tipologia);
+            const chave = chaveClienteUnica_(r);
+            if (!porCliente[chave]) {
+                porCliente[chave] = { tipologia: r.tipologia, comprouMes: false, historico: {} };
+            }
+            const acc = porCliente[chave];
+            if (r.comprouMes) acc.comprouMes = true;
+            Object.keys(r.historico || {}).forEach(m => {
+                const h = r.historico[m] || {};
+                if (!acc.historico[m]) acc.historico[m] = { mes: false, ano: false };
+                if (h.mes) acc.historico[m].mes = true;
+                if (h.ano) acc.historico[m].ano = true;
+            });
+        });
+
+        let totalPossivel = 0, efetuadas = 0;
+        Object.values(porCliente).forEach(cli => {
+            if (!cli.comprouMes) return;
+            const marcasReq = obterRegraTipologia_(cli.tipologia);
             if (!marcasReq || marcasReq.length === 0) return;
             marcasReq.forEach(chaveCanonica => {
                 totalPossivel++;
                 const coluna = resolverColunaMarca_(chaveCanonica);
                 if (!coluna) return;
-                const est = r.estados && r.estados[coluna];
-                const efetuado = est === 'OK' || (est === 'NEGOCIADO' && r.colocou && r.colocou[coluna]);
-                if (efetuado) efetuadas++;
+                const hist = cli.historico[coluna];
+                if (hist && hist.mes) efetuadas++;
             });
         });
         return { totalPossivel: totalPossivel, efetuadas: efetuadas };
@@ -881,6 +904,32 @@
     }
 
     /**
+     * Chave única de um cliente: usa o "número" do estabelecimento quando
+     * existe (mais fiável), caindo para o nome (normalizado) quando não há
+     * número. Usada em todo o lado onde um cliente não pode ser contado mais
+     * do que 1 vez, mesmo aparecendo em várias linhas (dias/semanas
+     * diferentes) de baseDadosRotas.
+     */
+    function chaveClienteUnica_(r) {
+        const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
+        return numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+    }
+
+    /** Reduz uma lista de registos a 1 linha por cliente único (mantém a
+     *  primeira ocorrência de cada). */
+    function deduplicarClientesUnicos_(registos) {
+        const vistos = new Set();
+        const unicos = [];
+        registos.forEach(r => {
+            const chave = chaveClienteUnica_(r);
+            if (vistos.has(chave)) return;
+            vistos.add(chave);
+            unicos.push(r);
+        });
+        return unicos;
+    }
+
+    /**
      * Conta clientes ÚNICOS por gestor/comercial numa lista de registos vinda do
      * import Excel. Um mesmo cliente pode aparecer várias vezes (dias/semanas
      * diferentes) — conta-se só 1 vez por gestor. A identidade do cliente usa o
@@ -890,8 +939,7 @@
     function contarClientesUnicosPorGestor_(linhas) {
         const porGestor = {}; // comercial -> Set de chaves únicas
         linhas.forEach(r => {
-            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
-            const chave = numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+            const chave = chaveClienteUnica_(r);
             const gestor = String(r.comercial || 'Sem Gestor').trim();
             if (!porGestor[gestor]) porGestor[gestor] = new Set();
             porGestor[gestor].add(chave);
@@ -899,10 +947,7 @@
         const linhasResumo = Object.keys(porGestor)
             .map(gestor => ({ gestor, total: porGestor[gestor].size }))
             .sort((a, b) => b.total - a.total || a.gestor.localeCompare(b.gestor));
-        const totalGeral = new Set(linhas.map(r => {
-            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
-            return numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
-        })).size;
+        const totalGeral = new Set(linhas.map(r => chaveClienteUnica_(r))).size;
         return { linhasResumo, totalGeral };
     }
 
@@ -939,8 +984,7 @@
     function calcularCoberturaPorMarca_() {
         const clientesUnicos = {}; // chave única do cliente -> { marca: true/false }
         baseDadosRotas.forEach(r => {
-            const numero = (r.numero !== undefined && r.numero !== null) ? String(r.numero).trim() : '';
-            const chave = numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
+            const chave = chaveClienteUnica_(r);
             if (!clientesUnicos[chave]) clientesUnicos[chave] = {};
             marcasLista.forEach(m => {
                 const hist = (r.historico && r.historico[m]) || {};
@@ -1725,7 +1769,9 @@
         const el = document.getElementById('resumoFoco');
         if (!el) return;
 
-        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
+        // Um mesmo cliente pode ter mais do que uma linha nesta semana (ex.:
+        // visitado em mais do que um dia) — conta-se só 1 vez.
+        const registos = deduplicarClientesUnicos_(baseDadosRotas.filter(i => i.comercial === com && i.semana === sem));
 
         const colunas = marcasLista.map(m => {
             // Só conta clientes cuja Tipologia exige esta marca (ver tabela
