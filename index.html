@@ -244,7 +244,7 @@
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; fill: var(--muted); pointer-events: none; }
         .cliente-meta { display: block; font-size: 0.7rem; font-weight: 600; color: var(--muted); margin-top: 2px; }
         .icone-comprou {
-            display: inline-flex; align-items: center; gap: 3px; margin-left: 6px;
+            display: none !important; align-items: center; gap: 3px; margin-left: 6px;
             font-size: 0.66rem; font-weight: 800; padding: 1px 6px; border-radius: 999px;
             vertical-align: middle;
         }
@@ -708,9 +708,17 @@
         registosGestor.forEach(r => {
             const chave = chaveClienteUnica_(r);
             if (!porCliente[chave]) {
-                porCliente[chave] = { tipologia: r.tipologia, comprouMes: false, historico: {} };
+                porCliente[chave] = { tipologia: '', comprouMes: false, historico: {} };
             }
             const acc = porCliente[chave];
+            // A Tipologia pertence ao cliente único. Se a primeira linha vier
+            // vazia, aproveita uma tipologia preenchida noutra linha da rota.
+            if (!acc.tipologia && String(r.tipologia || '').trim()) {
+                acc.tipologia = String(r.tipologia).trim();
+            }
+            // O cliente conta como comprador do mês se QUALQUER uma das suas
+            // linhas indicar comprouMes = sim. As restantes linhas são apenas
+            // repetições da visita desse mesmo cliente.
             if (r.comprouMes) acc.comprouMes = true;
             Object.keys(r.historico || {}).forEach(m => {
                 const h = r.historico[m] || {};
@@ -721,6 +729,7 @@
         });
 
         let totalPossivel = 0, efetuadas = 0;
+        const clientesComCompraMes = Object.values(porCliente).filter(cli => cli.comprouMes).length;
         Object.values(porCliente).forEach(cli => {
             if (!cli.comprouMes) return;
             const marcasReq = obterRegraTipologia_(cli.tipologia);
@@ -733,7 +742,7 @@
                 if (hist && hist.mes) efetuadas++;
             });
         });
-        return { totalPossivel: totalPossivel, efetuadas: efetuadas };
+        return { totalPossivel: totalPossivel, efetuadas: efetuadas, clientesComCompraMes: clientesComCompraMes };
     }
     // Ordem real das colunas de marca, tal como aparece no cabeçalho do último
     // Excel importado. Persistida no servidor (config 'ordemMarcas') para que
@@ -741,9 +750,10 @@
     // sincronização por ordem alfabética.
     let ORDEM_MARCAS_SERVIDOR = [];
 
-    // Dados manuais "PICOS" (DN Total / DN efetuadas) por Gestor + Semana — editáveis
-    // apenas com o código de acesso, e sincronizados no servidor via 'guardar_config'
-    // (mesmo mecanismo já usado para marcaFocoPorSemana / ordemMarcas).
+    // Dados manuais "PICOS": a percentagem do objetivo é guardada por
+    // GESTOR + MÊS. A semana selecionada NÃO faz parte da chave porque os PICOS
+    // são um objetivo mensal e o universo de cálculo é o conjunto de clientes
+    // únicos do gestor que compraram neste mês.
     let DADOS_PICOS_ = {};
     (function carregarPicosCache_() {
         try {
@@ -751,9 +761,17 @@
             if (guardado) DADOS_PICOS_ = JSON.parse(guardado) || {};
         } catch (e) { console.error('Erro ao carregar cache de Picos:', e); }
     })();
-    // Nota: a chave ignora propositadamente a semana — os valores de Picos
-    // são por Gestor e devem manter-se visíveis/iguais seja qual for a semana selecionada.
-    function chavePicos_(com, sem) { return com; }
+
+    function chaveMesPicos_() {
+        const agora = new Date();
+        return agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0');
+    }
+
+    function chavePicos_(com, sem) {
+        // `sem` é mantido na assinatura para não obrigar a alterar os pontos
+        // existentes que chamam esta função; não entra na chave.
+        return String(com || '').trim() + '||' + chaveMesPicos_();
+    }
     // Chave atualmente em modo de edição (null = nenhuma), para saber qual
     // cartão "PICOS" deve mostrar os campos editáveis em vez dos valores.
     let picosEmEdicao_ = null;
@@ -1808,7 +1826,7 @@
     }
 
     /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
-     *  para o Gestor + Semana atuais — em modo leitura ou em modo edição
+     *  para o Gestor + Mês atual (independente da semana selecionada) — em modo leitura ou em modo edição
      *  consoante picosEmEdicao_. */
     function renderPicosCardHtml_(com, sem) {
         const chave = chavePicos_(com, sem);
@@ -1818,6 +1836,7 @@
         const auto = calcularPicosAutomatico_(com);
         const totalPossivel = auto.totalPossivel;
         const efetuadas = auto.efetuadas;
+        const clientesComCompraMes = auto.clientesComCompraMes || 0;
         const total = Math.round(totalPossivel * (objetivoPercent / 100));
         const diferenca = total - efetuadas;
         const comEscapado = String(com || '').replace(/'/g, "\\'");
@@ -1865,6 +1884,7 @@
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-total">${total}</div>
                         <div class="picos-stat-label">DN Objetivo</div>
+                        <div style="font-size:0.68rem; color:var(--muted); margin-top:3px; white-space:nowrap;">${clientesComCompraMes} clientes</div>
                     </div>
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
@@ -1880,7 +1900,7 @@
             </div>`;
     }
 
-    /** Ativa o modo de edição do cartão Picos para este Gestor+Semana
+    /** Ativa o modo de edição do cartão Picos para este Gestor + Mês
      *  (chamada depois do código de acesso ser confirmado). */
     function editarPicos_(com, sem) {
         picosEmEdicao_ = chavePicos_(com, sem);
