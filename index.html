@@ -655,8 +655,7 @@
         { match: ['hotel premium', 'hotelpremium'], marcas: ['sagres_garrafa', '0.0%'] },
         { match: ['mini-mercado on-the-go', 'mini mercado on-the-go', 'on-the-go'], marcas: [] }
     ];
-    // NOTA: "Hotel Standard" tinha só 1x assinalado na tabela (Sagres Garrafa)
-    // mas contagem de Marcas = 2 — assumido 0.0% como segunda marca, a confirmar.
+    // NOTA: "Hotel Standard" — confirmado por imagem da tabela: Sagres Garrafa + 0.0%.
 
     function obterRegraTipologia_(tipologiaRaw) {
         const norm = normalizarTexto_(tipologiaRaw);
@@ -978,7 +977,10 @@
             if (r.estados) Object.keys(r.estados).forEach(m => setMarcas.add(m));
             if (r.historico) Object.keys(r.historico).forEach(m => setMarcas.add(m));
         });
-        const chaves = Array.from(setMarcas);
+        // A coluna "Comprou Este Mês" nunca deve aparecer como se fosse uma marca
+        // (nem na tabela nem nos cartões de Picos/Resumo) — mesmo que já tenha
+        // ficado gravada como tal em dados antigos vindos do servidor.
+        const chaves = Array.from(setMarcas).filter(m => !ehCabecalhoComprouMes_(m));
         if (chaves.length === 0) { renderCabecalhoTabela(); return; }
 
         if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
@@ -1293,6 +1295,18 @@
         ind.style.display = contadorSyncAtivos_ > 0 ? 'flex' : 'none';
     }
 
+    /** Interpreta o valor da coluna "Comprou Este Mês" como Sim/Não. Em vez de
+     *  exigir um conjunto fixo de palavras para "Sim" (o que falhava sempre que
+     *  o Excel usava outro texto, ex.: "Comprou", "OK", "Efetuado"...), trata
+     *  como Não apenas os valores claramente negativos ou vazios — qualquer
+     *  outro conteúdo na célula conta como Sim. */
+    function interpretarComprouMes_(valorBruto) {
+        const n = normalizarTexto_(valorBruto).replace(/[^a-z0-9]/g, '');
+        if (!n) return false;
+        const NEGATIVOS = new Set(['nao', 'n', 'no', 'false', '0', 'naocomprou']);
+        return !NEGATIVOS.has(n);
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -1372,7 +1386,7 @@
                     let tipologiaVal = String(obterValor(['tipologia']) || '').trim();
                     const chaveColunaComprouMes = Object.keys(linha).find(k => ehCabecalhoComprouMes_(k));
                     let comprouMesRaw = chaveColunaComprouMes ? linha[chaveColunaComprouMes] : null;
-                    let comprouMesVal = ['sim', 's', 'true', '1', 'x', 'yes'].includes(String(comprouMesRaw || '').trim().toLowerCase());
+                    let comprouMesVal = interpretarComprouMes_(comprouMesRaw);
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
                         ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
@@ -1649,7 +1663,13 @@
             </td>`;
             
             const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
-            const ehBar = tipologiaNorm === 'bar';
+            // "Bar" deixou de ser comparado por igualdade exata ao texto "bar" —
+            // isso falhava para tipologias como "Bares" ou "Sports Bar e Pubs".
+            // Em vez disso, usa a mesma tabela Tipo→Marcas (REGRAS_TIPOLOGIA_):
+            // é "bar" para este efeito qualquer tipologia cuja lista de marcas
+            // exigidas inclua "preta" (Bares, Sports Bar e Pubs).
+            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
 
             marcasLista.forEach(m => {
                 // Colunas "0.0%" e "Preta" são mutuamente exclusivas consoante a
@@ -1691,6 +1711,16 @@
         });
     }
 
+    /** Diz se a coluna de marca `coluna` conta para a Tipologia indicada,
+     *  segundo a tabela Tipo→Marcas (REGRAS_TIPOLOGIA_). Tipologias que não
+     *  batem certo com nenhuma regra (vazias, não mapeadas) não são filtradas
+     *  — mantém-se o comportamento anterior para não esconder dados por engano. */
+    function marcaAplicavelParaTipologia_(coluna, tipologiaRaw) {
+        const marcasReq = obterRegraTipologia_(tipologiaRaw);
+        if (marcasReq === null) return true;
+        return marcasReq.some(chaveCanonica => resolverColunaMarca_(chaveCanonica) === coluna);
+    }
+
     function renderResumoFoco(com, sem) {
         const el = document.getElementById('resumoFoco');
         if (!el) return;
@@ -1698,8 +1728,12 @@
         const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
 
         const colunas = marcasLista.map(m => {
-            const foco = registos.filter(r => (r.estados && r.estados[m]) === 'FOCO' || (r.estados && r.estados[m]) === 'FOCOSEMANAL').length;
-            const atingido = registos.filter(r => {
+            // Só conta clientes cuja Tipologia exige esta marca (ver tabela
+            // Tipo→Marcas) — evita inflacionar/desinflacionar Foco/Atingido
+            // com marcas que nem sequer se aplicam ao tipo de estabelecimento.
+            const registosAplicaveis = registos.filter(r => marcaAplicavelParaTipologia_(m, r.tipologia));
+            const foco = registosAplicaveis.filter(r => (r.estados && r.estados[m]) === 'FOCO' || (r.estados && r.estados[m]) === 'FOCOSEMANAL').length;
+            const atingido = registosAplicaveis.filter(r => {
                 const est = r.estados && r.estados[m];
                 if (est === 'OK') return true;
                 if (est === 'NEGOCIADO' && r.colocou && r.colocou[m]) return true;
@@ -1768,7 +1802,7 @@
                         </div>
                     </div>
                     <div style="font-size:0.7rem; color:var(--muted); margin-bottom:9px;">
-                        DN Total = ${totalPossivel} × Objetivo → <strong id="picosPreviewTotal">${total}</strong>
+                        DN Objetivo = ${totalPossivel} × Objetivo → <strong id="picosPreviewTotal">${total}</strong>
                     </div>
                     <button class="picos-guardar-btn" onclick="guardarPicos_('${comEscapado}', '${sem}')">Guardar Objetivo</button>
                 </div>`;
@@ -1784,7 +1818,7 @@
                 <div class="picos-stats">
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-total">${total}</div>
-                        <div class="picos-stat-label">DN Total</div>
+                        <div class="picos-stat-label">DN Objetivo</div>
                     </div>
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
