@@ -1129,7 +1129,15 @@
 
                 linhas.forEach(linha => {
                     const obterValor = (chaves) => {
-                        const k = Object.keys(linha).find(key => chaves.includes(key.trim().toLowerCase()));
+                        // 1ª tentativa: correspondência exata (só minúsculas, sem
+                        // apagar espaços/quebras de linha do cabeçalho). Evita que
+                        // uma coluna antiga/mal rotulada como "Vendedor\n" (que só
+                        // bate certo depois de trim) ganhe a uma coluna limpa como
+                        // "vendedor" que já bate certo sem trim nenhum.
+                        let k = Object.keys(linha).find(key => chaves.includes(key.toLowerCase()));
+                        // 2ª tentativa (fallback): com trim, para cabeçalhos com
+                        // espaços a mais que não tenham duplicado.
+                        if (!k) k = Object.keys(linha).find(key => chaves.includes(key.trim().toLowerCase()));
                         return k ? linha[k] : null;
                     };
                     
