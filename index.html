@@ -158,9 +158,14 @@
         .resumo-foco { flex: 1; }
         @media (min-width: 768px) { header { flex-direction: row-reverse; } header .resumo-foco { padding-left: 0; padding-right: 24px; border-left: none; border-right: 1px solid var(--border); } }
         
-        .actions-bar { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; justify-content: flex-start; align-items: center; }
-        .actions-divider { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; display: none; }
-        @media (min-width: 768px) { .actions-divider { display: block; } }
+        .actions-bar {
+            display: flex; flex-wrap: nowrap; gap: 8px; width: 100%; justify-content: center; align-items: stretch;
+        }
+        .actions-bar > .btn-action,
+        .actions-bar > .settings-menu-wrapper { flex: 1 1 0; min-width: 0; max-width: 240px; }
+        .actions-bar > .btn-action { white-space: normal; text-align: center; }
+        .settings-menu-wrapper .btn-action { width: 100%; max-width: none; }
+        .actions-divider { display: none; }
         
         .btn-action {
             padding: 10px 14px; 
@@ -194,6 +199,30 @@
         }
         .btn-limpar:hover { background-color: #dc2626; color: #fff; filter: none; }
         .btn-focosemanal { background-color: #2563eb; }
+
+        /* --- Menu "Definições" (agrupa PDF / Excel / Marca Foco, ações menos
+           usadas no dia-a-dia, atrás de um único botão) --- */
+        .settings-menu-wrapper { position: relative; }
+        .btn-settings { background-color: var(--muted); }
+        .btn-settings.aberto { filter: brightness(0.9); }
+        .settings-menu {
+            display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            box-shadow: 0 10px 30px -10px rgba(11,12,16,.25);
+            min-width: 180px; padding: 6px; flex-direction: column; gap: 2px;
+        }
+        .settings-menu.aberto { display: flex; }
+        .settings-menu-item {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 10px 10px; border: none; background: none; border-radius: 7px;
+            font-size: 0.86rem; font-weight: 700; color: var(--text); cursor: pointer;
+            text-align: left;
+        }
+        .settings-menu-item:hover { background: var(--bg); }
+        .settings-menu-item svg { width: 16px; height: 16px; flex: 0 0 auto; }
+        .settings-menu-item.item-pdf svg { color: #0b0c10; }
+        .settings-menu-item.item-excel svg { color: #1e7b46; }
+        .settings-menu-item.item-focosemanal svg { color: #2563eb; }
 
         .modal-foco-overlay {
             display: none; position: fixed; inset: 0; background: rgba(11,12,16,.55);
@@ -429,25 +458,32 @@
                 Sincronizar
             </button>
             <div class="actions-divider"></div>
-            <button class="btn-action btn-pdf" onclick="gravarRoteiroSemanalPDF()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                PDF
-            </button>
-            <button class="btn-action btn-excel" onclick="pedirCodigoAcesso_(() => document.getElementById('excelInput').click())">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-                Excel
-            </button>
-            <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="carregarDadosDesdeExcel(event)">
-            <div class="actions-divider"></div>
             <button class="btn-action btn-limpar" onclick="limparFocoGestor()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 Limpar
             </button>
             <div class="actions-divider"></div>
-            <button class="btn-action btn-focosemanal" onclick="pedirCodigoAcesso_(() => abrirModalFocoSemanal())">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-                Marca Foco
-            </button>
+            <div class="settings-menu-wrapper">
+                <button class="btn-action btn-settings" id="btnDefinicoes" onclick="alternarMenuDefinicoes_(event)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3.4a2 2 0 010-4h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z"/></svg>
+                    Definições
+                </button>
+                <div class="settings-menu" id="settingsMenu">
+                    <button class="settings-menu-item item-pdf" onclick="fecharMenuDefinicoes_(); gravarRoteiroSemanalPDF()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        PDF
+                    </button>
+                    <button class="settings-menu-item item-excel" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => document.getElementById('excelInput').click())">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+                        Excel
+                    </button>
+                    <button class="settings-menu-item item-focosemanal" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalFocoSemanal())">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+                        Marca Foco
+                    </button>
+                </div>
+            </div>
+            <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="carregarDadosDesdeExcel(event)">
         </div>
     </div>
 
@@ -1200,6 +1236,25 @@
     function mostrarLoading(show) {
         document.getElementById("loadingBox").classList.toggle("show", !!show);
     }
+
+    // --- Menu "Definições" (PDF / Excel / Marca Foco) ---
+    function alternarMenuDefinicoes_(ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById('settingsMenu');
+        const btn = document.getElementById('btnDefinicoes');
+        const aVaiAbrir = !menu.classList.contains('aberto');
+        menu.classList.toggle('aberto', aVaiAbrir);
+        btn.classList.toggle('aberto', aVaiAbrir);
+    }
+    function fecharMenuDefinicoes_() {
+        document.getElementById('settingsMenu').classList.remove('aberto');
+        document.getElementById('btnDefinicoes').classList.remove('aberto');
+    }
+    // Fecha o menu ao clicar fora dele (em qualquer parte da página).
+    document.addEventListener('click', (ev) => {
+        const wrapper = document.querySelector('.settings-menu-wrapper');
+        if (wrapper && !wrapper.contains(ev.target)) fecharMenuDefinicoes_();
+    });
 
     function obterSemanaISO(data) {
         const d = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
