@@ -47,18 +47,23 @@
         .resumo-titulo { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 10px; }
         .resumo-titulo span { color: var(--text); text-transform: none; letter-spacing: 0; }
         .resumo-grid {
-            display: flex; gap: 14px; flex-wrap: nowrap;
-            overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch;
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 12px 10px;
         }
-        .resumo-col { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 46px; flex: 0 0 auto; }
-        .resumo-marca { font-size: 0.62rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
-        .resumo-pill { font-size: 0.82rem; font-weight: 700; border-radius: 8px; padding: 4px 0; width: 100%; text-align: center; line-height: 1.2; }
+        .resumo-col { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 1 64px; min-width: 56px; }
+        .resumo-marca { font-size: 0.64rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .resumo-pill { font-size: 0.86rem; font-weight: 700; border-radius: 8px; padding: 5px 0; width: 100%; text-align: center; line-height: 1.2; }
         .resumo-pill.foco { background: var(--foco-bg); color: var(--foco-color); }
         .resumo-pill.atingido { background: var(--ok-bg); color: var(--ok-color); }
         .resumo-legenda { display: flex; gap: 16px; margin-top: 10px; font-size: 0.68rem; color: var(--muted); }
         .resumo-legenda .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
         .resumo-legenda .dot.foco { background: var(--foco-color); }
         .resumo-legenda .dot.atingido { background: var(--ok-color); }
+
+        @media (min-width: 768px) {
+            .resumo-grid { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+            .resumo-col { flex: 0 0 auto; }
+        }
 
         /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
         .resumo-foco-linha { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
@@ -158,23 +163,23 @@
         @media (min-width: 768px) { .actions-divider { display: block; } }
         
         .btn-action {
-            padding: 6px 10px; 
-            font-size: 0.78rem; 
+            padding: 10px 14px; 
+            font-size: 0.85rem; 
             font-weight: 700; 
-            border-radius: 8px;
+            border-radius: 9px;
             cursor: pointer; 
             border: none;
             display: inline-flex; 
             align-items: center; 
             justify-content: center; 
-            gap: 5px;
+            gap: 6px;
             color: white;
             box-shadow: 0 2px 4px rgba(11,12,16,.1);
             transition: transform .15s ease, filter .15s ease;
         }
         .btn-action:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 4px 8px rgba(11,12,16,.15); }
         .btn-action:active { transform: translateY(0); filter: brightness(0.95); box-shadow: 0 1px 2px rgba(11,12,16,.1); }
-        .btn-action svg { width: 14px; height: 14px; }
+        .btn-action svg { width: 16px; height: 16px; }
         @media (min-width: 768px) {
             .actions-bar { gap: 12px; }
             .btn-action { padding: 10px 18px; font-size: 1rem; gap: 8px; }
@@ -2051,13 +2056,12 @@
 
     async function limparFocoGestor() {
         const com = document.getElementById('comercialSelect').value;
-        const semanaSelect = document.getElementById('semanaSelect');
-        const sem = semanaSelect.value;
-        const semanaLabel = semanaSelect.selectedOptions[0].textContent.replace(' 📍 (atual)', '');
 
-        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
+        // Todo o mês do gestor selecionado — todas as semanas (1-4) e todos os
+        // dias, não apenas a semana atualmente selecionada no dropdown.
+        const registos = baseDadosRotas.filter(i => i.comercial === com);
         if (registos.length === 0) {
-            alert('Não há clientes para "' + com + '" nesta semana.');
+            alert('Não há clientes para "' + com + '".');
             return;
         }
 
@@ -2070,11 +2074,11 @@
         });
 
         if (marcasParaLimpar.length === 0) {
-            alert('Não há marcações para limpar em "' + com + '" — ' + semanaLabel + '.');
+            alert('Não há marcações para limpar em "' + com + '".');
             return;
         }
 
-        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — ${semanaLabel}, em todos os dias?\n\nIsto vai apagar ${marcasParaLimpar.length} marcações e não pode ser desfeito.`)) return;
+        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — TODO O MÊS (semanas 1 a 4), em todos os dias?\n\nIsto vai apagar ${marcasParaLimpar.length} marcações e não pode ser desfeito.`)) return;
 
         mostrarLoading(true);
 
