@@ -895,6 +895,8 @@
                     const atual = item.estados[chave] || '';
                     if (!ESTADOS_FINAIS_FOCO_.has(atual)) {
                         item.estados[chave] = 'FOCOSEMANAL';
+                        if (!item.focoJaMarcado) item.focoJaMarcado = {};
+                        item.focoJaMarcado[chave] = true;
                     }
                 }
             });
@@ -1273,6 +1275,12 @@
             } else if (tipo === 'colocou') {
                 if (!registo.colocou) registo.colocou = {};
                 registo.colocou[marca] = valor;
+            } else if (tipo === 'foco') {
+                // Valor é sempre "true" (nunca reverte para false via pendentes) —
+                // evita que um GET intercalado, ainda sem o novo focoJaMarcado
+                // persistido no servidor, faça o número de Foco "descer" outra vez.
+                if (!registo.focoJaMarcado) registo.focoJaMarcado = {};
+                registo.focoJaMarcado[marca] = true;
             }
         });
         return novosDados;
@@ -1315,6 +1323,7 @@
         mostrarIndicadorSync_(true);
         const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
         limparAlteracaoPendente_('estado', id, marca);
+        limparAlteracaoPendente_('foco', id, marca);
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
             mostrarAvisoSync_();
@@ -1533,6 +1542,18 @@
                         estadosObj = Object.assign({}, estadosObj, estadosAntigosValidos);
                     }
 
+                    // Preserva também o histórico "já foi foco" (focoJaMarcado)
+                    // do registo anterior, para o resumo de Foco não zerar
+                    // sempre que se reimporta o Excel semanal.
+                    let focoJaMarcadoObj = {};
+                    if (registoAnterior && registoAnterior.focoJaMarcado) {
+                        Object.keys(registoAnterior.focoJaMarcado).forEach(marcaAntiga => {
+                            const aindaExisteNoExcel = colunasMarcasDetectadas.some(c =>
+                                c.trim().replace(/^\*+/, '').trim().toLowerCase() === marcaAntiga.trim().toLowerCase());
+                            if (aindaExisteNoExcel) focoJaMarcadoObj[marcaAntiga] = registoAnterior.focoJaMarcado[marcaAntiga];
+                        });
+                    }
+
                     listaNovosDados.push({
                         id: idVal,
                         cliente: clienteVal,
@@ -1544,7 +1565,8 @@
                         dia: diaVal,
                         semana: semanaVal,
                         estados: estadosObj,
-                        historico: historicoObj
+                        historico: historicoObj,
+                        focoJaMarcado: focoJaMarcadoObj
                     });
                 });
 
@@ -1619,6 +1641,19 @@
             const proximo = ciclo[(idxAtual + 1) % ciclo.length];
             registo.estados[marca] = proximo;
             marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
+
+            // Uma vez marcada como FOCO/FOCO SEMANAL, o cliente passa a contar
+            // sempre para o "Foco" do resumo — mesmo que a marcação seja depois
+            // resolvida como OK/NÃO OK/NEGOCIADO. Este marcador só é limpo na
+            // limpeza semanal automática (segunda-feira) ou no botão "Limpar".
+            if (proximo === "FOCO" || proximo === "FOCOSEMANAL") {
+                if (!registo.focoJaMarcado) registo.focoJaMarcado = {};
+                if (!registo.focoJaMarcado[marca]) {
+                    registo.focoJaMarcado[marca] = true;
+                    marcarAlteracaoPendente_('foco', idRegisto, marca, true);
+                }
+            }
+
             atualizarVisualizacao();
             enviarAlteracaoNuvem(idRegisto, marca, proximo);
         }
@@ -1851,7 +1886,15 @@
             // Tipo→Marcas) — evita inflacionar/desinflacionar Foco/Atingido
             // com marcas que nem sequer se aplicam ao tipo de estabelecimento.
             const registosAplicaveis = registos.filter(r => marcaAplicavelParaTipologia_(m, r.tipologia));
-            const foco = registosAplicaveis.filter(r => (r.estados && r.estados[m]) === 'FOCO' || (r.estados && r.estados[m]) === 'FOCOSEMANAL').length;
+            // Conta como Foco quer a marca esteja atualmente em FOCO/FOCO SEMANAL,
+            // quer já tenha estado (e entretanto tenha sido resolvida para OK/NÃO
+            // OK/NEGOCIADO) — ver focoJaMarcado, que só é limpo na limpeza semanal
+            // ou no botão "Limpar".
+            const foco = registosAplicaveis.filter(r => {
+                const est = r.estados && r.estados[m];
+                if (est === 'FOCO' || est === 'FOCOSEMANAL') return true;
+                return !!(r.focoJaMarcado && r.focoJaMarcado[m]);
+            }).length;
             const atingido = registosAplicaveis.filter(r => {
                 const est = r.estados && r.estados[m];
                 if (est === 'OK') return true;
@@ -2035,8 +2078,9 @@
 
         mostrarLoading(true);
 
-        // Atualização local imediata (feedback visual).
-        registos.forEach(r => { r.estados = {}; });
+        // Atualização local imediata (feedback visual). Limpa também o
+        // histórico "já foi foco" — este botão é um reset completo.
+        registos.forEach(r => { r.estados = {}; r.focoJaMarcado = {}; });
         atualizarVisualizacao();
 
         // IMPORTANTE: em vez de reenviar baseDadosRotas inteira via "limpar_e_importar"
@@ -2048,7 +2092,7 @@
         try {
             let falhas = 0;
             for (const { id, marca } of marcasParaLimpar) {
-                const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: "" });
+                const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: "", resetFocoHistorico: true });
                 if (!resultado || resultado.ok === false) falhas++;
             }
             if (falhas > 0) mostrarAvisoSync_();
@@ -2127,7 +2171,10 @@
             startY: y,
             head: [['', ...marcasLista]],
             body: [
-                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => (r.estados && (r.estados[m] === 'FOCO' || r.estados[m] === 'FOCOSEMANAL')).length)))],
+                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => {
+                    const est = r.estados && r.estados[m];
+                    return est === 'FOCO' || est === 'FOCOSEMANAL' || !!(r.focoJaMarcado && r.focoJaMarcado[m]);
+                }).length))],
                 ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
             ],
             columnStyles: columnStylesDia
