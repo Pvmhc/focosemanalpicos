@@ -598,29 +598,50 @@
         }
         .vendor-list-badges {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            align-items: center;
             gap: 6px;
             width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
         }
         .vendor-list-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            max-width: 100%;
-            padding: 5px 9px;
-            border-radius: 999px;
-            font-size: .74rem;
+            flex-shrink: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: .62rem;
             line-height: 1;
             font-weight: 800;
-            white-space: nowrap;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+        .vendor-list-badge img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .vendor-list-badge-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
         }
         .vendor-list-badge.comprada {
             background: var(--ok-bg);
             color: var(--ok-color);
+            border-color: var(--ok-color);
         }
         .vendor-list-badge.falta {
             background: var(--nok-bg);
             color: var(--nok-color);
+            border-color: var(--nok-color);
         }
         @media (min-width: 768px) {
             .vendor-list-row {
@@ -2444,7 +2465,11 @@
                 const badges = marcasAplicaveis.map(m => {
                     const hist = (item.historico && item.historico[m]) || {};
                     const comprou = !!hist.mes;
-                    return `<span class="vendor-list-badge ${comprou ? 'comprada' : 'falta'}">${m}</span>`;
+                    const logo = LOGOTIPOS_MARCAS_[m];
+                    const conteudo = logo
+                        ? `<img src="${logo}" alt="${m}" loading="lazy">`
+                        : `<span class="vendor-list-badge-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+                    return `<span class="vendor-list-badge ${comprou ? 'comprada' : 'falta'}" title="${m} · ${comprou ? 'comprada' : 'em falta'}">${conteudo}</span>`;
                 }).join('');
 
                 const numero = item.numero ? `Nº ${item.numero}` : '';
