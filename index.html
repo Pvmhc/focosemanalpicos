@@ -409,6 +409,7 @@
         }
 
         .filters-grid { display: grid; grid-template-columns: 1fr; gap: 12px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
+        .filters-grid, .filter-control { min-width: 0; max-width: 100%; }
         .filter-control.full-largura { grid-column: 1 / -1; }
         @media (min-width: 600px) { .filters-grid { padding: 24px; } }
         .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -424,31 +425,82 @@
            selecionar várias) — substitui o antigo <select> de contagem. Ao
            selecionar marcas, a lista de clientes passa a mostrar quem ainda
            não tem TODAS essas marcas colocadas este mês. */
-        .marcas-filtro-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-        .marcas-filtro-titulo { font-size: 0.75rem; color: var(--primary); font-weight: 700; text-transform: uppercase; }
-        .marcas-filtro-contagem { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+        /* --- Painel "Marcas não colocadas": layout fluido e seguro em mobile --- */
+        .marcas-filtro-header {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+            min-width: 0;
+        }
+        .marcas-filtro-titulo {
+            font-size: 0.75rem; color: var(--primary); font-weight: 700;
+            text-transform: uppercase; line-height: 1.25; min-width: 0;
+        }
+        .marcas-filtro-contagem {
+            font-size: 0.78rem; font-weight: 700; color: var(--muted);
+            white-space: nowrap; flex: 0 0 auto;
+        }
         .marcas-filtro-editar {
-            margin-left: auto; background: none; border: none; padding: 4px; cursor: pointer;
-            color: var(--muted); display: flex; align-items: center; border-radius: 7px;
+            margin-left: auto; background: none; border: none; padding: 5px;
+            cursor: pointer; color: var(--muted); display: flex; align-items: center;
+            justify-content: center; border-radius: 7px; flex: 0 0 auto;
         }
         .marcas-filtro-editar:hover { color: var(--primary); background: var(--ok-bg); }
         .marcas-filtro-editar svg { width: 15px; height: 15px; }
-        .marcas-filtro-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
-        .marca-chip {
-            flex: 0 0 auto; display: flex; align-items: center; gap: 7px;
-            border: 1.5px solid var(--border); background: #fff; border-radius: 999px;
-            padding: 6px 14px 6px 6px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text);
-            transition: border-color .15s ease, background .15s ease;
+
+        .marcas-filtro-chips {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+            padding: 1px 1px 3px;
         }
+        .marca-chip {
+            min-width: 0; width: 100%; max-width: 100%;
+            display: flex; align-items: center; gap: 7px;
+            border: 1.5px solid var(--border); background: #fff; border-radius: 12px;
+            padding: 6px 9px 6px 6px; cursor: pointer; font-size: 0.78rem;
+            font-weight: 700; color: var(--text);
+            transition: border-color .15s ease, background .15s ease, transform .1s ease;
+            overflow: hidden;
+        }
+        .marca-chip:active { transform: scale(.985); }
         .marca-chip.ativa { border-color: var(--primary); background: var(--ok-bg); color: var(--primary-dark); }
         .marca-chip-logo {
-            width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
-            display: flex; align-items: center; justify-content: center; background: var(--bg);
-            border: 1px solid var(--border);
+            width: 26px; height: 26px; border-radius: 50%; overflow: hidden;
+            flex: 0 0 26px; display: flex; align-items: center; justify-content: center;
+            background: var(--bg); border: 1px solid var(--border);
         }
-        .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .marca-chip-fallback { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
-        .marca-chip-nome { white-space: nowrap; }
+        .marca-chip-nome {
+            min-width: 0; flex: 1 1 auto; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+            text-align: left;
+        }
+
+        @media (max-width: 767px) {
+            .filters-grid { padding: 12px; }
+            .filter-control.full-largura { min-width: 0; width: 100%; }
+            .marcas-filtro-header { gap: 6px; }
+            .marcas-filtro-titulo { font-size: 0.68rem; }
+            .marcas-filtro-contagem { font-size: 0.7rem; }
+            .marcas-filtro-chips {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+            }
+            .marca-chip {
+                border-radius: 10px;
+                padding: 5px 7px 5px 5px;
+                font-size: 0.72rem;
+            }
+            .marca-chip-logo { width: 24px; height: 24px; flex-basis: 24px; }
+        }
+
+        @media (max-width: 380px) {
+            .marcas-filtro-chips { grid-template-columns: 1fr; }
+            .marca-chip { font-size: 0.76rem; }
+        }
 
         /* Modal de gestão de logotipos (upload por marca) */
         .lista-logotipos { display: flex; flex-direction: column; }
@@ -3201,4 +3253,4 @@
     });
 </script>
 </body>
-</html>
+</html>     
