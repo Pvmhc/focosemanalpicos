@@ -568,6 +568,78 @@
         .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
         .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
         .badge-colocou.nao { background-color: var(--vazio-bg); color: var(--vazio-color); }
+
+        /* --- Lista de leitura para o Vendedor ---
+           No link partilhado, a informação fica resumida a Cliente + Marcas:
+           verde = comprou este mês; vermelho = ainda falta. */
+        .vendor-list-row td.vendor-list-client {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            border-bottom: none;
+        }
+        .vendor-list-row td.vendor-list-marcas {
+            display: block;
+            width: 100%;
+            padding: 0 0 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .vendor-list-client-name {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1.25;
+        }
+        .vendor-list-client-meta {
+            margin-top: 3px;
+            font-size: .68rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .vendor-list-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            width: 100%;
+        }
+        .vendor-list-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: .74rem;
+            line-height: 1;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .vendor-list-badge.comprada {
+            background: var(--ok-bg);
+            color: var(--ok-color);
+        }
+        .vendor-list-badge.falta {
+            background: var(--nok-bg);
+            color: var(--nok-color);
+        }
+        @media (min-width: 768px) {
+            .vendor-list-row {
+                display: table-row !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            .vendor-list-row td.vendor-list-client {
+                width: 34%;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--border);
+            }
+            .vendor-list-row td.vendor-list-marcas {
+                width: 66%;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--border);
+            }
+        }
         .svg-icon { width: 16px; height: 16px; fill: currentColor; }
         @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
         /* Cortina de carregamento a ecrã inteiro */
@@ -1485,6 +1557,10 @@
         // uma linha simples por cliente (nome + marcas aplicáveis + foco só da(s)
         // marca(s) selecionada(s) no chip) em vez de uma coluna por marca — o
         // cabeçalho acompanha esse modo compacto.
+        if (MODO_VENDEDOR_ATIVO_) {
+            linha.innerHTML = `<th>Cliente</th><th>Marcas compradas</th>`;
+            return;
+        }
         if (MARCAS_FILTRO_SELECIONADAS_.length > 0) {
             linha.innerHTML = `<th>Estabelecimento</th><th colspan="${marcasLista.length}">Foco · ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}</th>`;
             return;
@@ -1608,24 +1684,48 @@
 
         const linhas = filtrados.map(item => {
             const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
-            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
-            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
-            const marcaAplicavelLinha_ = m => {
+            const regraTipologia = obterRegraTipologia_(item.tipologia);
+            const ehBar = !!(regraTipologia && regraTipologia.includes('preta'));
+
+            const marcaAplicavel = m => {
                 if (!tipologiaNorm) return true;
                 if (ehColunaZeroZero_(m) && ehBar) return false;
                 if (ehColunaPreta_(m) && !ehBar) return false;
                 return true;
             };
-            const marcas = (emModoMarcasColocadas ? MARCAS_FILTRO_SELECIONADAS_ : marcasLista)
-                .filter(marcaAplicavelLinha_)
-                .join(', ');
-            return `${item.cliente} — ${marcas}`;
+
+            const marcasAplicaveis = marcasLista.filter(marcaAplicavel);
+            const compradas = marcasAplicaveis.filter(m => {
+                const hist = (item.historico && item.historico[m]) || {};
+                return !!hist.mes;
+            });
+            const emFalta = marcasAplicaveis.filter(m => {
+                const hist = (item.historico && item.historico[m]) || {};
+                return !hist.mes;
+            });
+
+            // Mesmo formato visual do painel "Clientes com compra":
+            // cliente em destaque e, por baixo, marcas compradas / em falta.
+            const linhasCliente = [`👤 ${item.cliente || 'Sem nome'}`];
+
+            if (compradas.length) {
+                linhasCliente.push(`   🟢 ${compradas.join(' · ')}`);
+            }
+            if (emFalta.length) {
+                linhasCliente.push(`   🔴 ${emFalta.join(' · ')}`);
+            }
+            if (!compradas.length && !emFalta.length) {
+                linhasCliente.push('   — Sem marcas aplicáveis');
+            }
+
+            return linhasCliente.join('\n');
         });
 
         const titulo = emModoMarcasColocadas
-            ? `Rota · ${com} · Marcas: ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}`
-            : `Rota · ${com}`;
-        return `${titulo}\n\n${linhas.join('\n')}`;
+            ? `📋 CLIENTES · ${com}\nMarcas em foco: ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}`
+            : `📋 CLIENTES · ${com}`;
+
+        return `${titulo}\n\n${linhas.join('\n\n')}`;
     }
 
     function partilharTabelaWhatsapp_() {
@@ -2325,6 +2425,44 @@
         filtrados.forEach(item => {
             const tr = document.createElement('tr');
             const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+
+            /* Link para o vendedor: substituir a tabela operacional por uma
+               leitura muito mais simples, no formato Cliente | Marcas.
+               Verde = marca já comprada este mês; vermelho = marca ainda em falta. */
+            if (MODO_VENDEDOR_ATIVO_) {
+                tr.className = 'vendor-list-row';
+
+                const regraTipologia = obterRegraTipologia_(item.tipologia);
+                const marcasAplicaveis = marcasLista.filter(m => {
+                    if (!tipologiaNorm) return true;
+                    const ehBarLinha = !!(regraTipologia && regraTipologia.includes('preta'));
+                    if (ehColunaZeroZero_(m) && ehBarLinha) return false;
+                    if (ehColunaPreta_(m) && !ehBarLinha) return false;
+                    return true;
+                });
+
+                const badges = marcasAplicaveis.map(m => {
+                    const hist = (item.historico && item.historico[m]) || {};
+                    const comprou = !!hist.mes;
+                    return `<span class="vendor-list-badge ${comprou ? 'comprada' : 'falta'}">${m}</span>`;
+                }).join('');
+
+                const numero = item.numero ? `Nº ${item.numero}` : '';
+                const dia = item.dia ? ` · ${item.dia}` : '';
+
+                tr.innerHTML = `
+                    <td class="vendor-list-client">
+                        <div class="vendor-list-client-name">${item.cliente || 'Sem nome'}</div>
+                        ${(numero || dia) ? `<div class="vendor-list-client-meta">${numero}${dia}</div>` : ''}
+                    </td>
+                    <td class="vendor-list-marcas">
+                        <div class="vendor-list-badges">
+                            ${badges || '<span class="vendor-list-badge falta">Sem marcas definidas</span>'}
+                        </div>
+                    </td>`;
+                corpo.appendChild(tr);
+                return;
+            }
             const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
             const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
             const marcaAplicavelLinha_ = m => {
@@ -3253,4 +3391,4 @@
     });
 </script>
 </body>
-</html>     
+</html>
