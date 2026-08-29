@@ -141,6 +141,15 @@
         }
         .marca-badge.em-falta { background: var(--nok-bg); color: var(--nok-color); }
         .marca-badge.sem-marcas { background: var(--vazio-bg); color: var(--vazio-color); font-weight: 600; }
+
+        /* Linha compacta de um cliente quando o filtro "Marcas colocadas (mês)"
+           está ativo — sobrepõe as regras genéricas de tbody td:first-child
+           (pensadas para o nome do cliente em destaque) para que aqui caibam
+           o nome + marcas + botões de foco numa única linha normal. */
+        .linha-marca-foco-td {
+            display: flex !important; font-weight: 400 !important; font-size: 0.85rem !important;
+            color: var(--text) !important; border-bottom: none !important; padding: 2px 0 !important; margin-bottom: 0 !important;
+        }
         .modal-clientes-picos-vazio { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 0.9rem; }
         .modal-clientes-picos-contagem { padding: 10px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
 
@@ -327,6 +336,25 @@
             background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;
         }
         .modal-foco-footer { padding: 16px 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; border-radius: 0 0 14px 14px; }
+
+        /* Ecrã de bloqueio (PIN) para entrar na app — cobre tudo até ser
+           introduzido o código correto. Visível por definição (sem precisar
+           de classe "aberto"); é escondido via JS assim que o PIN estiver certo
+           ou se já tiver sido desbloqueado nesta sessão do browser. */
+        .app-lock-overlay {
+            position: fixed; inset: 0; z-index: 99999; background: var(--bg);
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .app-lock-box {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
+            padding: 28px 26px; width: 100%; max-width: 300px; text-align: center;
+        }
+        .app-lock-box .star-icon { width: 34px; height: 34px; margin-bottom: 10px; }
+        .app-lock-box h1 { font-size: 1.1rem; margin: 0 0 4px; color: var(--text); }
+        .app-lock-box p { margin: 0 0 16px; color: var(--muted); font-size: 0.85rem; }
+        .app-lock-erro { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; margin-top: 8px; }
+        .app-lock-box .btn-submit { width: 100%; margin-top: 14px; }
 
         /* Modal de código de acesso (PIN) para Excel / Marca Foco */
         .modal-pin-body { padding: 22px 20px 6px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
@@ -581,6 +609,17 @@
     </style>
 </head>
 <body>
+
+<div class="app-lock-overlay" id="appLockOverlay">
+    <div class="app-lock-box">
+        <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+        <h1>Roteiro Cloud Equipa</h1>
+        <p>Introduz o código de acesso</p>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="modal-pin-input" id="appLockInput" autocomplete="off">
+        <div class="app-lock-erro" id="appLockErro"></div>
+        <button class="btn-submit" onclick="desbloquearApp_()">Entrar</button>
+    </div>
+</div>
 
 <div class="container">
     <div id="loadingBox" class="loading-notice">
@@ -1375,6 +1414,14 @@
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
+        // Com o filtro "Marcas colocadas (mês)" ativo, a tabela passa a mostrar
+        // uma linha simples por cliente (nome + marcas aplicáveis + foco só da(s)
+        // marca(s) selecionada(s) no chip) em vez de uma coluna por marca — o
+        // cabeçalho acompanha esse modo compacto.
+        if (MARCAS_FILTRO_SELECIONADAS_.length > 0) {
+            linha.innerHTML = `<th>Estabelecimento</th><th colspan="${marcasLista.length}">Foco · ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}</th>`;
+            return;
+        }
         const cobertura = calcularCoberturaPorMarca_();
         linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
             const pct = cobertura[m];
@@ -1486,6 +1533,40 @@
             } catch (e) { feedback(false); }
         }
     }
+
+    // --- PIN de entrada na app (ecrã de bloqueio inicial) ---
+    const CODIGO_APP_ = '1940';
+
+    function desbloquearApp_() {
+        const input = document.getElementById('appLockInput');
+        const erro = document.getElementById('appLockErro');
+        if (input.value === CODIGO_APP_) {
+            try { sessionStorage.setItem('appDesbloqueada', '1'); } catch (e) {}
+            const overlay = document.getElementById('appLockOverlay');
+            if (overlay) overlay.style.display = 'none';
+        } else {
+            input.classList.add('erro');
+            erro.textContent = 'Código incorreto.';
+            input.value = '';
+            input.focus();
+            setTimeout(() => input.classList.remove('erro'), 350);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        let jaDesbloqueada = false;
+        try { jaDesbloqueada = sessionStorage.getItem('appDesbloqueada') === '1'; } catch (e) {}
+        const overlay = document.getElementById('appLockOverlay');
+        if (jaDesbloqueada) {
+            if (overlay) overlay.style.display = 'none';
+        } else {
+            const inputApp = document.getElementById('appLockInput');
+            if (inputApp) {
+                inputApp.addEventListener('keydown', (e) => { if (e.key === 'Enter') desbloquearApp_(); });
+                setTimeout(() => inputApp.focus(), 100);
+            }
+        }
+    });
 
     // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
     const CODIGO_ACESSO_ = '2363';
@@ -2087,6 +2168,7 @@
         const emModoPesquisa = termoPesquisa.length > 0;
 
         const emModoMarcasColocadas = MARCAS_FILTRO_SELECIONADAS_.length > 0;
+        renderCabecalhoTabela();
 
         const diasTabs = document.getElementById('diasTabs');
         if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas) ? 'none' : '';
@@ -2135,6 +2217,45 @@
 
         filtrados.forEach(item => {
             const tr = document.createElement('tr');
+            const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
+            const marcaAplicavelLinha_ = m => {
+                if (!tipologiaNorm) return true;
+                if (ehColunaZeroZero_(m) && ehBar) return false;
+                if (ehColunaPreta_(m) && !ehBar) return false;
+                return true;
+            };
+
+            // --- Modo compacto: filtro "Marcas colocadas (mês)" ativo -----
+            // Uma linha simples por cliente (nome / marcas aplicáveis) e um
+            // botão de foco apenas para a(s) marca(s) selecionada(s) no chip
+            // — em vez da tabela completa com uma coluna de foco por marca.
+            if (emModoMarcasColocadas) {
+                const numeroTxt = item.numero ? ` · Nº ${item.numero}` : '';
+                const marcasTxt = marcasLista.filter(marcaAplicavelLinha_).join(' / ');
+                const botoesFoco = MARCAS_FILTRO_SELECIONADAS_
+                    .filter(marcaAplicavelLinha_)
+                    .map(m => {
+                        const est = item.estados[m] || '';
+                        return `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m.replace(/'/g, "\\'")}')">${m}: ${obterInnerHtmlBotao(est)}</button>`;
+                    }).join('');
+                tr.innerHTML = `
+                    <td colspan="${1 + marcasLista.length}" class="linha-marca-foco-td">
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <div style="min-width:0;">
+                                <strong>${item.cliente}${numeroTxt}</strong>
+                                <div class="cliente-meta" style="margin-top:2px;">${marcasTxt}</div>
+                            </div>
+                            <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap;">
+                                ${botoesFoco}
+                            </div>
+                        </div>
+                    </td>`;
+                corpo.appendChild(tr);
+                return;
+            }
+
             const iconeComprouHtml = item.comprouMes
                 ? `<span class="icone-comprou sim" title="Já comprou este mês">✅ Comprou</span>`
                 : `<span class="icone-comprou nao" title="Ainda não comprou este mês">○ Não comprou</span>`;
@@ -2159,14 +2280,11 @@
                 </div>
             </td>`;
             
-            const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
             // "Bar" deixou de ser comparado por igualdade exata ao texto "bar" —
             // isso falhava para tipologias como "Bares" ou "Sports Bar e Pubs".
             // Em vez disso, usa a mesma tabela Tipo→Marcas (REGRAS_TIPOLOGIA_):
             // é "bar" para este efeito qualquer tipologia cuja lista de marcas
             // exigidas inclua "preta" (Bares, Sports Bar e Pubs).
-            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
-            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
 
             marcasLista.forEach(m => {
                 // Colunas "0.0%" e "Preta" são mutuamente exclusivas consoante a
