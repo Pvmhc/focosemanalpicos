@@ -150,6 +150,14 @@
             display: flex !important; font-weight: 400 !important; font-size: 0.85rem !important;
             color: var(--text) !important; border-bottom: none !important; padding: 2px 0 !important; margin-bottom: 0 !important;
         }
+        /* Botões de foco no modo compacto: largura automática (em vez dos 132px
+           fixos do .btn-estado normal, pensados para colunas), para o texto
+           "Marca: Estado" não transbordar para fora do cartão em ecrãs estreitos. */
+        .btn-estado-compacto {
+            width: auto !important; height: auto !important; padding: 6px 10px !important;
+            font-size: 0.72rem !important; white-space: nowrap;
+        }
+        .marcas-foco-botoes { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
         .modal-clientes-picos-vazio { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 0.9rem; }
         .modal-clientes-picos-contagem { padding: 10px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
 
@@ -207,7 +215,7 @@
         }
 
         /* --- Link para o Vendedor / Modo de leitura --- */
-        .link-vendedor-row { display: flex; justify-content: flex-end; margin: -6px 0 4px; }
+        .link-vendedor-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: -6px 0 4px; flex-wrap: wrap; }
         .btn-link-vendedor {
             display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
             border-radius: 8px; border: 1px solid var(--border); background: #fff;
@@ -215,6 +223,9 @@
         }
         .btn-link-vendedor svg { width: 15px; height: 15px; }
         .btn-link-vendedor:hover { border-color: #ff2b2b; color: #ff2b2b; }
+        .btn-link-vendedor-icone { padding: 7px; }
+        .btn-link-vendedor-icone svg { width: 17px; height: 17px; }
+        #btnPartilharWhatsappVendedor:hover { border-color: #25D366; color: #25D366; }
         .cabecalho-modo-vendedor { display: none; }
         body.modo-vendedor-view .cabecalho-modo-vendedor {
             display: block; background: #fff; border: 1px solid var(--border); border-radius: 10px;
@@ -759,11 +770,15 @@
     <div id="cabecalhoModoVendedor" class="cabecalho-modo-vendedor"></div>
 
     <div class="link-vendedor-row">
-        <button class="btn-action btn-link-vendedor" id="btnCopiarLinkVendedor" onclick="copiarLinkVendedor_()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 007.07 7.07l1.5-1.5"/></svg>
-            Copiar link para o Vendedor
+        <button class="btn-action btn-link-vendedor" id="btnPartilharWhatsappVendedor" onclick="partilharTabelaWhatsapp_()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.29-.15-1.71-.84-1.97-.94-.27-.1-.46-.15-.66.15-.2.29-.76.94-.93 1.13-.17.2-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.76-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.49.1-.2.05-.37-.02-.51-.07-.15-.66-1.58-.9-2.16-.24-.58-.48-.5-.66-.5-.17-.01-.37-.01-.56-.01-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.44s1.05 2.83 1.19 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.67.61.7.22 1.34.19 1.84.12.56-.08 1.71-.7 1.96-1.38.24-.68.24-1.26.17-1.38-.07-.12-.27-.2-.56-.35z"/><path d="M12.02 2C6.5 2 2.02 6.48 2.02 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.95 9.95 0 0012.02 22C17.53 22 22 17.52 22 12S17.53 2 12.02 2zm0 18.13c-1.65 0-3.19-.46-4.5-1.26l-.32-.19-3.01.79.8-2.93-.21-.3a8.12 8.12 0 01-1.26-4.34c0-4.5 3.67-8.16 8.19-8.16 4.51 0 8.19 3.66 8.19 8.16 0 4.51-3.68 8.23-8.88 8.23z"/></svg>
+            Enviar por WhatsApp
+        </button>
+        <button class="btn-link-vendedor btn-link-vendedor-icone" id="btnPartilharEmailVendedor" onclick="partilharTabelaEmail_()" title="Enviar por email" aria-label="Enviar por email">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
         </button>
     </div>
+
 
     <div class="search-row">
         <svg class="svg-icon search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -1500,38 +1515,78 @@
         atualizarVisualizacao();
     }
 
-    function copiarLinkVendedor_() {
+    /** Constrói o texto da rota atual (nome do estabelecimento + marca(s)
+     *  aplicáveis, sem estados/foco) para enviar diretamente por WhatsApp ou
+     *  email — sem link nem PIN de acesso. Segue exatamente os mesmos filtros
+     *  já aplicados na tabela (Gestor, Vendedor, Semana/Dia, pesquisa e chips
+     *  de "Marcas colocadas (mês)"): se houver marcas selecionadas nos chips,
+     *  mostra só essas por cliente; senão mostra as marcas aplicáveis à
+     *  Tipologia de cada um (exclusão 0.0%/Preta conforme Bar ou não). */
+    function construirTabelaTextoRotaAtual_() {
         const com = document.getElementById('comercialSelect').value;
-        const vend = document.getElementById('vendedorSelect').value;
-        if (!vend) { alert('Seleciona primeiro um Vendedor específico (não "Todos").'); return; }
-        const url = new URL(window.location.href);
-        url.search = '';
-        url.searchParams.set('modo', 'vendedor');
-        url.searchParams.set('comercial', com);
-        url.searchParams.set('vendedor', vend);
-        const link = url.toString();
+        const sem = document.getElementById('semanaSelect').value;
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const vend = vendedorSelect ? vendedorSelect.value : '';
+        const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
+        const emModoPesquisa = termoPesquisa.length > 0;
+        const emModoMarcasColocadas = MARCAS_FILTRO_SELECIONADAS_.length > 0;
 
-        const feedback = (ok) => {
-            const btn = document.getElementById('btnCopiarLinkVendedor');
-            if (!btn) return;
-            const textoOriginal = btn.textContent;
-            btn.textContent = ok ? 'Link copiado!' : 'Erro ao copiar';
-            setTimeout(() => { btn.textContent = textoOriginal; }, 1800);
+        const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
+        const passaSemana = i => vend || emModoMarcasColocadas || i.semana === sem;
+        const passaDia = i => vend || emModoMarcasColocadas || i.dia === diaAtualSelecionado;
+        const passaMarcasColocadas = i => {
+            if (MARCAS_FILTRO_SELECIONADAS_.length === 0) return true;
+            return MARCAS_FILTRO_SELECIONADAS_.some(m => {
+                const hist = (i.historico && i.historico[m]) || {};
+                return !hist.mes;
+            });
         };
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(link).then(() => feedback(true)).catch(() => feedback(false));
-        } else {
-            try {
-                const tmp = document.createElement('textarea');
-                tmp.value = link;
-                document.body.appendChild(tmp);
-                tmp.select();
-                document.execCommand('copy');
-                document.body.removeChild(tmp);
-                feedback(true);
-            } catch (e) { feedback(false); }
-        }
+        let filtrados = emModoPesquisa
+            ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && passaMarcasColocadas(i) && (
+                (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
+                String(i.numero || '').toLowerCase().includes(termoPesquisa)
+              ))
+            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i) && passaMarcasColocadas(i));
+
+        filtrados = deduplicarClientesUnicos_(filtrados);
+        if (filtrados.length === 0) return null;
+
+        filtrados.sort((a, b) => (a.cliente || '').localeCompare(b.cliente || '', 'pt'));
+
+        const linhas = filtrados.map(item => {
+            const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
+            const marcaAplicavelLinha_ = m => {
+                if (!tipologiaNorm) return true;
+                if (ehColunaZeroZero_(m) && ehBar) return false;
+                if (ehColunaPreta_(m) && !ehBar) return false;
+                return true;
+            };
+            const marcas = (emModoMarcasColocadas ? MARCAS_FILTRO_SELECIONADAS_ : marcasLista)
+                .filter(marcaAplicavelLinha_)
+                .join(', ');
+            return `${item.cliente} — ${marcas}`;
+        });
+
+        const titulo = emModoMarcasColocadas
+            ? `Rota · ${com} · Marcas: ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}`
+            : `Rota · ${com}`;
+        return `${titulo}\n\n${linhas.join('\n')}`;
+    }
+
+    function partilharTabelaWhatsapp_() {
+        const texto = construirTabelaTextoRotaAtual_();
+        if (!texto) { alert('Sem estabelecimentos para enviar com os filtros atuais.'); return; }
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+
+    function partilharTabelaEmail_() {
+        const texto = construirTabelaTextoRotaAtual_();
+        if (!texto) { alert('Sem estabelecimentos para enviar com os filtros atuais.'); return; }
+        const com = document.getElementById('comercialSelect').value;
+        window.location.href = `mailto:?subject=${encodeURIComponent('Rota · ' + com)}&body=${encodeURIComponent(texto)}`;
     }
 
     // --- PIN de entrada na app (ecrã de bloqueio inicial) ---
@@ -2157,8 +2212,8 @@
         localStorage.setItem('gestorSelecionado', com);
         localStorage.setItem('semanaSelecionada', sem);
 
-        const btnLinkVendedor = document.getElementById('btnCopiarLinkVendedor');
-        if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = vend ? '' : 'none';
+        const btnLinkVendedor = document.getElementById('btnPartilharWhatsappVendedor');
+        if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = '';
 
         const corpo = document.getElementById('tabelaVisitas');
         if (!corpo) return;
@@ -2238,16 +2293,16 @@
                     .filter(marcaAplicavelLinha_)
                     .map(m => {
                         const est = item.estados[m] || '';
-                        return `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m.replace(/'/g, "\\'")}')">${m}: ${obterInnerHtmlBotao(est)}</button>`;
+                        return `<button class="btn-estado btn-estado-compacto ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m.replace(/'/g, "\\'")}')">${m}: ${obterInnerHtmlBotao(est)}</button>`;
                     }).join('');
                 tr.innerHTML = `
                     <td colspan="${1 + marcasLista.length}" class="linha-marca-foco-td">
-                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <div style="display:flex; flex-direction:column; gap:8px; width:100%; min-width:0;">
                             <div style="min-width:0;">
                                 <strong>${item.cliente}${numeroTxt}</strong>
                                 <div class="cliente-meta" style="margin-top:2px;">${marcasTxt}</div>
                             </div>
-                            <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap;">
+                            <div class="marcas-foco-botoes">
                                 ${botoesFoco}
                             </div>
                         </div>
