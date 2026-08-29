@@ -447,22 +447,23 @@
         .marcas-filtro-editar svg { width: 15px; height: 15px; }
 
         .marcas-filtro-chips {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: flex;
+            flex-wrap: nowrap;
             gap: 7px;
             width: 100%;
             min-width: 0;
-            overflow: hidden;
-            padding: 1px 1px 3px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 1px 1px 5px;
         }
         .marca-chip {
-            min-width: 0; width: 100%; max-width: 100%;
+            flex: 0 0 auto;
+            width: auto;
             display: flex; align-items: center; gap: 7px;
             border: 1.5px solid var(--border); background: #fff; border-radius: 12px;
-            padding: 6px 9px 6px 6px; cursor: pointer; font-size: 0.78rem;
-            font-weight: 700; color: var(--text);
+            padding: 6px 12px 6px 6px; cursor: pointer; font-size: 0.78rem;
+            font-weight: 700; color: var(--text); white-space: nowrap;
             transition: border-color .15s ease, background .15s ease, transform .1s ease;
-            overflow: hidden;
         }
         .marca-chip:active { transform: scale(.985); }
         .marca-chip.ativa { border-color: var(--primary); background: var(--ok-bg); color: var(--primary-dark); }
@@ -474,8 +475,7 @@
         .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .marca-chip-fallback { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
         .marca-chip-nome {
-            min-width: 0; flex: 1 1 auto; overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap;
+            white-space: nowrap;
             text-align: left;
         }
 
@@ -485,21 +485,13 @@
             .marcas-filtro-header { gap: 6px; }
             .marcas-filtro-titulo { font-size: 0.68rem; }
             .marcas-filtro-contagem { font-size: 0.7rem; }
-            .marcas-filtro-chips {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 6px;
-            }
+            .marcas-filtro-chips { gap: 6px; }
             .marca-chip {
                 border-radius: 10px;
-                padding: 5px 7px 5px 5px;
+                padding: 5px 10px 5px 5px;
                 font-size: 0.72rem;
             }
             .marca-chip-logo { width: 24px; height: 24px; flex-basis: 24px; }
-        }
-
-        @media (max-width: 380px) {
-            .marcas-filtro-chips { grid-template-columns: 1fr; }
-            .marca-chip { font-size: 0.76rem; }
         }
 
         /* Modal de gestão de logotipos (upload por marca) */
