@@ -47,12 +47,12 @@
         .resumo-titulo { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 10px; }
         .resumo-titulo span { color: var(--text); text-transform: none; letter-spacing: 0; }
         .resumo-grid {
-            display: flex; flex-wrap: wrap; justify-content: center;
-            gap: 12px 10px;
+            display: flex; flex-wrap: nowrap;
+            gap: 6px;
         }
-        .resumo-col { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 1 64px; min-width: 56px; }
-        .resumo-marca { font-size: 0.64rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .resumo-pill { font-size: 0.86rem; font-weight: 700; border-radius: 8px; padding: 5px 0; width: 100%; text-align: center; line-height: 1.2; }
+        .resumo-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1 1 0; min-width: 0; }
+        .resumo-marca { font-size: 0.58rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .resumo-pill { font-size: 0.76rem; font-weight: 700; border-radius: 7px; padding: 4px 0; width: 100%; text-align: center; line-height: 1.2; }
         .resumo-pill.foco { background: var(--foco-bg); color: var(--foco-color); }
         .resumo-pill.atingido { background: var(--ok-bg); color: var(--ok-color); }
         .resumo-legenda { display: flex; gap: 16px; margin-top: 10px; font-size: 0.68rem; color: var(--muted); }
@@ -61,8 +61,10 @@
         .resumo-legenda .dot.atingido { background: var(--ok-color); }
 
         @media (min-width: 768px) {
-            .resumo-grid { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-            .resumo-col { flex: 0 0 auto; }
+            .resumo-grid { gap: 10px; }
+            .resumo-col { flex: 1 1 0; }
+            .resumo-marca { font-size: 0.64rem; }
+            .resumo-pill { font-size: 0.86rem; padding: 5px 0; }
         }
 
         /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
@@ -70,35 +72,84 @@
         .resumo-foco-linha .resumo-card { flex: 1; min-width: 0; }
         .picos-card {
             background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
-            border: 1px solid var(--border); border-radius: 12px;
-            padding: 10px 14px; flex: 0 0 auto; min-width: 190px;
+            border: 1px solid var(--border); border-radius: 14px;
+            padding: 14px 16px; flex: 0 0 auto; min-width: 230px;
             box-shadow: 0 1px 2px rgba(11,12,16,.04);
         }
-        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
         .picos-card-titulo {
-            font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-            display: flex; align-items: center; gap: 5px;
+            font-size: 0.95rem; font-weight: 800; color: var(--text);
+            display: flex; align-items: center; gap: 8px; letter-spacing: 0;
         }
-        .picos-card-titulo .star-mini { width: 11px; height: 11px; fill: var(--heineken-red); flex: 0 0 auto; }
-        .picos-editar-btn { background: none; border: none; padding: 3px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 6px; }
+        .picos-icon-badge {
+            width: 26px; height: 26px; border-radius: 50%; background: var(--primary);
+            display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+        }
+        .picos-icon-badge svg { width: 14px; height: 14px; fill: #fff; }
+        .picos-objetivo-sufixo { font-weight: 600; font-size: 0.78rem; color: var(--muted); letter-spacing: 0; text-transform: none; }
+        .picos-editar-btn { background: none; border: none; padding: 5px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 7px; }
         .picos-editar-btn:hover { color: var(--primary); background: var(--ok-bg); }
-        .picos-editar-btn svg { width: 13px; height: 13px; }
+        .picos-editar-btn svg { width: 15px; height: 15px; }
 
-        .picos-stats { display: flex; gap: 6px; margin-bottom: 9px; }
-        .picos-stat { flex: 1; text-align: center; padding: 5px 2px; border-radius: 9px; background: var(--bg); }
-        .picos-stat-valor { font-size: 1.28rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+        .picos-stats { display: flex; gap: 6px; margin-bottom: 12px; }
+        .picos-stat { flex: 1; text-align: center; padding: 2px; }
+        .picos-stat-valor { font-size: 1.55rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
         .picos-stat-valor.cor-total { color: var(--text); }
         .picos-stat-valor.cor-efetuadas { color: var(--ok-color); }
         .picos-stat-valor.cor-diferenca.pendente { color: var(--negociado-color); }
         .picos-stat-valor.cor-diferenca.concluido { color: var(--ok-color); }
         .picos-stat-label {
-            font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
-            color: var(--muted); margin-top: 2px; white-space: nowrap;
+            font-size: 0.68rem; font-weight: 600; color: var(--muted); margin-top: 3px; white-space: nowrap;
         }
+        .picos-clientes-link {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+            background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
+            padding: 9px 11px; margin-bottom: 12px; cursor: pointer;
+            font-size: 0.8rem; color: var(--text); font-weight: 700; text-align: left;
+        }
+        .picos-clientes-link:hover { background: var(--ok-bg); border-color: var(--ok-color); }
+        .picos-clientes-link svg { width: 16px; height: 16px; color: var(--primary); flex: 0 0 auto; }
+        .picos-clientes-hint { color: var(--muted); font-weight: 600; }
 
-        .picos-progress-track { height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
-        .picos-progress-fill { height: 100%; background: var(--ok-color); border-radius: 999px; transition: width .3s ease; }
-        .picos-progress-label { font-size: 0.64rem; color: var(--muted); margin-top: 5px; text-align: right; font-weight: 700; }
+        /* Lista de clientes/marcas compradas dentro do modal "Clientes com compra".
+           Usa divs em flex (em vez de <table>) para que o nome do estabelecimento
+           e as marcas fiquem sempre na MESMA linha, e para não herdar as regras
+           genéricas de "table/thead/tbody" (empilhadas em cartão) definidas mais
+           abaixo para a tabela principal de rotas. */
+        .lista-clientes-picos { display: flex; flex-direction: column; font-size: 0.85rem; }
+        .lista-clientes-picos-cabecalho {
+            display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 1;
+        }
+        .lista-clientes-picos-cabecalho .col-nome-cliente,
+        .lista-clientes-picos-cabecalho .col-marcas-compradas {
+            font-size: 0.66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700;
+        }
+        .linha-cliente-picos {
+            display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .linha-cliente-picos:last-child { border-bottom: none; }
+        .col-nome-cliente {
+            flex: 0 0 34%; max-width: 34%; font-weight: 700; color: var(--text);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .col-marcas-compradas { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+        .marca-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem;
+            font-weight: 700; background: var(--ok-bg); color: var(--ok-color); white-space: nowrap;
+        }
+        .marca-badge.em-falta { background: var(--nok-bg); color: var(--nok-color); }
+        .marca-badge.sem-marcas { background: var(--vazio-bg); color: var(--vazio-color); font-weight: 600; }
+        .modal-clientes-picos-vazio { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 0.9rem; }
+        .modal-clientes-picos-contagem { padding: 10px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
+
+        .picos-progress-row { display: flex; align-items: center; gap: 10px; }
+        .picos-progress-track { flex: 1; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+        .picos-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s ease; }
+        .picos-progress-percent-block { text-align: right; flex: 0 0 auto; line-height: 1.15; }
+        .picos-progress-percent { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+        .picos-progress-percent-label { font-size: 0.62rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 
         .picos-edit-grid { display: flex; gap: 8px; margin-bottom: 9px; }
         .picos-edit-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -113,10 +164,37 @@
             border-radius: 8px; padding: 7px; font-size: 0.76rem; font-weight: 700; cursor: pointer;
         }
         .picos-guardar-btn:hover { filter: brightness(1.1); }
+
+        /* --- Carrossel "Resumo ↔ Picos" (telemóvel): em vez de empilhar os
+           dois cartões (o que ocupa o dobro da altura), mostra-se 1 de cada
+           vez e desliza-se para o lado (arrastar/swipe, setas, ou bolinhas)
+           para alternar. No PC mantém-se o layout lado-a-lado de sempre. */
+        .resumo-foco-slider { position: relative; overflow: hidden; }
+        .resumo-foco-track.resumo-foco-linha { flex-wrap: nowrap; }
+        .resumo-foco-tabs { display: none; }
+        @media (max-width: 767px) {
+            .resumo-foco-tabs {
+                display: flex; background: var(--bg); border: 1px solid var(--border);
+                border-radius: 999px; padding: 3px; margin-bottom: 10px; gap: 2px;
+            }
+            .resumo-foco-tab {
+                flex: 1; border: none; background: none; padding: 8px 0; border-radius: 999px;
+                font-size: 0.8rem; font-weight: 700; color: var(--muted); cursor: pointer;
+            }
+            .resumo-foco-tab.ativo { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(11,12,16,.12); }
+        }
+        @media (min-width: 768px) {
+            .resumo-foco-slider { overflow: visible; }
+            .resumo-foco-track.resumo-foco-linha { transform: none !important; }
+        }
+        @media (max-width: 767px) {
+            .resumo-foco-track.resumo-foco-linha { flex-direction: row; align-items: stretch; }
+            .resumo-foco-slide { flex: 0 0 100% !important; width: 100%; min-width: 0; }
+        }
         @media (max-width: 767px) {
             .resumo-foco-linha { flex-direction: column; align-items: stretch; }
             .picos-card { width: 100%; min-width: 0; }
-            .picos-stat-valor { font-size: 1.1rem; }
+            .picos-stat-valor { font-size: 1.3rem; }
         }
 
         /* --- Link para o Vendedor / Modo de leitura --- */
@@ -135,6 +213,7 @@
         }
         /* Neste modo é só de leitura — escondem-se os controlos de gestão/edição */
         body.modo-vendedor-view .actions-card,
+        body.modo-vendedor-view .filtro-principal-bar,
         body.modo-vendedor-view .filters-grid,
         body.modo-vendedor-view .search-row,
         body.modo-vendedor-view .days-tabs,
@@ -260,11 +339,98 @@
         @keyframes abanarPin { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
         .modal-pin-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
 
-        .filters-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
+        /* Barra "Gestor · Semana · Vendedor" — um único cartão em pílula com
+           ícones, em vez de 3 caixas separadas (essas caixas cortavam o texto
+           por cima da seta, ex.: nomes de gestor mais compridos). */
+        .filtro-principal-bar {
+            display: flex; align-items: center; gap: 14px; background: var(--card);
+            border: 1px solid var(--border); border-radius: 999px; padding: 12px 20px;
+            margin-bottom: 16px; flex-wrap: nowrap;
+        }
+        .filtro-segmento { display: flex; align-items: center; gap: 7px; min-width: 0; }
+        .filtro-segmento svg { width: 15px; height: 15px; color: var(--primary); flex: 0 0 auto; }
+        .filtro-gestor { flex: 1 1 0; min-width: 0; }
+        .filtro-semana, .filtro-vendedor { flex: 0 0 auto; }
+        .filtro-separador { color: var(--border); font-weight: 900; flex: 0 0 auto; font-size: 1.1rem; line-height: 1; }
+        .filtro-segmento select {
+            border: none; background-color: transparent; appearance: none; padding: 2px 16px 2px 0;
+            font-size: 0.86rem; font-weight: 700; color: var(--text); font-family: inherit;
+            min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat; background-position: right center; background-size: 12px;
+        }
+        .filtro-segmento select:focus { outline: none; }
+        @media (max-width: 639px) {
+            .filtro-principal-bar { border-radius: 16px; flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
+            .filtro-gestor { flex: 1 1 100%; order: 1; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+            .filtro-separador.sep-gestor-semana { display: none; }
+            .filtro-semana { order: 2; flex: 1 1 0; }
+            .filtro-separador.sep-semana-vendedor { order: 2; }
+            .filtro-vendedor { order: 3; flex: 1 1 0; }
+        }
+
+        .filters-grid { display: grid; grid-template-columns: 1fr; gap: 12px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
         .filter-control.full-largura { grid-column: 1 / -1; }
-        @media (min-width: 600px) { .filters-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 16px; padding: 24px; } .filter-control.full-largura { grid-column: auto; } }
+        @media (min-width: 600px) { .filters-grid { padding: 24px; } }
         .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .filter-control select { width: 100%; padding: 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px; font-weight: 600; background-color: #fff; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
+        .filter-control select {
+            width: 100%; padding: 12px 34px 12px 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px;
+            font-weight: 600; background-color: #fff; appearance: none;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;
+        }
+
+        /* --- Filtro "Marcas colocadas (mês)" em chips com logotipo (toque para
+           selecionar várias) — substitui o antigo <select> de contagem. Ao
+           selecionar marcas, a lista de clientes passa a mostrar quem ainda
+           não tem TODAS essas marcas colocadas este mês. */
+        .marcas-filtro-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .marcas-filtro-titulo { font-size: 0.75rem; color: var(--primary); font-weight: 700; text-transform: uppercase; }
+        .marcas-filtro-contagem { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+        .marcas-filtro-editar {
+            margin-left: auto; background: none; border: none; padding: 4px; cursor: pointer;
+            color: var(--muted); display: flex; align-items: center; border-radius: 7px;
+        }
+        .marcas-filtro-editar:hover { color: var(--primary); background: var(--ok-bg); }
+        .marcas-filtro-editar svg { width: 15px; height: 15px; }
+        .marcas-filtro-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+        .marca-chip {
+            flex: 0 0 auto; display: flex; align-items: center; gap: 7px;
+            border: 1.5px solid var(--border); background: #fff; border-radius: 999px;
+            padding: 6px 14px 6px 6px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text);
+            transition: border-color .15s ease, background .15s ease;
+        }
+        .marca-chip.ativa { border-color: var(--primary); background: var(--ok-bg); color: var(--primary-dark); }
+        .marca-chip-logo {
+            width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+            display: flex; align-items: center; justify-content: center; background: var(--bg);
+            border: 1px solid var(--border);
+        }
+        .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .marca-chip-fallback { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
+        .marca-chip-nome { white-space: nowrap; }
+
+        /* Modal de gestão de logotipos (upload por marca) */
+        .lista-logotipos { display: flex; flex-direction: column; }
+        .lista-logotipos-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border);
+        }
+        .lista-logotipos-item:last-child { border-bottom: none; }
+        .lista-logotipos-preview {
+            width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+            display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border);
+        }
+        .lista-logotipos-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .lista-logotipos-nome { flex: 1; font-weight: 700; font-size: 0.9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lista-logotipos-acoes { display: flex; gap: 6px; flex: 0 0 auto; }
+        .btn-logotipo-carregar, .btn-logotipo-remover {
+            border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 10px;
+            font-size: 0.74rem; font-weight: 700; cursor: pointer; color: var(--text);
+        }
+        .btn-logotipo-carregar:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-logotipo-remover { color: #dc2626; }
+        .btn-logotipo-remover:hover { background: #fef2f2; border-color: #fecaca; }
         .days-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px; }
         .tab-btn { flex: 1; min-width: 90px; padding: 12px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
         .tab-btn.active { background: var(--accent); color: white; }
@@ -489,9 +655,9 @@
 
     <div id="impressaoSemanal"></div>
 
-    <div class="filters-grid">
-        <div class="filter-control full-largura">
-            <label>Gestor</label>
+    <div class="filtro-principal-bar">
+        <div class="filtro-segmento filtro-gestor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <select id="comercialSelect" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
                 <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
@@ -501,8 +667,9 @@
                 <option value="Pedro Ricardo da Silva Guerreiro">Pedro Ricardo da Silva Guerreiro</option>
             </select>
         </div>
-        <div class="filter-control">
-            <label>Semana</label>
+        <span class="filtro-separador sep-gestor-semana">·</span>
+        <div class="filtro-segmento filtro-semana">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <select id="semanaSelect" onchange="atualizarVisualizacao()">
                 <option value="1">Semana 1</option>
                 <option value="2">Semana 2</option>
@@ -510,22 +677,43 @@
                 <option value="4">Semana 4</option>
             </select>
         </div>
-        <div class="filter-control">
-            <label>Vendedor</label>
+        <span class="filtro-separador sep-semana-vendedor">·</span>
+        <div class="filtro-segmento filtro-vendedor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <select id="vendedorSelect" onchange="atualizarVisualizacao()">
                 <option value="">Todos</option>
             </select>
         </div>
+    </div>
+
+    <div class="filters-grid">
         <div class="filter-control full-largura">
-            <label>Marcas colocadas (mês)</label>
-            <select id="marcasColocadasSelect" onchange="atualizarVisualizacao()">
-                <option value="">Todas</option>
-                <option value="0">0 marcas</option>
-                <option value="1">1 marca</option>
-                <option value="2">2 marcas</option>
-                <option value="3">3 marcas</option>
-                <option value="4+">4+ marcas</option>
-            </select>
+            <div class="marcas-filtro-header">
+                <span class="marcas-filtro-titulo">Marcas não colocadas (mês)</span>
+                <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
+                <button type="button" class="marcas-filtro-editar" title="Gerir logotipos das marcas" onclick="pedirCodigoAcesso_(() => abrirModalLogotipos_())">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </button>
+            </div>
+            <div class="marcas-filtro-chips" id="marcasFiltroChips"></div>
+        </div>
+    </div>
+
+    <div class="modal-foco-overlay" id="modalLogotiposOverlay">
+        <div class="modal-foco-box" style="max-width: 440px;">
+            <div class="modal-foco-header">
+                <h2>Logotipos das marcas</h2>
+                <button class="modal-foco-close" onclick="fecharModalLogotipos_()" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-foco-body" style="padding: 0;">
+                <div style="padding: 12px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border);">
+                    Carrega uma imagem .jpeg por marca — fica visível para toda a equipa.
+                </div>
+                <div class="lista-logotipos" id="listaLogotipos"></div>
+            </div>
+            <div class="modal-foco-footer">
+                <button class="btn-submit" onclick="fecharModalLogotipos_()">Fechar</button>
+            </div>
         </div>
     </div>
 
@@ -633,6 +821,19 @@
         <div class="modal-foco-body" id="modalResumoClientesBody"></div>
         <div class="modal-foco-footer">
             <button class="btn-submit" onclick="fecharModalResumoClientes_()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-foco-overlay" id="modalClientesPicosOverlay">
+    <div class="modal-foco-box" style="max-width: 480px;">
+        <div class="modal-foco-header">
+            <h2 id="modalClientesPicosTitulo">Clientes com compra este mês</h2>
+            <button class="modal-foco-close" onclick="fecharModalClientesPicos_()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="modal-foco-body" id="modalClientesPicosBody" style="padding: 0;"></div>
+        <div class="modal-foco-footer">
+            <button class="btn-submit" onclick="fecharModalClientesPicos_()">Fechar</button>
         </div>
     </div>
 </div>
@@ -761,9 +962,13 @@
         registosGestor.forEach(r => {
             const chave = chaveClienteUnica_(r);
             if (!porCliente[chave]) {
-                porCliente[chave] = { tipologia: '', comprouMes: false, historico: {} };
+                porCliente[chave] = { cliente: '', numero: '', tipologia: '', comprouMes: false, historico: {} };
             }
             const acc = porCliente[chave];
+            // O nome/número pertencem ao cliente único — aproveita a primeira
+            // linha da rota que os tiver preenchidos.
+            if (!acc.cliente && String(r.cliente || '').trim()) acc.cliente = String(r.cliente).trim();
+            if (!acc.numero && String(r.numero || '').trim()) acc.numero = String(r.numero).trim();
             // A Tipologia pertence ao cliente único. Se a primeira linha vier
             // vazia, aproveita uma tipologia preenchida noutra linha da rota.
             if (!acc.tipologia && String(r.tipologia || '').trim()) {
@@ -782,9 +987,35 @@
         });
 
         let totalPossivel = 0, efetuadas = 0;
-        const clientesComCompraMes = Object.values(porCliente).filter(cli => cli.comprouMes).length;
-        Object.values(porCliente).forEach(cli => {
-            if (!cli.comprouMes) return;
+        const clientesComCompraLista = Object.values(porCliente).filter(cli => cli.comprouMes);
+        const clientesComCompraMes = clientesComCompraLista.length;
+        // Detalhe por cliente (nome + marcas efetivamente compradas este mês),
+        // usado no modal que abre ao clicar em "N clientes" no cartão PICOS.
+        const clientesDetalhe = clientesComCompraLista
+            .map(cli => {
+                const compradas = Object.keys(cli.historico)
+                    .filter(m => cli.historico[m] && cli.historico[m].mes);
+                // Marcas exigidas pela Tipologia do cliente (REGRAS_TIPOLOGIA_),
+                // resolvidas para os nomes reais das colunas do Excel — para
+                // saber quais ainda faltam comprar este mês (mostradas a
+                // vermelho). Duas chaves canónicas (ex.: sagres_bar/garrafa)
+                // podem resolver para a mesma coluna, daí o dedupe com Set.
+                const marcasReq = obterRegraTipologia_(cli.tipologia) || [];
+                const colunasReq = Array.from(new Set(
+                    marcasReq.map(chave => resolverColunaMarca_(chave)).filter(Boolean)
+                ));
+                const emFalta = colunasReq.filter(c => !compradas.includes(c));
+                return {
+                    cliente: cli.cliente || '(sem nome)',
+                    numero: cli.numero || '',
+                    tipologia: cli.tipologia || '',
+                    marcasCompradas: compradas.sort((a, b) => a.localeCompare(b, 'pt')),
+                    marcasEmFalta: emFalta.sort((a, b) => a.localeCompare(b, 'pt'))
+                };
+            })
+            .sort((a, b) => a.cliente.localeCompare(b.cliente, 'pt'));
+
+        clientesComCompraLista.forEach(cli => {
             const marcasReq = obterRegraTipologia_(cli.tipologia);
             if (!marcasReq || marcasReq.length === 0) return;
             marcasReq.forEach(chaveCanonica => {
@@ -795,7 +1026,7 @@
                 if (hist && hist.mes) efetuadas++;
             });
         });
-        return { totalPossivel: totalPossivel, efetuadas: efetuadas, clientesComCompraMes: clientesComCompraMes };
+        return { totalPossivel: totalPossivel, efetuadas: efetuadas, clientesComCompraMes: clientesComCompraMes, clientesDetalhe: clientesDetalhe };
     }
     // Ordem real das colunas de marca, tal como aparece no cabeçalho do último
     // Excel importado. Persistida no servidor (config 'ordemMarcas') para que
@@ -814,6 +1045,23 @@
             if (guardado) DADOS_PICOS_ = JSON.parse(guardado) || {};
         } catch (e) { console.error('Erro ao carregar cache de Picos:', e); }
     })();
+
+    // Logotipos das marcas (carregados em .jpeg via modal "Gerir logotipos"),
+    // partilhados com toda a equipa via config no servidor — { "Sagres":
+    // "data:image/jpeg;base64,...", ... }. Marcas sem entrada aqui mostram um
+    // ícone de reserva (iniciais) no chip do filtro.
+    let LOGOTIPOS_MARCAS_ = {};
+    (function carregarLogotiposCache_() {
+        try {
+            const guardado = localStorage.getItem('logotiposMarcasCache');
+            if (guardado) LOGOTIPOS_MARCAS_ = JSON.parse(guardado) || {};
+        } catch (e) { console.error('Erro ao carregar cache de logotipos:', e); }
+    })();
+
+    // Marcas selecionadas no filtro em chips "Marcas colocadas (mês)": ao
+    // selecionar 1+ marcas, a lista de clientes passa a mostrar só quem ainda
+    // não tem TODAS essas marcas colocadas este mês (oportunidade de venda).
+    let MARCAS_FILTRO_SELECIONADAS_ = [];
 
     function chaveMesPicos_() {
         const agora = new Date();
@@ -1049,6 +1297,55 @@
         if (overlay) overlay.style.display = 'none';
     }
 
+    /** Abre o modal com a lista "Nome do cliente → marcas compradas este mês"
+     *  para o Gestor indicado — chamado ao clicar em "N clientes" no cartão
+     *  PICOS. Usa o mesmo cálculo (calcularPicosAutomatico_) que já alimenta
+     *  os números do cartão, para nunca desalinhar os dois. */
+    function mostrarClientesPicos_(com) {
+        const auto = calcularPicosAutomatico_(com);
+        const detalhe = auto.clientesDetalhe || [];
+
+        const titulo = document.getElementById('modalClientesPicosTitulo');
+        if (titulo) titulo.textContent = `Clientes com compra este mês · ${com || 'sem gestor'}`;
+
+        const corpo = document.getElementById('modalClientesPicosBody');
+        if (!corpo) return;
+
+        if (detalhe.length === 0) {
+            corpo.innerHTML = `<div class="modal-clientes-picos-vazio">Ainda não há clientes com compra registada este mês para "${com || 'sem gestor'}".</div>`;
+        } else {
+            const linhas = detalhe.map(cli => {
+                // Marcas já compradas (verde) seguidas das marcas exigidas pela
+                // Tipologia que ainda faltam comprar este mês (vermelho).
+                const badgesCompradas = cli.marcasCompradas.map(m => `<span class="marca-badge">${m}</span>`);
+                const badgesFalta = (cli.marcasEmFalta || []).map(m => `<span class="marca-badge em-falta">${m}</span>`);
+                const badges = badgesCompradas.concat(badgesFalta).join('')
+                    || `<span class="marca-badge sem-marcas">Sem marcas assinaladas</span>`;
+                return `
+                    <div class="linha-cliente-picos">
+                        <div class="col-nome-cliente" title="${cli.cliente}">${cli.cliente}</div>
+                        <div class="col-marcas-compradas">${badges}</div>
+                    </div>`;
+            }).join('');
+            corpo.innerHTML = `
+                <div class="modal-clientes-picos-contagem">${detalhe.length} cliente${detalhe.length === 1 ? '' : 's'} com compra este mês</div>
+                <div class="lista-clientes-picos">
+                    <div class="lista-clientes-picos-cabecalho">
+                        <div class="col-nome-cliente">Cliente</div>
+                        <div class="col-marcas-compradas">Marcas compradas</div>
+                    </div>
+                    ${linhas}
+                </div>`;
+        }
+
+        document.getElementById('modalClientesPicosOverlay').classList.add('aberto');
+    }
+
+    function fecharModalClientesPicos_() {
+        const overlay = document.getElementById('modalClientesPicosOverlay');
+        if (overlay) overlay.classList.remove('aberto');
+    }
+
     /**
      * Calcula, para cada marca, a % de clientes ÚNICOS (sem duplicados por
      * dia/semana) que já a colocaram este ano (historico.ano). Serve apenas
@@ -1098,7 +1395,7 @@
         // (nem na tabela nem nos cartões de Picos/Resumo) — mesmo que já tenha
         // ficado gravada como tal em dados antigos vindos do servidor.
         const chaves = Array.from(setMarcas).filter(m => !ehCabecalhoComprouMes_(m));
-        if (chaves.length === 0) { renderCabecalhoTabela(); return; }
+        if (chaves.length === 0) { renderCabecalhoTabela(); renderMarcasFiltroChips_(); return; }
 
         if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
             // Segue a ordem persistida do último Excel importado. Marcas que já não
@@ -1119,6 +1416,7 @@
             });
         }
         renderCabecalhoTabela();
+        renderMarcasFiltroChips_();
     }
     let baseDadosRotas = [];
     let diaAtualSelecionado = "Segunda";
@@ -1365,6 +1663,11 @@
             if (!Array.isArray(dados) && dados.dadosPicos && typeof dados.dadosPicos === 'object') {
                 DADOS_PICOS_ = dados.dadosPicos;
                 try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+            }
+            if (!Array.isArray(dados) && dados.logotiposMarcas && typeof dados.logotiposMarcas === 'object') {
+                LOGOTIPOS_MARCAS_ = dados.logotiposMarcas;
+                try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+                renderMarcasFiltroChips_();
             }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
@@ -1783,9 +2086,7 @@
         const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
         const emModoPesquisa = termoPesquisa.length > 0;
 
-        const marcasColocadasSelect = document.getElementById('marcasColocadasSelect');
-        const marcasColocadasFiltro = marcasColocadasSelect ? marcasColocadasSelect.value : '';
-        const emModoMarcasColocadas = marcasColocadasFiltro !== '';
+        const emModoMarcasColocadas = MARCAS_FILTRO_SELECIONADAS_.length > 0;
 
         const diasTabs = document.getElementById('diasTabs');
         if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas) ? 'none' : '';
@@ -1797,11 +2098,15 @@
         const passaSemana = i => vend || emModoMarcasColocadas || i.semana === sem;
         const passaDia = i => vend || emModoMarcasColocadas || i.dia === diaAtualSelecionado;
 
+        // Mostra o cliente se lhe faltar PELO MENOS UMA das marcas selecionadas
+        // nos chips (ainda não tem todas colocadas este mês → oportunidade de
+        // venda). Sem marcas selecionadas, o filtro não exclui ninguém.
         const passaMarcasColocadas = i => {
-            if (marcasColocadasFiltro === '') return true;
-            const n = contarMarcasColocadasMes_(i);
-            if (marcasColocadasFiltro === '4+') return n >= 4;
-            return n === parseInt(marcasColocadasFiltro, 10);
+            if (MARCAS_FILTRO_SELECIONADAS_.length === 0) return true;
+            return MARCAS_FILTRO_SELECIONADAS_.some(m => {
+                const hist = (i.historico && i.historico[m]) || {};
+                return !hist.mes;
+            });
         };
 
         let filtrados = emModoPesquisa
@@ -1823,7 +2128,7 @@
         if(filtrados.length === 0) {
             const mensagem = emModoPesquisa
                 ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.`
-                : (emModoMarcasColocadas ? 'Sem clientes com esse número de marcas colocadas este mês.' : 'Sem rota agendada.');
+                : (emModoMarcasColocadas ? 'Todos os clientes já têm essas marcas colocadas este mês.' : 'Sem rota agendada.');
             corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
             return;
         }
@@ -1933,6 +2238,127 @@
         return total;
     }
 
+    /** Desenha os chips de marcas (com logotipo, se carregado) do filtro
+     *  "Marcas colocadas (mês)". Chamada sempre que marcasLista ou os
+     *  logotipos mudam. Preserva a seleção atual entre re-renders. */
+    function renderMarcasFiltroChips_() {
+        const cont = document.getElementById('marcasFiltroChips');
+        if (!cont) return;
+
+        // Remove da seleção marcas que já não existem nos dados atuais.
+        MARCAS_FILTRO_SELECIONADAS_ = MARCAS_FILTRO_SELECIONADAS_.filter(m => marcasLista.includes(m));
+
+        cont.innerHTML = marcasLista.map(m => {
+            const ativa = MARCAS_FILTRO_SELECIONADAS_.includes(m);
+            const logo = LOGOTIPOS_MARCAS_[m];
+            const conteudoLogo = logo
+                ? `<img src="${logo}" alt="${m}" loading="lazy">`
+                : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+            const mEscapado = m.replace(/'/g, "\\'");
+            return `
+                <button type="button" class="marca-chip ${ativa ? 'ativa' : ''}" onclick="alternarMarcaFiltro_('${mEscapado}')">
+                    <span class="marca-chip-logo">${conteudoLogo}</span>
+                    <span class="marca-chip-nome">${m}</span>
+                </button>`;
+        }).join('');
+
+        atualizarContagemMarcasFiltro_();
+    }
+
+    function atualizarContagemMarcasFiltro_() {
+        const el = document.getElementById('marcasFiltroContagem');
+        if (!el) return;
+        const n = MARCAS_FILTRO_SELECIONADAS_.length;
+        el.textContent = n === 0 ? 'Todas' : `${n} selecionada${n === 1 ? '' : 's'}`;
+    }
+
+    function alternarMarcaFiltro_(marca) {
+        const idx = MARCAS_FILTRO_SELECIONADAS_.indexOf(marca);
+        if (idx === -1) MARCAS_FILTRO_SELECIONADAS_.push(marca);
+        else MARCAS_FILTRO_SELECIONADAS_.splice(idx, 1);
+        renderMarcasFiltroChips_();
+        atualizarVisualizacao();
+    }
+
+    // --- Modal "Gerir logotipos das marcas" (upload .jpeg por marca, PIN) ---
+    function abrirModalLogotipos_() {
+        renderListaLogotipos_();
+        document.getElementById('modalLogotiposOverlay').classList.add('aberto');
+    }
+
+    function fecharModalLogotipos_() {
+        document.getElementById('modalLogotiposOverlay').classList.remove('aberto');
+    }
+
+    function renderListaLogotipos_() {
+        const cont = document.getElementById('listaLogotipos');
+        if (!cont) return;
+        cont.innerHTML = marcasLista.map((m, i) => {
+            const logo = LOGOTIPOS_MARCAS_[m];
+            const mEscapado = m.replace(/'/g, "\\'");
+            const preview = logo
+                ? `<img src="${logo}" alt="${m}">`
+                : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+            return `
+                <div class="lista-logotipos-item">
+                    <div class="lista-logotipos-preview">${preview}</div>
+                    <div class="lista-logotipos-nome">${m}</div>
+                    <div class="lista-logotipos-acoes">
+                        <input type="file" accept="image/jpeg" id="inputLogotipo${i}" style="display:none;" onchange="carregarLogotipoMarca_('${mEscapado}', this)">
+                        <button type="button" class="btn-logotipo-carregar" onclick="document.getElementById('inputLogotipo${i}').click()">Carregar</button>
+                        ${logo ? `<button type="button" class="btn-logotipo-remover" onclick="removerLogotipoMarca_('${mEscapado}')">Remover</button>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    /** Lê o .jpeg escolhido, comprime para um ícone pequeno (evita ultrapassar
+     *  o limite de caracteres por célula no Google Sheets) e envia para o
+     *  servidor como config partilhada — visível para toda a equipa. */
+    function carregarLogotipoMarca_(marca, inputEl) {
+        const ficheiro = inputEl.files && inputEl.files[0];
+        if (!ficheiro) return;
+
+        const leitor = new FileReader();
+        leitor.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const tamanho = 96;
+                const canvas = document.createElement('canvas');
+                canvas.width = tamanho;
+                canvas.height = tamanho;
+                const ctx = canvas.getContext('2d');
+                // Recorte central quadrado (cover), para o logotipo preencher
+                // bem o círculo do chip independentemente da proporção original.
+                const lado = Math.min(img.width, img.height);
+                const offsetX = (img.width - lado) / 2;
+                const offsetY = (img.height - lado) / 2;
+                ctx.drawImage(img, offsetX, offsetY, lado, lado, 0, 0, tamanho, tamanho);
+                const dataUri = canvas.toDataURL('image/jpeg', 0.72);
+
+                LOGOTIPOS_MARCAS_[marca] = dataUri;
+                try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+                renderListaLogotipos_();
+                renderMarcasFiltroChips_();
+
+                postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + marca, valor: dataUri })
+                    .then(r => { if (!r || r.ok === false) alert('Não foi possível guardar o logotipo no servidor. Tenta novamente.'); });
+            };
+            img.onerror = () => alert('Não foi possível ler esta imagem.');
+            img.src = ev.target.result;
+        };
+        leitor.readAsDataURL(ficheiro);
+        inputEl.value = '';
+    }
+
+    function removerLogotipoMarca_(marca) {
+        delete LOGOTIPOS_MARCAS_[marca];
+        try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+        renderListaLogotipos_();
+        renderMarcasFiltroChips_();
+        postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + marca, valor: '' });
+    }
+
     function renderResumoFoco(com, sem) {
         const el = document.getElementById('resumoFoco');
         if (!el) return;
@@ -1970,18 +2396,72 @@
         }).join('');
 
         el.innerHTML = `
-            <div class="resumo-foco-linha">
-                <div class="resumo-card">
-                    <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
-                    <div class="resumo-grid">${colunas}</div>
-                    <div class="resumo-legenda">
-                        <span><span class="dot foco"></span>Foco</span>
-                        <span><span class="dot atingido"></span>Atingido</span>
+            <div class="resumo-foco-tabs">
+                <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(0)">Resumo</button>
+                <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(1)">Picos</button>
+            </div>
+            <div class="resumo-foco-slider">
+                <div class="resumo-foco-linha resumo-foco-track" id="resumoFocoTrack">
+                    <div class="resumo-card resumo-foco-slide">
+                        <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
+                        <div class="resumo-grid">${colunas}</div>
+                        <div class="resumo-legenda">
+                            <span><span class="dot foco"></span>Foco</span>
+                            <span><span class="dot atingido"></span>Atingido</span>
+                        </div>
                     </div>
+                    ${renderPicosCardHtml_(com, sem).replace('<div class="picos-card">', '<div class="picos-card resumo-foco-slide">')}
                 </div>
-                ${renderPicosCardHtml_(com, sem)}
             </div>`;
+
+        aplicarSlideResumoPicos_();
     }
+
+    // --- Carrossel "Resumo ↔ Picos" (ver CSS .resumo-foco-slider), só ativo
+    // no telemóvel — poupa espaço vertical ao mostrar 1 cartão de cada vez,
+    // trocando por separadores "Resumo/Picos" ou por arrastar (swipe).
+    let resumoPicosSlideAtivo_ = 0; // 0 = Resumo, 1 = Picos — mantém-se entre re-renders (polling/sync)
+
+    function aplicarSlideResumoPicos_() {
+        const track = document.getElementById('resumoFocoTrack');
+        if (!track) return;
+        track.style.transform = `translateX(-${resumoPicosSlideAtivo_ * 100}%)`;
+        document.querySelectorAll('#resumoFoco .resumo-foco-tab').forEach((tab, i) => {
+            tab.classList.toggle('ativo', i === resumoPicosSlideAtivo_);
+        });
+    }
+
+    function irParaSlideResumoPicos_(indice) {
+        resumoPicosSlideAtivo_ = Math.max(0, Math.min(1, indice));
+        aplicarSlideResumoPicos_();
+    }
+
+    function mudarSlideResumoPicos_(delta) {
+        irParaSlideResumoPicos_(resumoPicosSlideAtivo_ + delta);
+    }
+
+    // Arrastar com o dedo (swipe) para alternar entre Resumo e Picos no telemóvel.
+    // Só reage a gestos predominantemente horizontais, para não interferir
+    // com o scroll vertical normal da página.
+    (function inicializarSwipeResumoPicos_() {
+        let inicioX = null, inicioY = null;
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest || !e.target.closest('.resumo-foco-slider')) return;
+            inicioX = e.touches[0].clientX;
+            inicioY = e.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (inicioX === null) return;
+            const fimX = e.changedTouches[0].clientX;
+            const fimY = e.changedTouches[0].clientY;
+            const deltaX = fimX - inicioX;
+            const deltaY = fimY - inicioY;
+            inicioX = null; inicioY = null;
+            if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+                mudarSlideResumoPicos_(deltaX < 0 ? 1 : -1);
+            }
+        }, { passive: true });
+    })();
 
     /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
      *  para o Gestor + Mês atual (independente da semana selecionada) — em modo leitura ou em modo edição
@@ -2000,13 +2480,15 @@
         const comEscapado = String(com || '').replace(/'/g, "\\'");
         const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((efetuadas / total) * 100))) : 0;
         const corDiferenca = diferenca > 0 ? 'pendente' : 'concluido';
-        const rotuloObjetivo = objetivoPercent === 100 ? '' : ` <span style="font-weight:600; text-transform:none; letter-spacing:0; opacity:.6;">· Objetivo ${objetivoPercent}%</span>`;
+        const rotuloObjetivo = objetivoPercent === 100 ? '' : `<span class="picos-objetivo-sufixo">· Objetivo ${objetivoPercent}%</span>`;
 
         const cabecalho = `
             <div class="picos-card-header">
                 <span class="picos-card-titulo">
-                    <svg class="star-mini" viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
-                    Picos${rotuloObjetivo}
+                    <span class="picos-icon-badge">
+                        <svg viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+                    </span>
+                    Picos ${rotuloObjetivo}
                 </span>`;
 
         if (picosEmEdicao_ === chave) {
@@ -2042,19 +2524,28 @@
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-total">${total}</div>
                         <div class="picos-stat-label">DN Objetivo</div>
-                        <div style="font-size:0.68rem; color:var(--muted); margin-top:3px; white-space:nowrap;">${clientesComCompraMes} clientes</div>
                     </div>
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
-                        <div class="picos-stat-label">Efetuadas</div>
+                        <div class="picos-stat-label">DN efetuadas</div>
                     </div>
                     <div class="picos-stat">
                         <div class="picos-stat-valor cor-diferenca ${corDiferenca}">${diferenca}</div>
                         <div class="picos-stat-label">Diferença</div>
                     </div>
                 </div>
-                <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
-                <div class="picos-progress-label">${percent}% concluído</div>
+                <button type="button" class="picos-clientes-link" onclick="mostrarClientesPicos_('${comEscapado}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
+                    <span>${clientesComCompraMes} clientes</span>
+                    <span class="picos-clientes-hint">· clicar para ver</span>
+                </button>
+                <div class="picos-progress-row">
+                    <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
+                    <div class="picos-progress-percent-block">
+                        <div class="picos-progress-percent">${percent}%</div>
+                        <div class="picos-progress-percent-label">Execução</div>
+                    </div>
+                </div>
             </div>`;
     }
 
