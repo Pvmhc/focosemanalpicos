@@ -2287,25 +2287,19 @@
      *  apps a partir da página, por isso usa-se sempre o link genérico
      *  (abre a app instalada ou o WhatsApp Web). */
     function abrirWhatsApp_(texto) {
-        /*
-         * Abrir o WhatsApp:
-         * Não usamos "intent://...package=com.whatsapp.w4b" porque em alguns
-         * browsers Android (incluindo Edge) esse formato fica bloqueado ou
-         * tenta abrir apenas o WhatsApp Business, fazendo o botão parecer
-         * não funcionar.
-         *
-         * O link oficial genérico permite ao sistema/browser encaminhar para
-         * o WhatsApp instalado (normal ou Business) e, se não houver app,
-         * abrir a versão web.
-         */
-        const urlWhatsApp = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        const urlGenerica = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        const isAndroid = /Android/i.test(navigator.userAgent);
 
-        try {
-            window.location.href = urlWhatsApp;
-        } catch (e) {
-            // Fallback simples caso o browser impeça a navegação.
-            window.open(urlWhatsApp, '_blank');
+        // Android: tenta SEMPRE abrir primeiro o WhatsApp Business.
+        // com.whatsapp.w4b identifica especificamente a aplicação Business.
+        if (isAndroid) {
+            const intentBusiness = `intent://send?text=${encodeURIComponent(texto)}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(urlGenerica)};end`;
+            window.location.href = intentBusiness;
+            return;
         }
+
+        // Em iPhone/PC o HTML não consegue escolher entre WhatsApp e Business.
+        window.location.href = urlGenerica;
     }
 
     /** Abre o WhatsApp (compatível com WhatsApp Business, que trata o mesmo
