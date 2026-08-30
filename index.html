@@ -226,6 +226,41 @@
             .picos-stat-valor { font-size: 0.95rem; }
         }
 
+        /* --- Barra compacta "Picos" que fica fixa no topo ao fazer scroll
+           (mesmo estilo/altura da pílula "Gestor · Semana · Vendedor") —
+           dá sempre visibilidade aos números de Picos mesmo a percorrer a
+           lista de clientes mais abaixo. */
+        .picos-sticky-bar {
+            position: sticky; top: 0; z-index: 30;
+            display: flex; align-items: center; gap: 8px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+            padding: 8px 14px; margin-bottom: 8px; box-sizing: border-box;
+            font-size: 0.78rem; font-weight: 700; color: var(--text);
+            white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+            box-shadow: 0 2px 6px rgba(11,12,16,.06);
+        }
+        .picos-sticky-bar::-webkit-scrollbar { display: none; }
+        .picos-sticky-icon {
+            width: 16px; height: 16px; border-radius: 50%; background: var(--primary);
+            display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+        }
+        .picos-sticky-icon svg { width: 9px; height: 9px; fill: #fff; }
+        .picos-sticky-label { font-weight: 800; flex: 0 0 auto; }
+        .picos-sticky-num { font-weight: 800; }
+        .picos-sticky-num.cor-total { color: var(--text); }
+        .picos-sticky-num.cor-efetuadas { color: var(--ok-color); }
+        .picos-sticky-num.cor-diferenca.pendente { color: var(--negociado-color); }
+        .picos-sticky-num.cor-diferenca.concluido { color: var(--ok-color); }
+        .picos-sticky-sep { color: var(--border); font-weight: 900; flex: 0 0 auto; }
+        .picos-sticky-execucao {
+            margin-left: auto; flex: 0 0 auto; background: var(--primary); color: #fff;
+            padding: 3px 9px; border-radius: 999px; font-weight: 800; font-size: 0.74rem;
+        }
+        @media (max-width: 400px) {
+            .picos-sticky-bar { font-size: 0.72rem; padding: 7px 10px; gap: 6px; }
+            .picos-sticky-label { display: none; }
+        }
+
         /* --- Link para o Vendedor / Modo de leitura --- */
         .link-vendedor-row { display: flex; justify-content: flex-end; margin: -6px 0 4px; }
         .btn-link-vendedor {
@@ -2610,7 +2645,8 @@
                     </div>
                     <div class="resumo-foco-slide">${renderPicosCardHtml_(com, sem)}</div>
                 </div>
-            </div>`;
+            </div>
+            <div class="picos-sticky-bar" id="picosStickyBar">${renderPicosStickyBarHtml_(com, sem)}</div>`;
 
         aplicarSlideResumoPicos_();
     }
@@ -2662,6 +2698,35 @@
             }
         }, { passive: true });
     })();
+
+    /** Constrói o HTML da barra compacta (1 linha) do "PICOS" que fica fixa
+     *  no topo ao fazer scroll — ver .picos-sticky-bar. Reutiliza o mesmo
+     *  cálculo automático da função renderPicosCardHtml_. */
+    function renderPicosStickyBarHtml_(com, sem) {
+        const chave = chavePicos_(com, sem);
+        const override = DADOS_PICOS_[chave];
+        const objetivoPercent = (override && override.objetivoPercent !== undefined && override.objetivoPercent !== null)
+            ? Number(override.objetivoPercent) : 100;
+        const auto = calcularPicosAutomatico_(com);
+        const totalPossivel = auto.totalPossivel;
+        const efetuadas = auto.efetuadas;
+        const total = Math.round(totalPossivel * (objetivoPercent / 100));
+        const diferenca = total - efetuadas;
+        const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((efetuadas / total) * 100))) : 0;
+        const corDiferenca = diferenca > 0 ? 'pendente' : 'concluido';
+
+        return `
+            <span class="picos-sticky-icon">
+                <svg viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+            </span>
+            <span class="picos-sticky-label">Picos</span>
+            <span class="picos-sticky-num cor-total">${total}</span>
+            <span class="picos-sticky-sep">·</span>
+            <span class="picos-sticky-num cor-efetuadas">${efetuadas}</span>
+            <span class="picos-sticky-sep">·</span>
+            <span class="picos-sticky-num cor-diferenca ${corDiferenca}">${diferenca}</span>
+            <span class="picos-sticky-execucao">${percent}%</span>`;
+    }
 
     /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
      *  para o Gestor + Mês atual (independente da semana selecionada) — em modo leitura ou em modo edição
