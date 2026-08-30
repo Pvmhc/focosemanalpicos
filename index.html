@@ -237,9 +237,9 @@
             position: fixed; top: 12px; left: 12px; right: 12px; z-index: 200;
             max-width: 1400px; margin: 0 auto;
             display: flex; align-items: center; gap: 8px;
-            background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+            background: #0b0c10; border: 2px solid #000; border-radius: 999px;
             padding: 8px 14px; box-sizing: border-box;
-            font-size: 0.78rem; font-weight: 700; color: var(--text);
+            font-size: 0.78rem; font-weight: 700; color: #fff;
             white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
             box-shadow: 0 4px 14px rgba(11,12,16,.12);
             opacity: 0; visibility: hidden; transform: translateY(-8px);
@@ -256,18 +256,19 @@
         .picos-sticky-icon svg { width: 9px; height: 9px; fill: #fff; }
         .picos-sticky-label { font-weight: 800; flex: 0 0 auto; }
         .picos-sticky-num { font-weight: 800; }
-        .picos-sticky-num.cor-total { color: var(--text); }
+        .picos-sticky-num.cor-total { color: #fff; }
         .picos-sticky-num.cor-efetuadas { color: var(--ok-color); }
         .picos-sticky-num.cor-diferenca.pendente { color: var(--negociado-color); }
         .picos-sticky-num.cor-diferenca.concluido { color: var(--ok-color); }
-        .picos-sticky-sep { color: var(--border); font-weight: 900; flex: 0 0 auto; }
+        .picos-sticky-sep { color: rgba(255,255,255,.55); font-weight: 900; flex: 0 0 auto; }
         .picos-sticky-execucao {
             margin-left: auto; flex: 0 0 auto; background: var(--primary); color: #fff;
             padding: 3px 9px; border-radius: 999px; font-weight: 800; font-size: 0.74rem;
         }
         @media (max-width: 400px) {
-            .picos-sticky-bar { font-size: 0.72rem; padding: 7px 10px; gap: 6px; }
-            .picos-sticky-label { display: none; }
+            .picos-sticky-bar { font-size: 0.66rem; padding: 7px 10px; gap: 5px; }
+            .picos-sticky-label { font-size: 0.68rem; }
+            .picos-sticky-execucao { font-size: 0.66rem; padding: 3px 7px; }
         }
 
         /* --- Link para o Vendedor / Modo de leitura --- */
@@ -386,6 +387,8 @@
         .settings-menu-item.item-pdf svg { color: #0b0c10; }
         .settings-menu-item.item-excel svg { color: #1e7b46; }
         .settings-menu-item.item-focosemanal svg { color: #2563eb; }
+        .settings-menu-item.item-portfolio svg { color: #7c3aed; }
+        .settings-menu-item.item-logotipos svg { color: #059669; }
 
         .modal-foco-overlay {
             display: none; position: fixed; inset: 0; background: rgba(11,12,16,.55);
@@ -711,7 +714,23 @@
         .btn-submit:hover { filter: brightness(1.1); }
         .btn-whatsapp { background: #fff; color: #1e9e56; border: 1.5px solid #1e9e56; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: background 0.2s, color 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-whatsapp:hover { background: #1e9e56; color: #fff; }
-    </style>
+    
+        .btn-portfolio { width:34px; height:34px; border:1px solid var(--border); background:#fff; color:var(--primary); border-radius:9px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
+        .btn-portfolio:hover { background:var(--ok-bg); }
+        .portfolio-box { max-width:620px; width:calc(100% - 24px); }
+        .portfolio-help { padding:12px 20px; font-size:.78rem; color:var(--muted); border-bottom:1px solid var(--border); }
+        .portfolio-body { padding:14px 18px; max-height:65vh; overflow:auto; }
+        .portfolio-brand { border:1px solid var(--border); border-radius:12px; margin-bottom:12px; overflow:hidden; background:#fff; }
+        .portfolio-brand-head { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--bg); border-bottom:1px solid var(--border); }
+        .portfolio-brand-head input { flex:1; min-width:0; font-weight:800; border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+        .portfolio-product { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #edf0f2; }
+        .portfolio-product input { flex:1; min-width:0; border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+        .portfolio-add-product, .portfolio-delete { border:1px solid var(--border); background:#fff; border-radius:8px; padding:7px 9px; cursor:pointer; font-weight:700; }
+        .portfolio-add-product { color:var(--primary); margin:9px 12px 12px; }
+        .portfolio-delete { color:#b42318; }
+        .portfolio-add-brand { width:100%; border:1.5px dashed var(--primary); background:#fff; color:var(--primary); border-radius:10px; padding:10px; cursor:pointer; font-weight:800; margin-top:2px; }
+        @media(max-width:600px){ .portfolio-body{padding:10px;max-height:60vh}.portfolio-product{padding:7px 9px}.portfolio-brand-head{padding:8px 9px} }
+</style>
 </head>
 <body>
 
@@ -789,6 +808,14 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
                         Marca Foco
                     </button>
+                    <button class="settings-menu-item item-portfolio" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalPortfolio_())">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M20 12h-9"/><path d="M20 17h-9"/><path d="M4 7h.01"/><path d="M4 12h.01"/><path d="M4 17h.01"/></svg>
+                        Marcas e produtos
+                    </button>
+                    <button class="settings-menu-item item-logotipos" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalLogotipos_())">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                        Logotipos das marcas
+                    </button>
                 </div>
             </div>
             <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="carregarDadosDesdeExcel(event)">
@@ -836,9 +863,6 @@
             <div class="marcas-filtro-header">
                 <span class="marcas-filtro-titulo">Marcas não colocadas (mês)</span>
                 <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
-                <button type="button" class="marcas-filtro-editar" title="Gerir logotipos das marcas" onclick="pedirCodigoAcesso_(() => abrirModalLogotipos_())">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                </button>
             </div>
             <div class="marcas-filtro-chips" id="marcasFiltroChips"></div>
         </div>
@@ -923,7 +947,9 @@
                 <h2 id="modalClientName">Nova Encomenda</h2>
                 <p class="modal-subtitle">Gere o pedido de acordo com o portefólio negociado.</p>
             </div>
-            <button class="btn-close" onclick="fecharModalEncomenda()" aria-label="Fechar">&times;</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn-close" onclick="fecharModalEncomenda()" aria-label="Fechar">&times;</button>
+            </div>
         </div>
         <div class="modal-body" id="modalCatalogBody">
             <!-- Catálogo injetado via JS -->
@@ -940,6 +966,22 @@
                 </button>
                 <button class="btn-submit" onclick="gerarEmailEncomenda()">Gerar E-mail</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE GESTÃO DO PORTFÓLIO DE ENCOMENDAS -->
+<div class="modal-foco-overlay" id="modalPortfolioOverlay">
+    <div class="modal-foco-box portfolio-box">
+        <div class="modal-foco-header">
+            <h2>Gerir marcas e produtos</h2>
+            <button class="modal-foco-close" onclick="fecharModalPortfolio_()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="portfolio-help">Aqui podes acrescentar, alterar ou eliminar marcas e os produtos que aparecem no botão <strong>Encomendar</strong>.</div>
+        <div class="portfolio-body" id="portfolioBody"></div>
+        <div class="modal-foco-footer">
+            <button class="btn-cancel" onclick="fecharModalPortfolio_()">Cancelar</button>
+            <button class="btn-submit" onclick="guardarPortfolio_()">Guardar alterações</button>
         </div>
     </div>
 </div>
@@ -1008,7 +1050,7 @@
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJoWQTZASCbn_nQXDNA3plu-kUa4qwnx24T8Hx2nzjJ8q4jlDFw8HLzd6yQycQlEA/exec"; 
 
     // --- DADOS DO CATÁLOGO DE ENCOMENDAS (GAMA SAGRES ATUALIZADA) ---
-    const PRODUCT_CATALOG = [
+    let PRODUCT_CATALOG = [
         { id: "sagres_mini_ret_20", name: "Sagres Branca Mini Retornável (Grade 24×20cl)", range: "Sagres" },
         { id: "sagres_media_ret_33", name: "Sagres Branca Média Retornável (Grade 24×33cl)", range: "Sagres" },
         { id: "sagres_mini_tp_25", name: "Sagres Branca Mini Tara Perdida (Caixa 24×25cl)", range: "Sagres" },
@@ -2245,15 +2287,25 @@
      *  apps a partir da página, por isso usa-se sempre o link genérico
      *  (abre a app instalada ou o WhatsApp Web). */
     function abrirWhatsApp_(texto) {
-        const urlGenerica = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-        const isAndroid = /Android/i.test(navigator.userAgent);
+        /*
+         * Abrir o WhatsApp:
+         * Não usamos "intent://...package=com.whatsapp.w4b" porque em alguns
+         * browsers Android (incluindo Edge) esse formato fica bloqueado ou
+         * tenta abrir apenas o WhatsApp Business, fazendo o botão parecer
+         * não funcionar.
+         *
+         * O link oficial genérico permite ao sistema/browser encaminhar para
+         * o WhatsApp instalado (normal ou Business) e, se não houver app,
+         * abrir a versão web.
+         */
+        const urlWhatsApp = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
 
-        if (isAndroid) {
-            const intentBusiness = `intent://send?text=${encodeURIComponent(texto)}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(urlGenerica)};end`;
-            window.location.href = intentBusiness;
-            return;
+        try {
+            window.location.href = urlWhatsApp;
+        } catch (e) {
+            // Fallback simples caso o browser impeça a navegação.
+            window.open(urlWhatsApp, '_blank');
         }
-        window.location.href = urlGenerica;
     }
 
     /** Abre o WhatsApp (compatível com WhatsApp Business, que trata o mesmo
@@ -2429,7 +2481,7 @@
                             <div class="linha-marcas-falta-nome">${item.cliente}</div>
                             <div class="marcas-badges">
                                 ${badges}
-                                <button type="button" class="btn-icone-whatsapp-linha" onclick="enviarWhatsAppClienteFalta_(${item.id})" title="Enviar por WhatsApp">
+                                <button type="button" class="btn-icone-whatsapp-linha" onclick="abrirModalEncomenda(${item.id})" title="Encomendar / WhatsApp">
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.04 2c-5.52 0-10 4.48-10 10 0 1.77.46 3.45 1.27 4.9L2 22l5.25-1.38A9.94 9.94 0 0012.04 22c5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.15c-1.6 0-3.15-.43-4.5-1.24l-.32-.19-3.12.82.83-3.04-.21-.31A8.15 8.15 0 013.85 12c0-4.5 3.66-8.16 8.16-8.16S20.16 7.5 20.16 12s-3.65 8.15-8.15 8.15zm4.48-6.1c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.15.16-.29.18-.54.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.22-1.46-1.37-1.7-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.15.16-.25.24-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.85-.2-.5-.41-.42-.56-.43h-.48c-.16 0-.43.06-.65.31s-.86.84-.86 2.05.88 2.38 1 2.55c.12.16 1.74 2.66 4.22 3.73.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.46-.6 1.67-1.18.2-.58.2-1.08.14-1.18-.06-.1-.22-.16-.47-.28z"/></svg>
                                 </button>
                             </div>
@@ -2817,12 +2869,16 @@
                 <svg viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
             </span>
             <span class="picos-sticky-label">Picos</span>
+            <span class="picos-sticky-label">DN Objetivo</span>
             <span class="picos-sticky-num cor-total">${total}</span>
             <span class="picos-sticky-sep">·</span>
+            <span class="picos-sticky-label">DN Realizada</span>
             <span class="picos-sticky-num cor-efetuadas">${efetuadas}</span>
             <span class="picos-sticky-sep">·</span>
+            <span class="picos-sticky-label">Diferença</span>
             <span class="picos-sticky-num cor-diferenca ${corDiferenca}">${diferenca}</span>
-            <span class="picos-sticky-execucao">${percent}%</span>`;
+            <span class="picos-sticky-sep">·</span>
+            <span class="picos-sticky-execucao">Execução ${percent}%</span>`;
     }
 
     /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
@@ -3147,6 +3203,130 @@
             }, 1500);
         }
     }
+
+    // --- GESTÃO DO PORTFÓLIO DE ENCOMENDAS ---
+    const PORTFOLIO_STORAGE_KEY_ = 'roadbook_portfolio_encomendas_v1';
+
+    function carregarPortfolioGuardado_() {
+        try {
+            const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY_);
+            if (!raw) return;
+            const dados = JSON.parse(raw);
+            if (!Array.isArray(dados)) return;
+            const catalogo = [];
+            dados.forEach((marca, mi) => {
+                const nome = String(marca.nome || '').trim();
+                if (!nome) return;
+                (Array.isArray(marca.produtos) ? marca.produtos : []).forEach((prod, pi) => {
+                    const produto = String(prod.nome || '').trim();
+                    if (!produto) return;
+                    catalogo.push({ id: String(prod.id || ('p_' + mi + '_' + pi + '_' + Date.now())), name: produto, range: nome });
+                });
+            });
+            if (catalogo.length) PRODUCT_CATALOG = catalogo;
+        } catch (e) { console.warn('Não foi possível carregar o portefólio guardado.', e); }
+    }
+
+    function portfolioParaEditor_() {
+        const porMarca = {};
+        PRODUCT_CATALOG.forEach(p => {
+            const marca = String(p.range || '').trim();
+            if (!marca) return;
+            if (!porMarca[marca]) porMarca[marca] = [];
+            porMarca[marca].push({ id: p.id, nome: p.name });
+        });
+        return Object.entries(porMarca).map(([nome, produtos]) => ({ nome, produtos }));
+    }
+
+    let portfolioEdicao_ = [];
+
+    function abrirModalPortfolio_() {
+        portfolioEdicao_ = JSON.parse(JSON.stringify(portfolioParaEditor_()));
+        renderPortfolioEditor_();
+        document.getElementById('modalPortfolioOverlay').classList.add('aberto');
+    }
+
+    function fecharModalPortfolio_() {
+        const el = document.getElementById('modalPortfolioOverlay');
+        if (el) el.classList.remove('aberto');
+    }
+
+    function renderPortfolioEditor_() {
+        const body = document.getElementById('portfolioBody');
+        if (!body) return;
+        body.innerHTML = portfolioEdicao_.map((marca, mi) => `
+            <div class="portfolio-brand">
+                <div class="portfolio-brand-head">
+                    <input value="${escapeHtml_(marca.nome)}" oninput="portfolioEdicao_[${mi}].nome=this.value" placeholder="Nome da marca">
+                    <button type="button" class="portfolio-delete" onclick="eliminarMarcaPortfolio_(${mi})" title="Eliminar marca">Eliminar</button>
+                </div>
+                ${(marca.produtos || []).map((prod, pi) => `
+                    <div class="portfolio-product">
+                        <input value="${escapeHtml_(prod.nome)}" oninput="portfolioEdicao_[${mi}].produtos[${pi}].nome=this.value" placeholder="Nome do produto">
+                        <button type="button" class="portfolio-delete" onclick="eliminarProdutoPortfolio_(${mi},${pi})" title="Eliminar produto">×</button>
+                    </div>
+                `).join('')}
+                <button type="button" class="portfolio-add-product" onclick="adicionarProdutoPortfolio_(${mi})">+ Adicionar produto</button>
+            </div>
+        `).join('') + `<button type="button" class="portfolio-add-brand" onclick="adicionarMarcaPortfolio_()">+ Adicionar marca</button>`;
+    }
+
+    function escapeHtml_(v) {
+        return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function adicionarMarcaPortfolio_() {
+        portfolioEdicao_.push({ nome:'Nova marca', produtos:[] });
+        renderPortfolioEditor_();
+    }
+    function eliminarMarcaPortfolio_(i) {
+        if (!confirm(`Eliminar a marca "${portfolioEdicao_[i].nome}" e todos os seus produtos?`)) return;
+        portfolioEdicao_.splice(i,1); renderPortfolioEditor_();
+    }
+    function adicionarProdutoPortfolio_(mi) {
+        portfolioEdicao_[mi].produtos.push({ id:'', nome:'Novo produto' });
+        renderPortfolioEditor_();
+    }
+    function eliminarProdutoPortfolio_(mi, pi) {
+        portfolioEdicao_[mi].produtos.splice(pi,1); renderPortfolioEditor_();
+    }
+
+    function guardarPortfolio_() {
+        const nomesMarcas = new Set();
+        const novoCatalogo = [];
+        const dadosGuardar = [];
+        portfolioEdicao_.forEach((marca, mi) => {
+            const nomeMarca = String(marca.nome || '').trim();
+            if (!nomeMarca) return;
+            const chave = nomeMarca.toLowerCase();
+            if (nomesMarcas.has(chave)) return;
+            nomesMarcas.add(chave);
+            const produtosGuardar = [];
+            (marca.produtos || []).forEach((prod, pi) => {
+                const nomeProduto = String(prod.nome || '').trim();
+                if (!nomeProduto) return;
+                const id = String(prod.id || ('prod_' + Date.now() + '_' + mi + '_' + pi));
+                novoCatalogo.push({ id, name:nomeProduto, range:nomeMarca });
+                produtosGuardar.push({ id, nome:nomeProduto });
+            });
+            dadosGuardar.push({ nome:nomeMarca, produtos:produtosGuardar });
+        });
+        if (!dadosGuardar.length) { alert('Adiciona pelo menos uma marca.'); return; }
+        PRODUCT_CATALOG = novoCatalogo;
+        localStorage.setItem(PORTFOLIO_STORAGE_KEY_, JSON.stringify(dadosGuardar));
+        // Actualiza também a lista visual de marcas quando o catálogo é alterado.
+        const existentes = new Set(marcasLista.map(m => m.toLowerCase()));
+        dadosGuardar.forEach(m => { if (!existentes.has(m.nome.toLowerCase())) marcasLista.push(m.nome); });
+        fecharModalPortfolio_();
+        if (clienteAtualEncomenda) {
+            const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {}).filter(m => clienteAtualEncomenda.estados[m] === 'NEGOCIADO').map(m => m.toLowerCase());
+            renderizarCatalogo(gamasNegociadas);
+            atualizarTotalEncomenda();
+        }
+        alert('Portefólio guardado neste dispositivo.');
+    }
+
+    carregarPortfolioGuardado_();
 
     // --- LÓGICA DO MODAL DE ENCOMENDAS ---
     function abrirModalEncomenda(id) {
