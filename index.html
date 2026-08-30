@@ -887,23 +887,6 @@
             </div>
         </div>
     </div>
-    <div id="bottomDockSpacer"></div>
-    <script>
-        // Reserva, no fluxo normal da página, um espaço com a altura exata
-        // do dock fixo (pesquisa + dias), para a lista de clientes nunca
-        // ficar escondida atrás dele. Recalcula automaticamente sempre que
-        // o dock muda de altura (ex.: os botões dos dias quebram linha em
-        // ecrãs mais estreitos).
-        (function () {
-            const dock = document.getElementById('bottomDock');
-            const spacer = document.getElementById('bottomDockSpacer');
-            if (!dock || !spacer) return;
-            const ajustar = () => { spacer.style.height = dock.offsetHeight + 'px'; };
-            ajustar();
-            new ResizeObserver(ajustar).observe(dock);
-            window.addEventListener('resize', ajustar);
-        })();
-    </script>
 
     <div class="table-container">
         <table>
@@ -913,7 +896,24 @@
             <tbody id="tabelaVisitas"></tbody>
         </table>
     </div>
+    <div id="bottomDockSpacer"></div>
 </div>
+<script>
+    // Reserva, no fluxo normal da página, um espaço com a altura exata
+    // do dock fixo (pesquisa + dias), para o fim da lista de clientes nunca
+    // ficar escondido atrás dele. Recalcula automaticamente sempre que
+    // o dock muda de altura (ex.: os botões dos dias quebram linha em
+    // ecrãs mais estreitos).
+    (function () {
+        const dock = document.getElementById('bottomDock');
+        const spacer = document.getElementById('bottomDockSpacer');
+        if (!dock || !spacer) return;
+        const ajustar = () => { spacer.style.height = dock.offsetHeight + 'px'; };
+        ajustar();
+        new ResizeObserver(ajustar).observe(dock);
+        window.addEventListener('resize', ajustar);
+    })();
+</script>
 
 <!-- MODAL DE ENCOMENDAS -->
 <div id="orderModal" class="modal-overlay" style="display: none;">
