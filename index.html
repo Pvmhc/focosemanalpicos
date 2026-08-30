@@ -66,6 +66,7 @@
             .resumo-marca { font-size: 0.64rem; }
             .resumo-pill { font-size: 0.86rem; padding: 5px 0; }
         }
+
         /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
         .resumo-foco-linha { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
         .resumo-foco-linha .resumo-card { flex: 1; min-width: 0; }
@@ -163,15 +164,14 @@
         }
         .picos-guardar-btn:hover { filter: brightness(1.1); }
 
-        /* --- Carrossel "Resumo ↔ Picos" (telemóvel): em vez de empilhar os
+        /* --- Alternância "Resumo ↔ Picos" (telemóvel): em vez de empilhar os
            dois cartões (o que ocupa o dobro da altura), mostra-se 1 de cada
-           vez e desliza-se para o lado (arrastar/swipe, setas, ou bolinhas)
-           para alternar. No PC mantém-se o layout lado-a-lado de sempre. */
-        .resumo-foco-slider { position: relative; overflow: hidden; transition: height .22s ease; }
+           vez (o outro fica display:none, controlado por JS) — evita
+           sobreposição. No PC mantém-se o layout lado-a-lado de sempre. */
+        .resumo-foco-slider { position: relative; }
         .resumo-foco-slide { display: flex; justify-content: center; }
         .resumo-foco-slide > .resumo-card { width: 100%; }
         .resumo-foco-slide > .picos-card { width: 100%; max-width: 380px; }
-        .resumo-foco-track.resumo-foco-linha { flex-wrap: nowrap; }
         .resumo-foco-tabs { display: none; }
         @media (max-width: 767px) {
             .resumo-foco-tabs {
@@ -183,17 +183,13 @@
                 font-size: 0.8rem; font-weight: 700; color: var(--muted); cursor: pointer;
             }
             .resumo-foco-tab.ativo { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(11,12,16,.12); }
+            .resumo-foco-track.resumo-foco-linha { flex-direction: column; }
         }
         @media (min-width: 768px) {
-            .resumo-foco-slider { overflow: visible; height: auto !important; }
-            .resumo-foco-track.resumo-foco-linha { transform: none !important; }
+            .resumo-foco-track.resumo-foco-linha { flex-direction: row; }
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide { display: flex !important; }
         }
         @media (max-width: 767px) {
-            .resumo-foco-track.resumo-foco-linha { flex-direction: row; align-items: stretch; }
-            .resumo-foco-slide { flex: 0 0 100% !important; width: 100%; min-width: 0; }
-        }
-        @media (max-width: 767px) {
-            .resumo-foco-linha { flex-direction: column; align-items: center; }
             .picos-card { width: 100%; min-width: 0; }
             .picos-stat-valor { font-size: 0.95rem; }
         }
@@ -379,7 +375,7 @@
             display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card);
             border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px;
             margin-bottom: 8px; flex-wrap: nowrap;
-             }
+        }
         .filtro-segmento { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; cursor: pointer; }
         .filtro-segmento svg { width: 15px; height: 15px; color: var(--primary); flex: 0 0 auto; }
         .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
@@ -573,7 +569,8 @@
             tbody td:first-child { text-align: left; }
             tbody td:not(:first-child)::before { content: none; }
             .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
-               }
+        }
+
         /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
         .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
         .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
@@ -909,8 +906,8 @@
         { id: "sagres_sol_mar_24", name: "Sagres Sol & Mar 24×33cl", range: "Sol & Mar" },
         { id: "luso_ret_24", name: "Luso Retornável 24×25cl", range: "Luso Retornável" }
     ];
-    
-         let clienteAtualEncomenda = null;
+
+    let clienteAtualEncomenda = null;
     let quantidadesEncomenda = {};
 
     let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
@@ -1240,8 +1237,9 @@
                 }
             });
         });
-            }
-     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
+    }
+
+    // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
     // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
     // de qualquer marca que já não seja a marca foco definida — em vez de
     // disparar um pedido por cada registo alterado (o que sobrecarregava o
@@ -1431,6 +1429,7 @@
             return `<th>${m}${pctHtml}</th>`;
         }).join('');
     }
+
     function sincronizarMarcasVariaveis() {
         const setMarcas = new Set();
         baseDadosRotas.forEach(r => {
@@ -1679,7 +1678,9 @@
                 await new Promise(r => setTimeout(r, 800 * (i + 1)));
             }
         }
-    }// --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
+    }
+
+    // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
     // Guarda localmente qualquer alteração (estado FOCO/OK/etc. ou "colocou")
     // que já foi aplicada no ecrã mas cujo POST ainda não teve resposta do
     // Apps Script. O polling automático (a cada 15s) lê SEMPRE a folha
@@ -2052,7 +2053,8 @@
             }
         };
         leitor.readAsBinaryString(ficheiro);
-        }
+    }
+
     function alternarEstado(idRegisto, marca) {
         if (MODO_VENDEDOR_ATIVO_) return; // link do vendedor é só de leitura
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
@@ -2586,16 +2588,13 @@
 
     function aplicarSlideResumoPicos_() {
         const track = document.getElementById('resumoFocoTrack');
-        const slider = document.getElementById('resumoFocoSlider');
         if (!track) return;
-        track.style.transform = `translateX(-${resumoPicosSlideAtivo_ * 100}%)`;
+        Array.from(track.children).forEach((slide, i) => {
+            slide.style.display = (i === resumoPicosSlideAtivo_) ? 'flex' : 'none';
+        });
         document.querySelectorAll('#resumoFoco .resumo-foco-tab').forEach((tab, i) => {
             tab.classList.toggle('ativo', i === resumoPicosSlideAtivo_);
         });
-        if (slider && window.innerWidth < 768) {
-            const slideAtivo = track.children[resumoPicosSlideAtivo_];
-            if (slideAtivo) slider.style.height = slideAtivo.offsetHeight + 'px';
-        }
     }
 
     function irParaSlideResumoPicos_(indice) {
@@ -3090,6 +3089,7 @@
             `PRODUTO                                     | QUANTIDADE`,
             `------------------------------------------------------`
         ];
+
         PRODUCT_CATALOG.forEach(prod => {
             if (quantidadesEncomenda[prod.id]) {
                 const namePadded = prod.name.padEnd(43, ' ');
@@ -3194,4 +3194,3 @@
 </script>
 </body>
 </html>
-        
