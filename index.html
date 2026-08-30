@@ -66,7 +66,6 @@
             .resumo-marca { font-size: 0.64rem; }
             .resumo-pill { font-size: 0.86rem; padding: 5px 0; }
         }
-
         /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
         .resumo-foco-linha { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
         .resumo-foco-linha .resumo-card { flex: 1; min-width: 0; }
@@ -380,7 +379,7 @@
             display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card);
             border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px;
             margin-bottom: 8px; flex-wrap: nowrap;
-        }
+             }
         .filtro-segmento { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; cursor: pointer; }
         .filtro-segmento svg { width: 15px; height: 15px; color: var(--primary); flex: 0 0 auto; }
         .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
@@ -574,8 +573,7 @@
             tbody td:first-child { text-align: left; }
             tbody td:not(:first-child)::before { content: none; }
             .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
-        }
-
+               }
         /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
         .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
         .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
@@ -911,8 +909,8 @@
         { id: "sagres_sol_mar_24", name: "Sagres Sol & Mar 24×33cl", range: "Sol & Mar" },
         { id: "luso_ret_24", name: "Luso Retornável 24×25cl", range: "Luso Retornável" }
     ];
-
-    let clienteAtualEncomenda = null;
+    
+         let clienteAtualEncomenda = null;
     let quantidadesEncomenda = {};
 
     let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
@@ -1242,9 +1240,8 @@
                 }
             });
         });
-    }
-
-    // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
+            }
+     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
     // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
     // de qualquer marca que já não seja a marca foco definida — em vez de
     // disparar um pedido por cada registo alterado (o que sobrecarregava o
@@ -1434,7 +1431,6 @@
             return `<th>${m}${pctHtml}</th>`;
         }).join('');
     }
-
     function sincronizarMarcasVariaveis() {
         const setMarcas = new Set();
         baseDadosRotas.forEach(r => {
@@ -1652,4 +1648,1550 @@
         const select = document.getElementById('semanaSelect');
         Array.from(select.options).forEach(opt => {
             const rotulo = 'Semana ' + opt.value;
-            opt.textContent = (opt.va
+            opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
+        });
+        select.value = String(semanaCiclo);
+    }
+
+    // Envia um POST para o Apps Script com retry automático (com pequeno atraso)
+    // quando o servidor responde "ocupado" ou há uma falha de rede transitória.
+    // Isto evita perder marcações silenciosamente quando há muita gente a usar ao mesmo tempo.
+    async function postComRetry_(payload, tentativas = 3) {
+        for (let i = 0; i < tentativas; i++) {
+            try {
+                const resposta = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                });
+                if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
+                const dados = await resposta.json();
+                if (dados && dados.ok === false && /ocupado/i.test(dados.erro || '') && i < tentativas - 1) {
+                    await new Promise(r => setTimeout(r, 800 * (i + 1)));
+                    continue;
+                }
+                return dados;
+            } catch (e) {
+                if (i === tentativas - 1) {
+                    console.error('Falha ao sincronizar com a nuvem após ' + tentativas + ' tentativas:', e);
+                    return { ok: false, erro: e.message };
+                }
+                await new Promise(r => setTimeout(r, 800 * (i + 1)));
+            }
+        }
+    }// --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
+    // Guarda localmente qualquer alteração (estado FOCO/OK/etc. ou "colocou")
+    // que já foi aplicada no ecrã mas cujo POST ainda não teve resposta do
+    // Apps Script. O polling automático (a cada 15s) lê SEMPRE a folha
+    // inteira; se a escrita anterior ainda não tiver propagado na Sheet
+    // quando esse GET acontece, a resposta do servidor traz o valor antigo
+    // e, sem esta proteção, esse valor antigo "pisava" a alteração recém-feita
+    // no ecrã — dando a sensação de que o foco "volta ao que estava".
+    const alteracoesPendentes_ = new Map();
+    function marcarAlteracaoPendente_(tipo, id, marca, valor) {
+        alteracoesPendentes_.set(tipo + '::' + id + '::' + marca, valor);
+    }
+    function limparAlteracaoPendente_(tipo, id, marca) {
+        alteracoesPendentes_.delete(tipo + '::' + id + '::' + marca);
+    }
+    function fundirComPendentes_(novosDados) {
+        if (alteracoesPendentes_.size === 0) return novosDados;
+        alteracoesPendentes_.forEach((valor, chave) => {
+            const [tipo, id, marca] = chave.split('::');
+            const registo = novosDados.find(r => String(r.id) === id);
+            if (!registo) return;
+            if (tipo === 'estado') {
+                if (!registo.estados) registo.estados = {};
+                registo.estados[marca] = valor;
+            } else if (tipo === 'colocou') {
+                if (!registo.colocou) registo.colocou = {};
+                registo.colocou[marca] = valor;
+            } else if (tipo === 'foco') {
+                // Valor é sempre "true" (nunca reverte para false via pendentes) —
+                // evita que um GET intercalado, ainda sem o novo focoJaMarcado
+                // persistido no servidor, faça o número de Foco "descer" outra vez.
+                if (!registo.focoJaMarcado) registo.focoJaMarcado = {};
+                registo.focoJaMarcado[marca] = true;
+            }
+        });
+        return novosDados;
+    }
+
+    async function puxarDadosDaNuvem(silencioso) {
+        if (!silencioso) mostrarLoading(true);
+        try {
+            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const dados = await response.json();
+            const novosDados = Array.isArray(dados) ? dados : (dados.registos || []);
+            baseDadosRotas = fundirComPendentes_(novosDados);
+            if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0 && !focoSemanalASalvar) {
+                MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
+                localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
+            }
+            if (!Array.isArray(dados) && Array.isArray(dados.ordemMarcas) && dados.ordemMarcas.length > 0) {
+                ORDEM_MARCAS_SERVIDOR = dados.ordemMarcas;
+                try { localStorage.setItem('ordemMarcasCache', JSON.stringify(ORDEM_MARCAS_SERVIDOR)); } catch (e) { /* ignora */ }
+            }
+            if (!Array.isArray(dados) && dados.dadosPicos && typeof dados.dadosPicos === 'object') {
+                DADOS_PICOS_ = dados.dadosPicos;
+                try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+            }
+            if (!Array.isArray(dados) && dados.logotiposMarcas && typeof dados.logotiposMarcas === 'object') {
+                LOGOTIPOS_MARCAS_ = dados.logotiposMarcas;
+                try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+                renderMarcasFiltroChips_();
+            }
+            sincronizarMarcasVariaveis();
+            atualizarVisualizacao();
+            aplicarModoVendedorSeNecessario_();
+            try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
+        } catch(e) {
+            console.error("Erro ao ler nuvem: ", e);
+            if (!silencioso) {
+                alert("Não foi possível carregar os dados da nuvem. Verifica a ligação ou o URL do Apps Script.\n\n" + e.message);
+            }
+        }
+        if (!silencioso) mostrarLoading(false);
+    }
+
+    async function enviarAlteracaoNuvem(id, marca, novoEstado) {
+        mostrarIndicadorSync_(true);
+        const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
+        limparAlteracaoPendente_('estado', id, marca);
+        limparAlteracaoPendente_('foco', id, marca);
+        if (!resultado || resultado.ok === false) {
+            console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
+            mostrarAvisoSync_();
+        }
+        mostrarIndicadorSync_(false);
+    }
+
+    async function enviarColocouNuvem(id, marca, colocado) {
+        mostrarIndicadorSync_(true);
+        const resultado = await postComRetry_({ action: "atualizar_colocou", id: id, marca: marca, colocado: colocado });
+        limparAlteracaoPendente_('colocou', id, marca);
+        if (!resultado || resultado.ok === false) {
+            console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
+            mostrarAvisoSync_();
+        }
+        mostrarIndicadorSync_(false);
+    }
+
+    // Aviso discreto (sem bloquear com alert) quando algo não sincronizou mesmo após as tentativas.
+    function mostrarAvisoSync_() {
+        let aviso = document.getElementById('avisoSyncFalhou');
+        if (!aviso) {
+            aviso = document.createElement('div');
+            aviso.id = 'avisoSyncFalhou';
+            aviso.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2);';
+            aviso.textContent = 'Falha ao sincronizar uma alteração. Verifica a ligação — pode ser preciso repetir a ação.';
+            document.body.appendChild(aviso);
+        }
+        aviso.style.display = 'block';
+        clearTimeout(aviso._timeout);
+        aviso._timeout = setTimeout(() => { aviso.style.display = 'none'; }, 6000);
+    }
+
+    // Indicador pequeno e discreto (canto do ecrã) para sincronizações individuais
+    // (um clique de estado). Não bloqueia o ecrã como a cortina de carregamento —
+    // a UI já foi atualizada localmente antes de este pedido ser disparado.
+    let contadorSyncAtivos_ = 0;
+    function mostrarIndicadorSync_(ativo) {
+        let ind = document.getElementById('indicadorSyncMini');
+        if (!ind) {
+            ind = document.createElement('div');
+            ind.id = 'indicadorSyncMini';
+            ind.style.cssText = 'position:fixed;top:10px;right:10px;background:#fff3cd;color:#856404;padding:5px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;z-index:9998;box-shadow:0 2px 6px rgba(0,0,0,.15);display:none;align-items:center;gap:6px;';
+            ind.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#f5a623;display:inline-block;animation:pulsarSync 1s ease-in-out infinite;"></span> a sincronizar…';
+            document.body.appendChild(ind);
+            const estilo = document.createElement('style');
+            estilo.textContent = '@keyframes pulsarSync { 0%,100% { opacity:.35; } 50% { opacity:1; } }';
+            document.head.appendChild(estilo);
+        }
+        contadorSyncAtivos_ += ativo ? 1 : -1;
+        if (contadorSyncAtivos_ < 0) contadorSyncAtivos_ = 0;
+        ind.style.display = contadorSyncAtivos_ > 0 ? 'flex' : 'none';
+    }
+
+    /** Interpreta o valor da coluna "Comprou Este Mês" como Sim/Não. Em vez de
+     *  exigir um conjunto fixo de palavras para "Sim" (o que falhava sempre que
+     *  o Excel usava outro texto, ex.: "Comprou", "OK", "Efetuado"...), trata
+     *  como Não apenas os valores claramente negativos ou vazios — qualquer
+     *  outro conteúdo na célula conta como Sim. */
+    function interpretarComprouMes_(valorBruto) {
+        const n = normalizarTexto_(valorBruto).replace(/[^a-z0-9]/g, '');
+        if (!n) return false;
+        const NEGATIVOS = new Set(['nao', 'n', 'no', 'false', '0', 'naocomprou']);
+        return !NEGATIVOS.has(n);
+    }
+
+    function carregarDadosDesdeExcel(event) {
+        const ficheiro = event.target.files[0];
+        if (!ficheiro) return;
+        const leitor = new FileReader();
+        leitor.onload = async function(e) {
+            try {
+                const livro = XLSX.read(e.target.result, { type: 'binary' });
+                const folha = livro.Sheets[livro.SheetNames[0]];
+
+                // Preenche células fundidas (merged cells): o SheetJS só devolve
+                // valor na célula "principal" (canto superior-esquerdo) de uma
+                // fusão; as restantes ficam undefined. Isto causava, por exemplo,
+                // o "vendedor" aparecer vazio em linhas cobertas por uma célula
+                // fundida que repete o mesmo nome ao longo de várias linhas.
+                if (folha['!merges']) {
+                    folha['!merges'].forEach(fusao => {
+                        const celulaPrincipalRef = XLSX.utils.encode_cell({ r: fusao.s.r, c: fusao.s.c });
+                        const celulaPrincipal = folha[celulaPrincipalRef];
+                        if (!celulaPrincipal) return;
+                        for (let r = fusao.s.r; r <= fusao.e.r; r++) {
+                            for (let c = fusao.s.c; c <= fusao.e.c; c++) {
+                                if (r === fusao.s.r && c === fusao.s.c) continue;
+                                const ref = XLSX.utils.encode_cell({ r, c });
+                                folha[ref] = { t: celulaPrincipal.t, v: celulaPrincipal.v, w: celulaPrincipal.w };
+                            }
+                        }
+                    });
+                }
+
+                const linhas = XLSX.utils.sheet_to_json(folha);
+                let idTemp = 1;
+                let listaNovosDados = [];
+
+                const linhaCabecalhos = XLSX.utils.sheet_to_json(folha, { header: 1 })[0] || [];
+                const todasColunas = linhaCabecalhos.filter(c => c !== undefined && c !== null && String(c).trim() !== '').map(String);
+                const colunasMarcasDetectadas = todasColunas.filter(c => {
+                    const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
+                    if (ehCabecalhoComprouMes_(c)) return false;
+                    return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
+                });
+                if (colunasMarcasDetectadas.length > 0) {
+                    // Segue exatamente a ordem do cabeçalho do Excel — nada de reordenar
+                    // por lista fixa ou alfabeticamente. Se acrescentares uma coluna,
+                    // entra nessa posição; se tirares uma, deixa de aparecer.
+                    marcasLista = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim());
+                    ORDEM_MARCAS_SERVIDOR = marcasLista.slice();
+                    renderCabecalhoTabela();
+                }
+
+                linhas.forEach(linha => {
+                    const obterValor = (chaves) => {
+                        // 1ª tentativa: correspondência exata (só minúsculas, sem
+                        // apagar espaços/quebras de linha do cabeçalho). Evita que
+                        // uma coluna antiga/mal rotulada como "Vendedor\n" (que só
+                        // bate certo depois de trim) ganhe a uma coluna limpa como
+                        // "vendedor" que já bate certo sem trim nenhum.
+                        let k = Object.keys(linha).find(key => chaves.includes(key.toLowerCase()));
+                        // 2ª tentativa (fallback): com trim, para cabeçalhos com
+                        // espaços a mais que não tenham duplicado.
+                        if (!k) k = Object.keys(linha).find(key => chaves.includes(key.trim().toLowerCase()));
+                        return k ? linha[k] : null;
+                    };
+                    
+                    let vEstadosStr = obterValor(['estadosjson', 'estados']);
+                    let vHistoricoStr = obterValor(['historicojson', 'historico']);
+                    
+                    const normalizarComercial = (nome) => {
+                        const mapa = { "Raphael Cortez": "Raphael Fernandes Cortez" };
+                        return mapa[nome] || nome;
+                    };
+
+                    let idVal = parseInt(obterValor(['id'])) || idTemp++;
+                    let clienteVal = String(obterValor(['cliente', 'pdv', 'estabelecimento']) || "PDV").trim();
+                    let numeroVal = String(obterValor(['numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento', 'número do estabelecimento', 'codigo', 'código']) || '').trim();
+                    let comercialVal = normalizarComercial(String(obterValor(['comercial', 'gestor']) || "Sem Gestor").trim());
+                    let vendedorVal = String(obterValor(['vendedor', 'nome vendedor', 'nome do vendedor']) || '').trim();
+                    let tipologiaVal = String(obterValor(['tipologia']) || '').trim();
+                    const chaveColunaComprouMes = Object.keys(linha).find(k => ehCabecalhoComprouMes_(k));
+                    let comprouMesRaw = chaveColunaComprouMes ? linha[chaveColunaComprouMes] : null;
+                    let comprouMesVal = interpretarComprouMes_(comprouMesRaw);
+                    let semanaValRaw = obterValor(['semana', 'semana do mês']);
+                    let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
+                        ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
+                    let diaValRaw = obterValor(['dia', 'dia da semana', 'dia semana']);
+                    let diaVal = (diaValRaw === null || diaValRaw === undefined || String(diaValRaw).trim() === '' || String(diaValRaw).trim() === '0')
+                        ? '' : String(diaValRaw).trim();
+                    
+                    let estadosObj = {};
+                    let historicoObj = {};
+                    marcasLista.forEach(m => {
+                        estadosObj[m] = "";
+                        historicoObj[m] = { mes: false, ano: false, promo: false };
+                    });
+
+                    if (vEstadosStr) {
+                        try {
+                            estadosObj = typeof vEstadosStr === 'object' ? vEstadosStr : JSON.parse(vEstadosStr);
+                        } catch(err) { console.error(err); }
+                    }
+                    
+                    if (vHistoricoStr) {
+                        try {
+                            historicoObj = typeof vHistoricoStr === 'object' ? vHistoricoStr : JSON.parse(vHistoricoStr);
+                        } catch(err) { console.error(err); }
+                    }
+
+                    if (!vEstadosStr && !vHistoricoStr) {
+                        let diaNum = parseInt(diaVal);
+                        if (!isNaN(diaNum)) {
+                            let r = diaNum % 4;
+                            semanaVal = r === 1 ? "1" : r === 2 ? "2" : r === 3 ? "3" : "4";
+                            diaVal = "Segunda";
+                        } else {
+                            let textoDia = diaVal.toLowerCase();
+                            if (textoDia.includes("seg")) diaVal = "Segunda";
+                            else if (textoDia.includes("ter")) diaVal = "Terça";
+                            else if (textoDia.includes("qua")) diaVal = "Quarta";
+                            else if (textoDia.includes("qui")) diaVal = "Quinta";
+                            else if (textoDia.includes("sex")) diaVal = "Sexta";
+                        }
+                        
+                        historicoObj = {};
+                        colunasMarcasDetectadas.forEach(colunaExcel => {
+                            const colunaTrim = colunaExcel.trim();
+                            const ehPromo = colunaTrim.startsWith('*');
+                            const nomeExibido = colunaTrim.replace(/^\*+/, '').trim();
+                            const chaveComAsterisco = colunaTrim.toLowerCase();
+                            const chaveSemAsterisco = nomeExibido.toLowerCase();
+                            historicoObj[nomeExibido] = {
+                                mes: !!obterValor([chaveComAsterisco, chaveSemAsterisco]),
+                                ano: !!obterValor([chaveComAsterisco + '_yt', chaveSemAsterisco + '_yt']),
+                                promo: ehPromo
+                            };
+                        });
+                    }
+
+                    const chaveAtual = `${clienteVal}||${comercialVal}||${diaVal}||${semanaVal}`;
+                    const registoAnterior = baseDadosRotas.find(r =>
+                        `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
+                    if (registoAnterior && registoAnterior.estados) {
+                        // Só traz o estado antigo de marcas que AINDA existem no Excel
+                        // atual — caso contrário, marcas removidas do cabeçalho (ex.:
+                        // "Sol&Mar") voltavam sempre a aparecer como fantasmas.
+                        const estadosAntigosValidos = {};
+                        Object.keys(registoAnterior.estados).forEach(marcaAntiga => {
+                            const aindaExisteNoExcel = colunasMarcasDetectadas.some(c =>
+                                c.trim().replace(/^\*+/, '').trim().toLowerCase() === marcaAntiga.trim().toLowerCase());
+                            if (aindaExisteNoExcel) estadosAntigosValidos[marcaAntiga] = registoAnterior.estados[marcaAntiga];
+                        });
+                        estadosObj = Object.assign({}, estadosObj, estadosAntigosValidos);
+                    }
+
+                    // Preserva também o histórico "já foi foco" (focoJaMarcado)
+                    // do registo anterior, para o resumo de Foco não zerar
+                    // sempre que se reimporta o Excel semanal.
+                    let focoJaMarcadoObj = {};
+                    if (registoAnterior && registoAnterior.focoJaMarcado) {
+                        Object.keys(registoAnterior.focoJaMarcado).forEach(marcaAntiga => {
+                            const aindaExisteNoExcel = colunasMarcasDetectadas.some(c =>
+                                c.trim().replace(/^\*+/, '').trim().toLowerCase() === marcaAntiga.trim().toLowerCase());
+                            if (aindaExisteNoExcel) focoJaMarcadoObj[marcaAntiga] = registoAnterior.focoJaMarcado[marcaAntiga];
+                        });
+                    }
+
+                    listaNovosDados.push({
+                        id: idVal,
+                        cliente: clienteVal,
+                        numero: numeroVal,
+                        comercial: comercialVal,
+                        vendedor: vendedorVal,
+                        tipologia: tipologiaVal,
+                        comprouMes: comprouMesVal,
+                        dia: diaVal,
+                        semana: semanaVal,
+                        estados: estadosObj,
+                        historico: historicoObj,
+                        focoJaMarcado: focoJaMarcadoObj
+                    });
+                });
+
+                if (colunasMarcasDetectadas.length === 0) {
+                    const setMarcasDados = new Set();
+                    listaNovosDados.forEach(r => {
+                        Object.keys(r.estados || {}).forEach(m => setMarcasDados.add(m));
+                        Object.keys(r.historico || {}).forEach(m => setMarcasDados.add(m));
+                    });
+                    if (setMarcasDados.size > 0) {
+                        marcasLista = Array.from(setMarcasDados).sort((a, b) => {
+                            const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
+                            const idxB = ordemMarcasFixa.findIndex(m => m.toLowerCase() === b.toLowerCase());
+                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                            if (idxA !== -1) return -1;
+                            if (idxB !== -1) return 1;
+                            return a.localeCompare(b);
+                        });
+                        renderCabecalhoTabela();
+                    }
+                }
+
+                mostrarLoading(true);
+                const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: "limpar_e_importar", rows: listaNovosDados })
+                });
+                if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
+                const resultadoImport = await respostaImport.json();
+                if (!resultadoImport || resultadoImport.ok !== true) {
+                    throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
+                }
+                // Guarda a ordem das colunas (tal como veio do Excel) no servidor, para
+                // que todos os GC vejam sempre a mesma ordem em vez de recalculada
+                // localmente e de forma diferente em cada dispositivo.
+                if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
+                    postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR })
+                        .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
+                }
+                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " registos)");
+                mostrarResumoClientesPorGestor_(listaNovosDados);
+                await puxarDadosDaNuvem();
+            } catch (erro) {
+                alert("Erro ao importar para o Google Sheets: " + erro.message);
+                console.error(erro);
+            }
+        };
+        leitor.readAsBinaryString(ficheiro);
+        }
+    function alternarEstado(idRegisto, marca) {
+        if (MODO_VENDEDOR_ATIVO_) return; // link do vendedor é só de leitura
+        const registo = baseDadosRotas.find(item => item.id === idRegisto);
+        if (registo) {
+            // Usa SEMPRE a semana do próprio registo (registo.semana), nunca o valor
+            // do dropdown "Semana". Em modo de pesquisa a tabela mostra clientes de
+            // qualquer semana (o filtro de pesquisa ignora a semana selecionada), pelo
+            // que usar o dropdown aqui aplicava o ciclo de estados errado (com ou sem
+            // "FOCO SEMANAL") a clientes de semanas diferentes da selecionada.
+            const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[registo.semana];
+            const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
+            
+            const ciclo = ehMarcaFoco 
+                ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
+                : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"];
+
+            const atual = registo.estados[marca] || "";
+            let idxAtual = ciclo.indexOf(atual);
+            if (idxAtual === -1) idxAtual = 0;
+
+            const proximo = ciclo[(idxAtual + 1) % ciclo.length];
+            registo.estados[marca] = proximo;
+            marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
+
+            // Uma vez marcada como FOCO/FOCO SEMANAL, o cliente passa a contar
+            // sempre para o "Foco" do resumo — mesmo que a marcação seja depois
+            // resolvida como OK/NÃO OK/NEGOCIADO. Este marcador só é limpo na
+            // limpeza semanal automática (segunda-feira) ou no botão "Limpar".
+            if (proximo === "FOCO" || proximo === "FOCOSEMANAL") {
+                if (!registo.focoJaMarcado) registo.focoJaMarcado = {};
+                if (!registo.focoJaMarcado[marca]) {
+                    registo.focoJaMarcado[marca] = true;
+                    marcarAlteracaoPendente_('foco', idRegisto, marca, true);
+                }
+            }
+
+            atualizarVisualizacao();
+            enviarAlteracaoNuvem(idRegisto, marca, proximo);
+        }
+    }
+
+    /** Alterna rapidamente o estado de uma marca entre "" e "NEGOCIADO",
+     *  usado nos badges da lista simplificada do filtro "Marcas não
+     *  colocadas (mês)" — sem passar pelo ciclo completo de estados
+     *  (FOCO/NÃO OK/OK) do botão da tabela principal. */
+    function alternarNegociadoRapido_(idRegisto, marca) {
+        if (MODO_VENDEDOR_ATIVO_) return;
+        const registo = baseDadosRotas.find(item => item.id === idRegisto);
+        if (!registo) return;
+        const atual = registo.estados[marca] || "";
+        const proximo = atual === "NEGOCIADO" ? "" : "NEGOCIADO";
+        registo.estados[marca] = proximo;
+        marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
+        atualizarVisualizacao();
+        enviarAlteracaoNuvem(idRegisto, marca, proximo);
+    }
+
+    /** Abre o WhatsApp (compatível com WhatsApp Business, que trata o mesmo
+     *  link api.whatsapp.com/send) com uma mensagem pronta sobre o cliente e
+     *  as marcas em falta, a partir da lista simplificada do filtro
+     *  "Marcas não colocadas (mês)". */
+    function enviarWhatsAppClienteFalta_(idRegisto) {
+        const registo = baseDadosRotas.find(item => item.id === idRegisto);
+        if (!registo) return;
+        const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(registo)]) || registo.historico || {};
+        const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !(historicoCliente[m] && historicoCliente[m].mes));
+        const numeroCliente = registo.numero ? ` (Nº ${registo.numero})` : '';
+        const bodyLines = [
+            `*Cliente:* ${registo.cliente}${numeroCliente}`,
+            `*Marcas em falta:* ${marcasEmFalta.join(', ') || '—'}`
+        ];
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(bodyLines.join("\n"))}`;
+        window.location.href = whatsappUrl;
+    }
+
+    function obterInnerHtmlBotao(est) {
+        if (est === "FOCO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO`;
+        if (est === "FOCOSEMANAL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> FOCO SEMANAL`;
+        if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 12z"/></svg> NÃO OK`;
+        if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
+        if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
+        return `VAZIO`;
+    }
+
+    /**
+     * Reconstrói as opções do dropdown "Vendedor" com os vendedores únicos
+     * encontrados nos registos do Gestor atualmente selecionado. Chamada sempre
+     * que o Gestor muda e sempre que chegam novos dados (import Excel / sync).
+     * Se o vendedor previamente selecionado deixar de existir na lista, o
+     * filtro volta a "Todos" em vez de ficar preso a um valor inválido.
+     */
+    // Nomes que nunca devem ser tratados como "Vendedor" mesmo que apareçam
+    // nessa coluna por engano (ex.: linhas com células desalinhadas no Excel
+    // de origem, onde o dia da semana acaba a cair na coluna errada).
+    const VALORES_INVALIDOS_VENDEDOR_ = new Set([
+        'segunda', 'segunda-feira', 'terça', 'terca', 'terça-feira', 'terca-feira',
+        'quarta', 'quarta-feira', 'quinta', 'quinta-feira', 'sexta', 'sexta-feira',
+        'sábado', 'sabado', 'domingo', 'anual', 'mensal', 'semana', 'todos'
+    ]);
+
+    function popularFiltroVendedor_() {
+        const selectVendedor = document.getElementById('vendedorSelect');
+        if (!selectVendedor) return;
+        const com = document.getElementById('comercialSelect').value;
+        const valorAnterior = selectVendedor.value;
+
+        const vendedores = Array.from(new Set(
+            baseDadosRotas
+                .filter(i => i.comercial === com && i.vendedor && String(i.vendedor).trim() !== '')
+                .map(i => String(i.vendedor).trim())
+                .filter(v => !VALORES_INVALIDOS_VENDEDOR_.has(v.toLowerCase()))
+        )).sort((a, b) => a.localeCompare(b));
+
+        selectVendedor.innerHTML = `<option value="">Todos</option>` +
+            vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
+
+        selectVendedor.value = vendedores.includes(valorAnterior) ? valorAnterior : '';
+    }
+
+    function atualizarVisualizacao() {
+        const com = document.getElementById('comercialSelect').value;
+        const sem = document.getElementById('semanaSelect').value;
+        popularFiltroVendedor_();
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const vend = vendedorSelect ? vendedorSelect.value : '';
+        
+        localStorage.setItem('gestorSelecionado', com);
+        localStorage.setItem('semanaSelecionada', sem);
+
+        const btnLinkVendedor = document.getElementById('btnCopiarLinkVendedor');
+        if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = vend ? '' : 'none';
+
+        const corpo = document.getElementById('tabelaVisitas');
+        if (!corpo) return;
+        corpo.innerHTML = '';
+
+        const termoPesquisa = document.getElementById('pesquisaCliente').value.trim().toLowerCase();
+        const emModoPesquisa = termoPesquisa.length > 0;
+
+        const emModoMarcasColocadas = MARCAS_FILTRO_SELECIONADAS_.length > 0;
+
+        const diasTabs = document.getElementById('diasTabs');
+        if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas) ? 'none' : '';
+
+        const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
+        // Com um Vendedor selecionado, OU com o filtro "Marcas colocadas (mês)"
+        // ativo, o filtro passa a abranger o mês todo: ignora tanto a Semana
+        // escolhida no dropdown como o Dia (tab) atual.
+        const passaSemana = i => vend || emModoMarcasColocadas || i.semana === sem;
+        const passaDia = i => vend || emModoMarcasColocadas || i.dia === diaAtualSelecionado;
+
+        // Quando o filtro de marcas está ativo, "já comprou esta marca este
+        // mês" tem de olhar para TODAS as linhas do cliente (pode ter mais
+        // que uma linha — dias/semanas diferentes da rota) e não só para a
+        // linha em causa. Sem isto, um cliente que já comprou podia continuar
+        // a aparecer como "em falta" só porque a linha visível não tinha essa
+        // marca corretamente marcada (ex.: "Café Bela Vista" com Bandida).
+        let historicoMergeadoPorCliente_ = null;
+        if (emModoMarcasColocadas) {
+            historicoMergeadoPorCliente_ = {};
+            baseDadosRotas.filter(i => i.comercial === com).forEach(i => {
+                const chave = chaveClienteUnica_(i);
+                if (!historicoMergeadoPorCliente_[chave]) historicoMergeadoPorCliente_[chave] = {};
+                const acc = historicoMergeadoPorCliente_[chave];
+                Object.keys(i.historico || {}).forEach(m => {
+                    const h = i.historico[m] || {};
+                    if (!acc[m]) acc[m] = { mes: false, ano: false };
+                    if (h.mes) acc[m].mes = true;
+                    if (h.ano) acc[m].ano = true;
+                });
+            });
+        }
+
+        // Mostra o cliente se lhe faltar PELO MENOS UMA das marcas selecionadas
+        // nos chips (ainda não tem todas colocadas este mês → oportunidade de
+        // venda). Sem marcas selecionadas, o filtro não exclui ninguém.
+        const passaMarcasColocadas = i => {
+            if (MARCAS_FILTRO_SELECIONADAS_.length === 0) return true;
+            const historicoCliente = historicoMergeadoPorCliente_
+                ? (historicoMergeadoPorCliente_[chaveClienteUnica_(i)] || {})
+                : (i.historico || {});
+            return MARCAS_FILTRO_SELECIONADAS_.some(m => {
+                const hist = historicoCliente[m] || {};
+                return !hist.mes;
+            });
+        };
+
+        let filtrados = emModoPesquisa
+            ? baseDadosRotas.filter(i => i.comercial === com && passaVendedor(i) && passaMarcasColocadas(i) && (
+                (i.cliente || '').toLowerCase().includes(termoPesquisa) ||
+                String(i.numero || '').toLowerCase().includes(termoPesquisa)
+              ))
+            : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i) && passaMarcasColocadas(i));
+
+        // Com o filtro "Marcas colocadas (mês)" ativo, o mesmo cliente pode
+        // aparecer em várias linhas (dias/semanas diferentes da rota) — como
+        // agora se abrange o mês todo, remove-se as repetições e mantém-se
+        // apenas 1 linha por cliente único.
+        if (emModoMarcasColocadas) {
+            filtrados = deduplicarClientesUnicos_(filtrados);
+        }
+
+        renderResumoFoco(com, sem);
+        if(filtrados.length === 0) {
+            const mensagem = emModoPesquisa
+                ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.`
+                : (emModoMarcasColocadas ? 'Todos os clientes já têm essas marcas colocadas este mês.' : 'Sem rota agendada.');
+            corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
+            return;
+        }
+
+        // Com o filtro "Marcas não colocadas (mês)" ativo, a lista fica
+        // reduzida ao essencial: nome do cliente + só as marcas selecionadas
+        // que lhe faltam — em vez da tabela completa com todas as marcas e
+        // estados (Foco/OK/Negociado/etc.), que aqui não é relevante.
+        if (emModoMarcasColocadas) {
+            filtrados.forEach(item => {
+                const tr = document.createElement('tr');
+                const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(item)]) || {};
+                const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !(historicoCliente[m] && historicoCliente[m].mes));
+                const badges = marcasEmFalta.map(m => {
+                    const mEscapado = m.replace(/'/g, "\\'");
+                    const estaNegociado = item.estados[m] === 'NEGOCIADO';
+                    return `<button type="button" class="marca-badge marca-badge-falta ${estaNegociado ? 'negociado' : ''}" onclick="alternarNegociadoRapido_(${item.id}, '${mEscapado}')" title="Marcar como Negociado">${estaNegociado ? '✓ Negociado' : m}</button>`;
+                }).join('');
+                tr.innerHTML = `
+                    <td colspan="${1 + marcasLista.length}">
+                        <div class="linha-marcas-falta">
+                            <div class="linha-marcas-falta-nome">${item.cliente}</div>
+                            <div class="marcas-badges">
+                                ${badges}
+                                <button type="button" class="btn-icone-whatsapp-linha" onclick="enviarWhatsAppClienteFalta_(${item.id})" title="Enviar por WhatsApp">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.04 2c-5.52 0-10 4.48-10 10 0 1.77.46 3.45 1.27 4.9L2 22l5.25-1.38A9.94 9.94 0 0012.04 22c5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.15c-1.6 0-3.15-.43-4.5-1.24l-.32-.19-3.12.82.83-3.04-.21-.31A8.15 8.15 0 013.85 12c0-4.5 3.66-8.16 8.16-8.16S20.16 7.5 20.16 12s-3.65 8.15-8.15 8.15zm4.48-6.1c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.15.16-.29.18-.54.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.22-1.46-1.37-1.7-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.15.16-.25.24-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.85-.2-.5-.41-.42-.56-.43h-.48c-.16 0-.43.06-.65.31s-.86.84-.86 2.05.88 2.38 1 2.55c.12.16 1.74 2.66 4.22 3.73.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.46-.6 1.67-1.18.2-.58.2-1.08.14-1.18-.06-.1-.22-.16-.47-.28z"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </td>`;
+                corpo.appendChild(tr);
+            });
+            return;
+        }
+
+        filtrados.forEach(item => {
+            const tr = document.createElement('tr');
+            const iconeComprouHtml = item.comprouMes
+                ? `<span class="icone-comprou sim" title="Já comprou este mês">✅ Comprou</span>`
+                : `<span class="icone-comprou nao" title="Ainda não comprou este mês">○ Não comprou</span>`;
+            const numeroMeta = item.numero ? `<span class="cliente-meta">Nº ${item.numero} ${iconeComprouHtml}</span>` : '';
+            const diaMeta = (emModoPesquisa || vend || emModoMarcasColocadas)
+                ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>`
+                : '';
+            
+            const temNegociado = Object.values(item.estados || {}).includes("NEGOCIADO");
+            const botaoEncomendarHtml = temNegociado ? `
+                <div>
+                    <button class="btn-cart" onclick="abrirModalEncomenda(${item.id})">
+                        <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor;"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                        Encomendar
+                    </button>
+                </div>` : '';
+
+            let html = `<td>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div>${item.cliente}${numeroMeta}${diaMeta}</div>
+                    ${botaoEncomendarHtml}
+                </div>
+            </td>`;
+            
+            const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+            // "Bar" deixou de ser comparado por igualdade exata ao texto "bar" —
+            // isso falhava para tipologias como "Bares" ou "Sports Bar e Pubs".
+            // Em vez disso, usa a mesma tabela Tipo→Marcas (REGRAS_TIPOLOGIA_):
+            // é "bar" para este efeito qualquer tipologia cuja lista de marcas
+            // exigidas inclua "preta" (Bares, Sports Bar e Pubs).
+            const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+            const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
+
+            marcasLista.forEach(m => {
+                // Colunas "0.0%" e "Preta" são mutuamente exclusivas consoante a
+                // Tipologia do cliente: Bar -> só Preta; qualquer outra -> só 0.0%.
+                // Quando não há Tipologia definida, mostra ambas normalmente.
+                if (tipologiaNorm) {
+                    if (ehColunaZeroZero_(m) && ehBar) { html += `<td data-label="${m}"></td>`; return; }
+                    if (ehColunaPreta_(m) && !ehBar) { html += `<td data-label="${m}"></td>`; return; }
+                }
+
+                const est = item.estados[m] || "";
+                const hist = item.historico[m] || { mes: false, ano: false, promo: false };
+                const ehPromoMensal = !!hist.promo;
+
+                let badgeColocouHtml = '';
+                if (est === "NEGOCIADO") {
+                    const estaColocou = !!(item.colocou && item.colocou[m]);
+                    badgeColocouHtml = `<span class="badge-colocou ${estaColocou ? 'sim' : 'nao'}">${estaColocou ? '✓ Colocou' : 'Não colocou'}</span>`;
+                }
+
+                html += `
+                    <td data-label="${m}">
+                        <div class="cell-container">
+                            <div class="icons-row">
+                                ${ehPromoMensal
+                                    ? `<span class="texto-elegibilidade ${hist.mes ? 'implementado' : 'elegivel'}">${hist.mes ? 'Implementado' : 'Elegível'}</span>`
+                                    : `<svg class="${hist.mes?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>
+                                       <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
+                                }
+                            </div>
+                            <button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>
+                            ${badgeColocouHtml}
+                        </div>
+                    </td>`;
+            });
+            if (temNegociado) tr.classList.add('linha-negociado');
+            tr.innerHTML = html;
+            corpo.appendChild(tr);
+        });
+    }
+
+    /** Diz se a coluna de marca `coluna` conta para a Tipologia indicada,
+     *  segundo a tabela Tipo→Marcas (REGRAS_TIPOLOGIA_). Tipologias que não
+     *  batem certo com nenhuma regra (vazias, não mapeadas) não são filtradas
+     *  — mantém-se o comportamento anterior para não esconder dados por engano. */
+    function marcaAplicavelParaTipologia_(coluna, tipologiaRaw) {
+        const marcasReq = obterRegraTipologia_(tipologiaRaw);
+        if (marcasReq === null) return true;
+        return marcasReq.some(chaveCanonica => resolverColunaMarca_(chaveCanonica) === coluna);
+    }
+
+    /** Conta quantas marcas um cliente já tem "colocadas" (comprou) este mês —
+     *  ou seja, colunas com o círculo do mês aceso (historico[m].mes === true).
+     *  Segue a mesma lógica de exclusão 0.0%/Preta usada na tabela, para não
+     *  contar colunas que nem sequer se aplicam à Tipologia do cliente. */
+    function contarMarcasColocadasMes_(item) {
+        const tipologiaNorm = String(item.tipologia || '').trim().toLowerCase();
+        const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
+        const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
+        let total = 0;
+        marcasLista.forEach(m => {
+            if (tipologiaNorm) {
+                if (ehColunaZeroZero_(m) && ehBar) return;
+                if (ehColunaPreta_(m) && !ehBar) return;
+            }
+            const hist = (item.historico && item.historico[m]) || {};
+            if (hist.mes) total++;
+        });
+        return total;
+    }
+
+    /** Desenha os chips de marcas (com logotipo, se carregado) do filtro
+     *  "Marcas colocadas (mês)". Chamada sempre que marcasLista ou os
+     *  logotipos mudam. Preserva a seleção atual entre re-renders. */
+    function renderMarcasFiltroChips_() {
+        const cont = document.getElementById('marcasFiltroChips');
+        if (!cont) return;
+
+        // Remove da seleção marcas que já não existem nos dados atuais.
+        MARCAS_FILTRO_SELECIONADAS_ = MARCAS_FILTRO_SELECIONADAS_.filter(m => marcasLista.includes(m));
+
+        cont.innerHTML = marcasLista.map(m => {
+            const ativa = MARCAS_FILTRO_SELECIONADAS_.includes(m);
+            const logo = LOGOTIPOS_MARCAS_[m];
+            const conteudoLogo = logo
+                ? `<img src="${logo}" alt="${m}" loading="lazy">`
+                : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+            const mEscapado = m.replace(/'/g, "\\'");
+            return `
+                <button type="button" class="marca-chip ${ativa ? 'ativa' : ''}" onclick="alternarMarcaFiltro_('${mEscapado}')">
+                    <span class="marca-chip-logo">${conteudoLogo}</span>
+                    <span class="marca-chip-nome">${m}</span>
+                </button>`;
+        }).join('');
+
+        atualizarContagemMarcasFiltro_();
+    }
+
+    function atualizarContagemMarcasFiltro_() {
+        const el = document.getElementById('marcasFiltroContagem');
+        if (!el) return;
+        const n = MARCAS_FILTRO_SELECIONADAS_.length;
+        el.textContent = n === 0 ? 'Todas' : `${n} selecionada${n === 1 ? '' : 's'}`;
+    }
+
+    function alternarMarcaFiltro_(marca) {
+        const idx = MARCAS_FILTRO_SELECIONADAS_.indexOf(marca);
+        if (idx === -1) MARCAS_FILTRO_SELECIONADAS_.push(marca);
+        else MARCAS_FILTRO_SELECIONADAS_.splice(idx, 1);
+        renderMarcasFiltroChips_();
+        atualizarVisualizacao();
+    }
+
+    // --- Modal "Gerir logotipos das marcas" (upload .jpeg por marca, PIN) ---
+    function abrirModalLogotipos_() {
+        renderListaLogotipos_();
+        document.getElementById('modalLogotiposOverlay').classList.add('aberto');
+    }
+
+    function fecharModalLogotipos_() {
+        document.getElementById('modalLogotiposOverlay').classList.remove('aberto');
+    }
+
+    function renderListaLogotipos_() {
+        const cont = document.getElementById('listaLogotipos');
+        if (!cont) return;
+        cont.innerHTML = marcasLista.map((m, i) => {
+            const logo = LOGOTIPOS_MARCAS_[m];
+            const mEscapado = m.replace(/'/g, "\\'");
+            const preview = logo
+                ? `<img src="${logo}" alt="${m}">`
+                : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+            return `
+                <div class="lista-logotipos-item">
+                    <div class="lista-logotipos-preview">${preview}</div>
+                    <div class="lista-logotipos-nome">${m}</div>
+                    <div class="lista-logotipos-acoes">
+                        <input type="file" accept="image/jpeg" id="inputLogotipo${i}" style="display:none;" onchange="carregarLogotipoMarca_('${mEscapado}', this)">
+                        <button type="button" class="btn-logotipo-carregar" onclick="document.getElementById('inputLogotipo${i}').click()">Carregar</button>
+                        ${logo ? `<button type="button" class="btn-logotipo-remover" onclick="removerLogotipoMarca_('${mEscapado}')">Remover</button>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    /** Lê o .jpeg escolhido, comprime para um ícone pequeno (evita ultrapassar
+     *  o limite de caracteres por célula no Google Sheets) e envia para o
+     *  servidor como config partilhada — visível para toda a equipa. */
+    function carregarLogotipoMarca_(marca, inputEl) {
+        const ficheiro = inputEl.files && inputEl.files[0];
+        if (!ficheiro) return;
+
+        const leitor = new FileReader();
+        leitor.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const tamanho = 96;
+                const canvas = document.createElement('canvas');
+                canvas.width = tamanho;
+                canvas.height = tamanho;
+                const ctx = canvas.getContext('2d');
+                // Recorte central quadrado (cover), para o logotipo preencher
+                // bem o círculo do chip independentemente da proporção original.
+                const lado = Math.min(img.width, img.height);
+                const offsetX = (img.width - lado) / 2;
+                const offsetY = (img.height - lado) / 2;
+                ctx.drawImage(img, offsetX, offsetY, lado, lado, 0, 0, tamanho, tamanho);
+                const dataUri = canvas.toDataURL('image/jpeg', 0.72);
+
+                LOGOTIPOS_MARCAS_[marca] = dataUri;
+                try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+                renderListaLogotipos_();
+                renderMarcasFiltroChips_();
+
+                postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + marca, valor: dataUri })
+                    .then(r => { if (!r || r.ok === false) alert('Não foi possível guardar o logotipo no servidor. Tenta novamente.'); });
+            };
+            img.onerror = () => alert('Não foi possível ler esta imagem.');
+            img.src = ev.target.result;
+        };
+        leitor.readAsDataURL(ficheiro);
+        inputEl.value = '';
+    }
+
+    function removerLogotipoMarca_(marca) {
+        delete LOGOTIPOS_MARCAS_[marca];
+        try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
+        renderListaLogotipos_();
+        renderMarcasFiltroChips_();
+        postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + marca, valor: '' });
+    }
+
+    function renderResumoFoco(com, sem) {
+        const el = document.getElementById('resumoFoco');
+        if (!el) return;
+
+        // Um mesmo cliente pode ter mais do que uma linha nesta semana (ex.:
+        // visitado em mais do que um dia) — conta-se só 1 vez.
+        const registos = deduplicarClientesUnicos_(baseDadosRotas.filter(i => i.comercial === com && i.semana === sem));
+
+        const colunas = marcasLista.map(m => {
+            // Só conta clientes cuja Tipologia exige esta marca (ver tabela
+            // Tipo→Marcas) — evita inflacionar/desinflacionar Foco/Atingido
+            // com marcas que nem sequer se aplicam ao tipo de estabelecimento.
+            const registosAplicaveis = registos.filter(r => marcaAplicavelParaTipologia_(m, r.tipologia));
+            // Conta como Foco quer a marca esteja atualmente em FOCO/FOCO SEMANAL,
+            // quer já tenha estado (e entretanto tenha sido resolvida para OK/NÃO
+            // OK/NEGOCIADO) — ver focoJaMarcado, que só é limpo na limpeza semanal
+            // ou no botão "Limpar".
+            const foco = registosAplicaveis.filter(r => {
+                const est = r.estados && r.estados[m];
+                if (est === 'FOCO' || est === 'FOCOSEMANAL') return true;
+                return !!(r.focoJaMarcado && r.focoJaMarcado[m]);
+            }).length;
+            const atingido = registosAplicaveis.filter(r => {
+                const est = r.estados && r.estados[m];
+                if (est === 'OK') return true;
+                if (est === 'NEGOCIADO' && r.colocou && r.colocou[m]) return true;
+                return false;
+            }).length;
+            return `
+                <div class="resumo-col">
+                    <div class="resumo-marca">${m}</div>
+                    <div class="resumo-pill foco">${foco}</div>
+                    <div class="resumo-pill atingido">${atingido}</div>
+                </div>`;
+        }).join('');
+
+        el.innerHTML = `
+            <div class="resumo-foco-tabs">
+                <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(0)">Resumo</button>
+                <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(1)">Picos</button>
+            </div>
+            <div class="resumo-foco-slider" id="resumoFocoSlider">
+                <div class="resumo-foco-linha resumo-foco-track" id="resumoFocoTrack">
+                    <div class="resumo-card resumo-foco-slide">
+                        <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
+                        <div class="resumo-grid">${colunas}</div>
+                        <div class="resumo-legenda">
+                            <span><span class="dot foco"></span>Foco</span>
+                            <span><span class="dot atingido"></span>Atingido</span>
+                        </div>
+                    </div>
+                    ${renderPicosCardHtml_(com, sem).replace('<div class="picos-card">', '<div class="picos-card resumo-foco-slide">')}
+                </div>
+            </div>`;
+
+        aplicarSlideResumoPicos_();
+    }
+
+    // --- Carrossel "Resumo ↔ Picos" (ver CSS .resumo-foco-slider), só ativo
+    // no telemóvel — poupa espaço vertical ao mostrar 1 cartão de cada vez,
+    // trocando por separadores "Resumo/Picos" ou por arrastar (swipe).
+    let resumoPicosSlideAtivo_ = 0; // 0 = Resumo, 1 = Picos — mantém-se entre re-renders (polling/sync)
+
+    function aplicarSlideResumoPicos_() {
+        const track = document.getElementById('resumoFocoTrack');
+        const slider = document.getElementById('resumoFocoSlider');
+        if (!track) return;
+        track.style.transform = `translateX(-${resumoPicosSlideAtivo_ * 100}%)`;
+        document.querySelectorAll('#resumoFoco .resumo-foco-tab').forEach((tab, i) => {
+            tab.classList.toggle('ativo', i === resumoPicosSlideAtivo_);
+        });
+        if (slider && window.innerWidth < 768) {
+            const slideAtivo = track.children[resumoPicosSlideAtivo_];
+            if (slideAtivo) slider.style.height = slideAtivo.offsetHeight + 'px';
+        }
+    }
+
+    function irParaSlideResumoPicos_(indice) {
+        resumoPicosSlideAtivo_ = Math.max(0, Math.min(1, indice));
+        aplicarSlideResumoPicos_();
+    }
+
+    function mudarSlideResumoPicos_(delta) {
+        irParaSlideResumoPicos_(resumoPicosSlideAtivo_ + delta);
+    }
+
+    // Arrastar com o dedo (swipe) para alternar entre Resumo e Picos no telemóvel.
+    // Só reage a gestos predominantemente horizontais, para não interferir
+    // com o scroll vertical normal da página.
+    (function inicializarSwipeResumoPicos_() {
+        let inicioX = null, inicioY = null;
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest || !e.target.closest('.resumo-foco-slider')) return;
+            inicioX = e.touches[0].clientX;
+            inicioY = e.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (inicioX === null) return;
+            const fimX = e.changedTouches[0].clientX;
+            const fimY = e.changedTouches[0].clientY;
+            const deltaX = fimX - inicioX;
+            const deltaY = fimY - inicioY;
+            inicioX = null; inicioY = null;
+            if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+                mudarSlideResumoPicos_(deltaX < 0 ? 1 : -1);
+            }
+        }, { passive: true });
+    })();
+
+    /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
+     *  para o Gestor + Mês atual (independente da semana selecionada) — em modo leitura ou em modo edição
+     *  consoante picosEmEdicao_. */
+    function renderPicosCardHtml_(com, sem) {
+        const chave = chavePicos_(com, sem);
+        const override = DADOS_PICOS_[chave];
+        const objetivoPercent = (override && override.objetivoPercent !== undefined && override.objetivoPercent !== null)
+            ? Number(override.objetivoPercent) : 100;
+        const auto = calcularPicosAutomatico_(com);
+        const totalPossivel = auto.totalPossivel;
+        const efetuadas = auto.efetuadas;
+        const clientesComCompraMes = auto.clientesComCompraMes || 0;
+        const total = Math.round(totalPossivel * (objetivoPercent / 100));
+        const diferenca = total - efetuadas;
+        const comEscapado = String(com || '').replace(/'/g, "\\'");
+        const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((efetuadas / total) * 100))) : 0;
+        const corDiferenca = diferenca > 0 ? 'pendente' : 'concluido';
+        const rotuloObjetivo = objetivoPercent === 100 ? '' : `<span class="picos-objetivo-sufixo">· Objetivo ${objetivoPercent}%</span>`;
+
+        const cabecalho = `
+            <div class="picos-card-header">
+                <span class="picos-card-titulo">
+                    <span class="picos-icon-badge">
+                        <svg viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+                    </span>
+                    Picos ${rotuloObjetivo}
+                </span>`;
+
+        if (picosEmEdicao_ === chave) {
+            return `
+                <div class="picos-card">
+                    ${cabecalho}
+                    </div>
+                    <div class="picos-edit-grid">
+                        <div class="picos-edit-field">
+                            <label>Total possível (auto)</label>
+                            <input type="number" disabled value="${totalPossivel}" style="background:var(--bg); color:var(--muted);">
+                        </div>
+                        <div class="picos-edit-field">
+                            <label>Objetivo (%)</label>
+                            <input type="number" min="0" max="100" step="1" inputmode="numeric" id="picosInputObjetivo" value="${objetivoPercent}" oninput="atualizarPreviewPicos_(${totalPossivel})">
+                        </div>
+                    </div>
+                    <div style="font-size:0.7rem; color:var(--muted); margin-bottom:9px;">
+                        DN Objetivo = ${totalPossivel} × Objetivo → <strong id="picosPreviewTotal">${total}</strong>
+                    </div>
+                    <button class="picos-guardar-btn" onclick="guardarPicos_('${comEscapado}', '${sem}')">Guardar Objetivo</button>
+                </div>`;
+        }
+
+        return `
+            <div class="picos-card">
+                ${cabecalho}
+                    <button class="picos-editar-btn" title="Editar" onclick="pedirCodigoAcesso_(() => editarPicos_('${comEscapado}', '${sem}'))">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </button>
+                </div>
+                <div class="picos-stats">
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-total">${total}</div>
+                        <div class="picos-stat-label">DN Objetivo</div>
+                    </div>
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
+                        <div class="picos-stat-label">DN efetuadas</div>
+                    </div>
+                    <div class="picos-stat">
+                        <div class="picos-stat-valor cor-diferenca ${corDiferenca}">${diferenca}</div>
+                        <div class="picos-stat-label">Diferença</div>
+                    </div>
+                </div>
+                <button type="button" class="picos-clientes-link" onclick="mostrarClientesPicos_('${comEscapado}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
+                    <span>${clientesComCompraMes} clientes</span>
+                    <span class="picos-clientes-hint">· clicar para ver</span>
+                </button>
+                <div class="picos-progress-row">
+                    <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
+                    <div class="picos-progress-percent-block">
+                        <div class="picos-progress-percent">${percent}%</div>
+                        <div class="picos-progress-percent-label">Execução</div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    /** Ativa o modo de edição do cartão Picos para este Gestor + Mês
+     *  (chamada depois do código de acesso ser confirmado). */
+    function editarPicos_(com, sem) {
+        picosEmEdicao_ = chavePicos_(com, sem);
+        renderResumoFoco(com, sem);
+        setTimeout(() => {
+            const input = document.getElementById('picosInputObjetivo');
+            if (input) input.focus();
+        }, 30);
+    }
+
+    /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
+    /** Atualiza em tempo real a pré-visualização do DN Total enquanto o
+     *  utilizador ajusta o campo "Objetivo (%)" no cartão Picos. */
+    function atualizarPreviewPicos_(totalPossivel) {
+        const inputObjetivo = document.getElementById('picosInputObjetivo');
+        const preview = document.getElementById('picosPreviewTotal');
+        if (!inputObjetivo || !preview) return;
+        let pct = parseFloat(inputObjetivo.value);
+        if (isNaN(pct)) pct = 0;
+        pct = Math.max(0, Math.min(100, pct));
+        preview.textContent = Math.round(totalPossivel * (pct / 100));
+    }
+
+    async function guardarPicos_(com, sem) {
+        const inputObjetivo = document.getElementById('picosInputObjetivo');
+        let objetivoPercent = parseFloat(inputObjetivo && inputObjetivo.value);
+        if (isNaN(objetivoPercent)) objetivoPercent = 100;
+        objetivoPercent = Math.max(0, Math.min(100, objetivoPercent));
+
+        DADOS_PICOS_[chavePicos_(com, sem)] = { objetivoPercent: objetivoPercent };
+        picosEmEdicao_ = null;
+        renderResumoFoco(com, sem);
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+
+        mostrarIndicadorSync_(true);
+        const resultado = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+        if (!resultado || resultado.ok === false) {
+            console.error('Erro ao guardar Picos na nuvem:', resultado && resultado.erro);
+            mostrarAvisoSync_();
+        }
+        mostrarIndicadorSync_(false);
+    }
+
+    function mudarDia(d, btn) {
+        diaAtualSelecionado = d;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        atualizarVisualizacao();
+    }
+
+    async function limparFocoGestor() {
+        const com = document.getElementById('comercialSelect').value;
+
+        // Todo o mês do gestor selecionado — todas as semanas (1-4) e todos os
+        // dias, não apenas a semana atualmente selecionada no dropdown.
+        const registos = baseDadosRotas.filter(i => i.comercial === com);
+        if (registos.length === 0) {
+            alert('Não há clientes para "' + com + '".');
+            return;
+        }
+
+        // Lista apenas os pares (id, marca) que têm efetivamente um estado marcado.
+        const marcasParaLimpar = [];
+        registos.forEach(r => {
+            Object.keys(r.estados || {}).forEach(m => {
+                if (r.estados[m]) marcasParaLimpar.push({ id: r.id, marca: m });
+            });
+        });
+
+        if (marcasParaLimpar.length === 0) {
+            alert('Não há marcações para limpar em "' + com + '".');
+            return;
+        }
+
+        if (!confirm(`Limpar todos os focos (FOCO / NÃO OK / OK / NEGOCIADO / FOCO SEMANAL) de "${com}" — TODO O MÊS (semanas 1 a 4), em todos os dias?\n\nIsto vai apagar ${marcasParaLimpar.length} marcações e não pode ser desfeito.`)) return;
+
+        mostrarLoading(true);
+
+        // Atualização local imediata (feedback visual). Limpa também o
+        // histórico "já foi foco" — este botão é um reset completo.
+        registos.forEach(r => { r.estados = {}; r.focoJaMarcado = {}; });
+        atualizarVisualizacao();
+
+        // IMPORTANTE: em vez de reenviar baseDadosRotas inteira via "limpar_e_importar"
+        // (o que reescrevia TODA a folha, incluindo registos de outros gestores/GCs que
+        // este browser podia não ter atualizados nos últimos segundos — risco real de
+        // apagar alterações concorrentes feitas por outra pessoa entretanto), envia-se
+        // agora um pedido "atualizar_estado" por cada (id, marca) afetado, usando a
+        // mesma ação já usada em enviarAlteracaoNuvem(). Mais pedidos, mas seguro.
+        try {
+            let falhas = 0;
+            for (const { id, marca } of marcasParaLimpar) {
+                const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: "", resetFocoHistorico: true });
+                if (!resultado || resultado.ok === false) falhas++;
+            }
+            if (falhas > 0) mostrarAvisoSync_();
+            await puxarDadosDaNuvem(true);
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao limpar na nuvem: ' + e.message);
+        }
+        mostrarLoading(false);
+    }
+
+    const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+
+    function rotuloEstado(est) {
+        if (est === 'FOCO') return 'foco';
+        if (est === 'FOCOSEMANAL') return 'foco semanal';
+        if (est === 'NAO OK') return 'não ok';
+        if (est === 'OK') return 'ok';
+        if (est === 'NEGOCIADO') return 'negociado';
+        return '';
+    }
+
+    function obterPrimeiroEUltimoNome(nomeCompleto) {
+        if (!nomeCompleto) return "gestor";
+        const partes = nomeCompleto.trim().split(/\s+/);
+        if (partes.length === 1) return partes[0].toLowerCase();
+        return `${partes[0]} ${partes[partes.length - 1]}`.toLowerCase();
+    }
+
+    function construirRoteiroSemanalPDF() {
+        if (!window.jspdf) {
+            alert('A biblioteca de geração de PDF ainda não carregou. Verifica a ligação à internet e tenta novamente.');
+            return null;
+        }
+        const com = document.getElementById('comercialSelect').value;
+        const semanaSelect = document.getElementById('semanaSelect');
+        const sem = semanaSelect.value;
+        const semanaLabel = semanaSelect.selectedOptions[0].textContent.replace(' 📍 (atual)', '');
+
+        const registos = baseDadosRotas.filter(i => i.comercial === com && i.semana === sem);
+        if (registos.length === 0) {
+            alert('Não há clientes para "' + com + '" nesta semana.');
+            return null;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+        const margem = 40;
+        let y = margem;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('Roteiro Semanal — ' + com, margem, y);
+        y += 18;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(120);
+        doc.text(semanaLabel + ' · Gerado em ' + new Date().toLocaleDateString('pt-PT'), margem, y);
+        doc.setTextColor(0);
+        y += 16;
+
+        const estiloTabela = {
+            theme: 'grid',
+            styles: { fontSize: 8, halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.5, textColor: [0, 0, 0] },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+            margin: { left: margem, right: margem }
+        };
+
+        const larguraPaginaUtil = 595.28 - (margem * 2);
+        const larguraNome = 180;
+        const larguraMarca = (larguraPaginaUtil - larguraNome) / marcasLista.length;
+        const columnStylesDia = { 0: { halign: 'center', cellWidth: larguraNome } };
+        marcasLista.forEach((_, idx) => { columnStylesDia[idx + 1] = { cellWidth: larguraMarca }; });
+
+        doc.autoTable(Object.assign({}, estiloTabela, {
+            startY: y,
+            head: [['', ...marcasLista]],
+            body: [
+                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => {
+                    const est = r.estados && r.estados[m];
+                    return est === 'FOCO' || est === 'FOCOSEMANAL' || !!(r.focoJaMarcado && r.focoJaMarcado[m]);
+                }).length))],
+                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
+            ],
+            columnStyles: columnStylesDia
+        }));
+        y = doc.lastAutoTable.finalY + 20;
+
+        const desenharTabelaDia = (titulo, lista) => {
+            if (y > 740) { doc.addPage(); y = margem; }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(titulo, margem, y);
+            y += 8;
+            doc.autoTable(Object.assign({}, estiloTabela, {
+                startY: y,
+                head: [['Estabelecimento', ...marcasLista]],
+                body: lista.map(item => [item.cliente, ...marcasLista.map(m => rotuloEstado((item.estados && item.estados[m]) || ''))]),
+                columnStyles: columnStylesDia
+            }));
+            y = doc.lastAutoTable.finalY + 20;
+        };
+
+        DIAS_ORDEM.forEach(dia => {
+            const doDia = registos.filter(r => r.dia === dia);
+            if (doDia.length > 0) desenharTabelaDia(`${dia}-feira (${doDia.length} clientes)`, doDia);
+        });
+
+        const semDia = registos.filter(r => !DIAS_ORDEM.includes(r.dia));
+        if (semDia.length > 0) desenharTabelaDia(`Sem dia definido (${semDia.length} clientes)`, semDia);
+
+        const nomeGestorResumido = obterPrimeiroEUltimoNome(com);
+        const numeroSemanaAno = obterSemanaISO(new Date());
+        
+        const nomeFicheiro = `${nomeGestorResumido} semana ${numeroSemanaAno}.pdf`;
+
+        return { doc, nomeFicheiro, com, semanaLabel };
+    }
+
+    function gravarRoteiroSemanalPDF() {
+        const resultado = construirRoteiroSemanalPDF();
+        if (!resultado) return;
+        resultado.doc.save(resultado.nomeFicheiro);
+    }
+
+    async function sincronizarManualmente() {
+        const btn = document.getElementById('btnSyncTitulo');
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('a-sincronizar');
+        }
+        await puxarDadosDaNuvem();
+        if (btn) {
+            btn.classList.remove('a-sincronizar');
+            btn.classList.add('sucesso');
+            setTimeout(() => {
+                btn.classList.remove('sucesso');
+                btn.disabled = false;
+            }, 1500);
+        }
+    }
+
+    // --- LÓGICA DO MODAL DE ENCOMENDAS ---
+    function abrirModalEncomenda(id) {
+        clienteAtualEncomenda = baseDadosRotas.find(c => c.id === id);
+        if (!clienteAtualEncomenda) return;
+
+        quantidadesEncomenda = {};
+        document.getElementById("modalClientName").innerText = `Encomenda: ${clienteAtualEncomenda.cliente}`;
+        
+        const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {})
+            .filter(m => clienteAtualEncomenda.estados[m] === "NEGOCIADO")
+            .map(m => m.toLowerCase());
+        
+        renderizarCatalogo(gamasNegociadas);
+        atualizarTotalEncomenda();
+        
+        document.getElementById("orderModal").style.display = "flex";
+    }
+
+    function fecharModalEncomenda() {
+        document.getElementById("orderModal").style.display = "none";
+        clienteAtualEncomenda = null;
+    }
+
+    function renderizarCatalogo(gamasNegociadas) {
+        const container = document.getElementById("modalCatalogBody");
+        container.innerHTML = "";
+
+        const agrupadosPorGama = PRODUCT_CATALOG.reduce((acc, product) => {
+            if (!acc[product.range]) acc[product.range] = [];
+            acc[product.range].push(product);
+            return acc;
+        }, {});
+
+        let encontrouAlguma = false;
+
+        for (const [nomeGama, produtos] of Object.entries(agrupadosPorGama)) {
+            const estaNegociada = gamasNegociadas.includes(nomeGama.toLowerCase());
+            if (!estaNegociada) continue;
+
+            encontrouAlguma = true;
+            const rangeBlock = document.createElement("div");
+            rangeBlock.className = "range-section";
+            
+            const badge = `<span class="badge-negociado-modal">NEGOCIADO</span>`;
+            
+            let html = `<h3 class="range-title">${nomeGama} ${badge}</h3>`;
+            
+            produtos.forEach(prod => {
+                html += `
+                    <div class="product-row">
+                        <div class="product-info">
+                            <div class="product-thumbnail-container">
+                                <svg class="product-svg-thumb" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2a2 2 0 0 1-2-2V2z"/></svg>
+                            </div>
+                            <span class="product-name">${prod.name}</span>
+                        </div>
+                        <div class="qty-counter">
+                            <button class="btn-qty" onclick="ajustarQtd('${prod.id}', -1)">-</button>
+                            <input type="number" id="qty-${prod.id}" class="input-qty" value="0" min="0" onchange="definirQtd('${prod.id}', this.value)">
+                            <button class="btn-qty" onclick="ajustarQtd('${prod.id}', 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            rangeBlock.innerHTML = html;
+            container.appendChild(rangeBlock);
+        }
+
+        if (!encontrouAlguma) {
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted);">Nenhuma gama negociada encontrada para este cliente.</div>`;
+        }
+    }
+
+    function ajustarQtd(productId, change) {
+        const input = document.getElementById(`qty-${productId}`);
+        let currentVal = parseInt(input.value, 10) || 0;
+        currentVal = Math.max(0, currentVal + change);
+        input.value = currentVal;
+        definirQtd(productId, currentVal);
+    }
+
+    function definirQtd(productId, val) {
+        const qty = Math.max(0, parseInt(val, 10) || 0);
+        if (qty > 0) {
+            quantidadesEncomenda[productId] = qty;
+        } else {
+            delete quantidadesEncomenda[productId];
+        }
+        atualizarTotalEncomenda();
+    }
+
+    function atualizarTotalEncomenda() {
+        const total = Object.values(quantidadesEncomenda).reduce((acc, count) => acc + count, 0);
+        document.getElementById("totalItemCount").innerText = total;
+    }
+
+    // --- AUTOMAÇÃO: MARCAR "NEGOCIADO" COMO "Colocou" AO ENVIAR ENCOMENDA ---
+    function processarColocacaoAutomatica() {
+        if (!clienteAtualEncomenda || !clienteAtualEncomenda.estados) return;
+        if (!clienteAtualEncomenda.colocou) clienteAtualEncomenda.colocou = {};
+
+        let houveAlteracao = false;
+        Object.keys(clienteAtualEncomenda.estados).forEach(marca => {
+            if (clienteAtualEncomenda.estados[marca] === "NEGOCIADO") {
+                clienteAtualEncomenda.colocou[marca] = true;
+                marcarAlteracaoPendente_('colocou', clienteAtualEncomenda.id, marca, true);
+                enviarColocouNuvem(clienteAtualEncomenda.id, marca, true);
+                houveAlteracao = true;
+            }
+        });
+
+        if (houveAlteracao) {
+            atualizarVisualizacao();
+        }
+    }
+
+    function gerarEmailEncomenda() {
+        if (Object.keys(quantidadesEncomenda).length === 0) {
+            alert("Por favor, seleciona pelo menos um produto para encomendar.");
+            return;
+        }
+
+        // Executa a marcação automática para "Colocou"
+        processarColocacaoAutomatica();
+
+        const emailDestination = "apoioaocliente@novadis.pt";
+        const numeroCliente = clienteAtualEncomenda.numero ? ` (Nº ${clienteAtualEncomenda.numero})` : '';
+        const subject = `Novo Pedido Comercial: ${clienteAtualEncomenda.cliente}${numeroCliente}`;
+
+        let bodyLines = [
+            `Pedido de Encomenda`,
+            `Cliente: ${clienteAtualEncomenda.cliente}`,
+            `Nº Estabelecimento: ${clienteAtualEncomenda.numero || 'N/A'}`,
+            ``,
+            `PRODUTO                                     | QUANTIDADE`,
+            `------------------------------------------------------`
+        ];
+        PRODUCT_CATALOG.forEach(prod => {
+            if (quantidadesEncomenda[prod.id]) {
+                const namePadded = prod.name.padEnd(43, ' ');
+                bodyLines.push(`${namePadded} : ${quantidadesEncomenda[prod.id]} un.`);
+            }
+        });
+
+        bodyLines.push(`------------------------------------------------------`);
+        bodyLines.push(`Total de Caixas/Packs Solicitados: ${document.getElementById("totalItemCount").innerText}`);
+        bodyLines.push(``);
+        bodyLines.push(`Por favor, confirmar receção e agendamento da entrega.`);
+
+        const mailtoUrl = `mailto:${emailDestination}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+        window.location.href = mailtoUrl;
+
+        fecharModalEncomenda();
+    }
+
+    function gerarWhatsappEncomenda() {
+        if (Object.keys(quantidadesEncomenda).length === 0) {
+            alert("Por favor, seleciona pelo menos um produto para encomendar.");
+            return;
+        }
+
+        // Executa a marcação automática para "Colocou"
+        processarColocacaoAutomatica();
+
+        const numeroCliente = clienteAtualEncomenda.numero ? ` (Nº ${clienteAtualEncomenda.numero})` : '';
+
+        let bodyLines = [
+            `*Pedido de Encomenda*`,
+            `*Cliente:* ${clienteAtualEncomenda.cliente}${numeroCliente}`,
+            ``,
+            `*Produtos solicitados:*`
+        ];
+
+        PRODUCT_CATALOG.forEach(prod => {
+            if (quantidadesEncomenda[prod.id]) {
+                bodyLines.push(`• ${prod.name}: *${quantidadesEncomenda[prod.id]} un.*`);
+            }
+        });
+
+        bodyLines.push(``);
+        bodyLines.push(`*Total de Caixas/Packs:* ${document.getElementById("totalItemCount").innerText}`);
+        bodyLines.push(`Por favor, confirmar receção e agendamento da entrega.`);
+
+        const text = bodyLines.join("\n");
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, '_blank');
+
+        fecharModalEncomenda();
+    }
+
+    // --- INICIALIZAÇÃO COM LOCALSTORAGE ---
+    const gestorSalvo = localStorage.getItem('gestorSelecionado');
+    if (gestorSalvo) {
+        document.getElementById('comercialSelect').value = gestorSalvo;
+    }
+
+    const semanaSalva = localStorage.getItem('semanaSelecionada');
+    if (semanaSalva) {
+        const selectSemana = document.getElementById('semanaSelect');
+        selectSemana.value = semanaSalva;
+        const semanaISO = obterSemanaISO(new Date());
+        const semanaCiclo = calcularSemanaCiclo(semanaISO);
+        Array.from(selectSemana.options).forEach(opt => {
+            const rotulo = 'Semana ' + opt.value;
+            opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
+        });
+    } else {
+        aplicarSemanaAtual();
+    }
+
+    // Mostra imediatamente os últimos dados conhecidos (cache local) enquanto
+    // o pedido real à nuvem ainda vai a caminho — evita o ecrã de "a carregar"
+    // demorado sempre que o Apps Script demora a responder (arranque a frio,
+    // muitos GCs em simultâneo, etc.). Os dados são substituídos assim que a
+    // resposta da nuvem chegar.
+    try {
+        const cache = localStorage.getItem('baseDadosRotasCache');
+        if (cache) {
+            baseDadosRotas = JSON.parse(cache);
+            atualizarVisualizacao();
+            aplicarModoVendedorSeNecessario_();
+        }
+    } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
+
+    puxarDadosDaNuvem(!!localStorage.getItem('baseDadosRotasCache'));
+
+    const INTERVALO_AUTO_SYNC_MS = 15 * 1000;
+    setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            puxarDadosDaNuvem(true);
+        }
+    }, INTERVALO_AUTO_SYNC_MS);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            puxarDadosDaNuvem(true);
+        }
+    });
+</script>
+</body>
+</html>
+        
