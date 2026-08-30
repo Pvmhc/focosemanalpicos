@@ -228,17 +228,26 @@
 
         /* --- Barra compacta "Picos" que fica fixa no topo ao fazer scroll
            (mesmo estilo/altura da pílula "Gestor · Semana · Vendedor") —
-           dá sempre visibilidade aos números de Picos mesmo a percorrer a
-           lista de clientes mais abaixo. */
+           fica ESCONDIDA em repouso (não duplica o cartão completo) e só
+           aparece, fixa no topo, quando o cartão completo sai do ecrã;
+           ao voltar ao topo da página desaparece de novo. Controlada por
+           JS (classe .ativo) via IntersectionObserver — ver
+           configurarPicosStickyObserver_(). */
         .picos-sticky-bar {
-            position: sticky; top: 0; z-index: 30;
+            position: fixed; top: 12px; left: 12px; right: 12px; z-index: 200;
+            max-width: 1400px; margin: 0 auto;
             display: flex; align-items: center; gap: 8px;
             background: var(--card); border: 1px solid var(--border); border-radius: 999px;
-            padding: 8px 14px; margin-bottom: 8px; box-sizing: border-box;
+            padding: 8px 14px; box-sizing: border-box;
             font-size: 0.78rem; font-weight: 700; color: var(--text);
             white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
-            box-shadow: 0 2px 6px rgba(11,12,16,.06);
+            box-shadow: 0 4px 14px rgba(11,12,16,.12);
+            opacity: 0; visibility: hidden; transform: translateY(-8px);
+            transition: opacity .18s ease, transform .18s ease, visibility .18s;
+            pointer-events: none;
         }
+        .picos-sticky-bar.ativo { opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto; }
+        @media (min-width: 768px) { .picos-sticky-bar { top: 24px; left: 24px; right: 24px; } }
         .picos-sticky-bar::-webkit-scrollbar { display: none; }
         .picos-sticky-icon {
             width: 16px; height: 16px; border-radius: 50%; background: var(--primary);
@@ -542,6 +551,31 @@
         }
         .search-row input:focus { outline: none; border-color: var(--accent); }
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; fill: var(--muted); pointer-events: none; }
+
+        /* --- Dock fixo no fundo do ecrã (pesquisa + dias da semana), estilo
+           "barra de menu" em fundo preto — fica sempre visível por cima da
+           lista, independentemente do scroll. Ver bottomDockSpacer, que
+           reserva o espaço equivalente no fluxo normal da página para nada
+           ficar escondido atrás do dock. */
+        .bottom-dock {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
+            background: #0b0c10; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            box-shadow: 0 -6px 18px rgba(0,0,0,.28);
+        }
+        .bottom-dock-inner { max-width: 1400px; margin: 0 auto; }
+        @media (min-width: 768px) { .bottom-dock { padding-left: 24px; padding-right: 24px; } }
+        .bottom-dock .search-row { margin-bottom: 8px; }
+        .bottom-dock .search-row input {
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #fff;
+        }
+        .bottom-dock .search-row input::placeholder { color: rgba(255,255,255,.5); }
+        .bottom-dock .search-row input:focus { border-color: var(--primary); }
+        .bottom-dock .search-icon { fill: rgba(255,255,255,.6); }
+        .bottom-dock .days-tabs { margin-bottom: 0; }
+        .bottom-dock .tab-btn {
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.75);
+        }
+        .bottom-dock .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
         .cliente-meta { display: block; font-size: 0.7rem; font-weight: 600; color: var(--muted); margin-top: 2px; }
         .icone-comprou {
             display: none !important; align-items: center; gap: 3px; margin-left: 6px;
@@ -837,18 +871,39 @@
         </button>
     </div>
 
-    <div class="search-row">
-        <svg class="svg-icon search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        <input type="text" id="pesquisaCliente" placeholder="Procurar por nome ou nº do estabelecimento (do gestor selecionado)..." oninput="atualizarVisualizacao()">
-    </div>
+    <div class="bottom-dock" id="bottomDock">
+        <div class="bottom-dock-inner">
+            <div class="search-row">
+                <svg class="svg-icon search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" id="pesquisaCliente" placeholder="Procurar por nome ou nº do estabelecimento (do gestor selecionado)..." oninput="atualizarVisualizacao()">
+            </div>
 
-    <div class="days-tabs" id="diasTabs">
-        <button class="tab-btn active" onclick="mudarDia('Segunda', this)">Segunda</button>
-        <button class="tab-btn" onclick="mudarDia('Terça', this)">Terça</button>
-        <button class="tab-btn" onclick="mudarDia('Quarta', this)">Quarta</button>
-        <button class="tab-btn" onclick="mudarDia('Quinta', this)">Quinta</button>
-        <button class="tab-btn" onclick="mudarDia('Sexta', this)">Sexta</button>
+            <div class="days-tabs" id="diasTabs">
+                <button class="tab-btn active" onclick="mudarDia('Segunda', this)">Segunda</button>
+                <button class="tab-btn" onclick="mudarDia('Terça', this)">Terça</button>
+                <button class="tab-btn" onclick="mudarDia('Quarta', this)">Quarta</button>
+                <button class="tab-btn" onclick="mudarDia('Quinta', this)">Quinta</button>
+                <button class="tab-btn" onclick="mudarDia('Sexta', this)">Sexta</button>
+            </div>
+        </div>
     </div>
+    <div id="bottomDockSpacer"></div>
+    <script>
+        // Reserva, no fluxo normal da página, um espaço com a altura exata
+        // do dock fixo (pesquisa + dias), para a lista de clientes nunca
+        // ficar escondida atrás dele. Recalcula automaticamente sempre que
+        // o dock muda de altura (ex.: os botões dos dias quebram linha em
+        // ecrãs mais estreitos).
+        (function () {
+            const dock = document.getElementById('bottomDock');
+            const spacer = document.getElementById('bottomDockSpacer');
+            if (!dock || !spacer) return;
+            const ajustar = () => { spacer.style.height = dock.offsetHeight + 'px'; };
+            ajustar();
+            new ResizeObserver(ajustar).observe(dock);
+            window.addEventListener('resize', ajustar);
+        })();
+    </script>
 
     <div class="table-container">
         <table>
@@ -2646,9 +2701,30 @@
                     <div class="resumo-foco-slide">${renderPicosCardHtml_(com, sem)}</div>
                 </div>
             </div>
+            <div id="picosStickySentinel" style="height:1px;"></div>
             <div class="picos-sticky-bar" id="picosStickyBar">${renderPicosStickyBarHtml_(com, sem)}</div>`;
 
         aplicarSlideResumoPicos_();
+        configurarPicosStickyObserver_();
+    }
+
+    // --- Mostra a barra compacta "Picos" fixa no topo apenas quando o
+    // cartão completo (com o sentinela logo a seguir) já saiu do ecrã por
+    // cima; ao voltar ao topo, a sentinela volta a ficar visível e a barra
+    // esconde-se de novo. Reconfigurado sempre que o HTML é reconstruído
+    // (o nó da sentinela é recriado a cada render).
+    let picosStickyObserver_ = null;
+    function configurarPicosStickyObserver_() {
+        const sentinela = document.getElementById('picosStickySentinel');
+        const barra = document.getElementById('picosStickyBar');
+        if (!sentinela || !barra) return;
+        if (picosStickyObserver_) picosStickyObserver_.disconnect();
+        picosStickyObserver_ = new IntersectionObserver((entradas) => {
+            entradas.forEach((entrada) => {
+                barra.classList.toggle('ativo', !entrada.isIntersecting);
+            });
+        }, { threshold: 0 });
+        picosStickyObserver_.observe(sentinela);
     }
 
     // --- Carrossel "Resumo ↔ Picos" (ver CSS .resumo-foco-slider), só ativo
