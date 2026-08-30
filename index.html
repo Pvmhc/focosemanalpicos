@@ -20,6 +20,7 @@
             --focosemanal-color: #2563eb; --focosemanal-bg: #eff6ff;
         }
         * { box-sizing: border-box; }
+        html { scroll-snap-type: y mandatory; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; }
         @media (min-width: 768px) { body { padding: 24px; } }
         .container { max-width: 1400px; margin: 0 auto; }
@@ -590,7 +591,12 @@
         .table-container { background: transparent; }
         table { width: 100%; border-collapse: collapse; }
         thead { display: none; }
-        tbody tr { display: block; background: var(--card); margin-bottom: 16px; padding: 16px; border-radius: 14px; border: 1px solid var(--border); }
+        tbody tr { display: block; background: var(--card); margin-bottom: 18px; padding: 16px; border-radius: 14px; border: 2px solid #c3ccd4; box-shadow: 0 2px 6px rgba(11,12,16,0.08); scroll-snap-align: center; scroll-snap-stop: always; scroll-margin-top: 70px; scroll-margin-bottom: 70px; transition: opacity .18s ease; }
+        tbody tr.linha-cliente-fora-foco { opacity: 0.35; }
+        tbody tr.linha-cliente-fora-foco td:not(:first-child) { visibility: hidden; }
+        tbody tr.linha-cliente-em-foco { border: 2px solid var(--foco-color); box-shadow: 0 4px 14px rgba(37,99,235,.18); }
+        tbody tr.linha-cliente-em-foco td:first-child { border-bottom-color: var(--foco-color); }
+        tbody tr.linha-cliente-anterior-imediato { display: flex; flex-direction: column-reverse; }
         tbody td { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 0.95rem; }
         tbody td:last-child { border-bottom: none; }
         tbody td:first-child { display: block; font-weight: 800; font-size: 1.1rem; color: var(--accent); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 8px; }
@@ -674,7 +680,6 @@
             tbody td:not(:first-child)::before { content: none; }
             .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
         }
-
         /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
         .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
         .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
@@ -1150,10 +1155,7 @@
             case '0.0%': return achar(c => normalizarTexto_(c).includes('0.0') || normalizarTexto_(c) === '00') || null;
             case 'preta': return achar(c => normalizarTexto_(c).includes('preta')) || null;
             default: return null;
-        }
-    }
-
-    /** Calcula automaticamente, para um Gestor, o total de marcas POSSÍVEIS
+        }/** Calcula automaticamente, para um Gestor, o total de marcas POSSÍVEIS
      *  a fazer (todos os clientes ÚNICOS que já compraram este mês × marcas
      *  exigidas pela Tipologia de cada um), e quantas dessas já têm a "bola"
      *  de compra do mês (hist.mes) ativa para essa marca.
@@ -1401,8 +1403,6 @@
                 }
             });
         });
-    }
-
     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
     // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
     // de qualquer marca que já não seja a marca foco definida — em vez de
@@ -1842,9 +1842,8 @@
                 await new Promise(r => setTimeout(r, 800 * (i + 1)));
             }
         }
-    }
-
-    // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
+            }
+           // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
     // Guarda localmente qualquer alteração (estado FOCO/OK/etc. ou "colocou")
     // que já foi aplicada no ecrã mas cujo POST ainda não teve resposta do
     // Apps Script. O polling automático (a cada 15s) lê SEMPRE a folha
@@ -2142,7 +2141,6 @@
                         });
                         estadosObj = Object.assign({}, estadosObj, estadosAntigosValidos);
                     }
-
                     // Preserva também o histórico "já foi foco" (focoJaMarcado)
                     // do registo anterior, para o resumo de Foco não zerar
                     // sempre que se reimporta o Excel semanal.
@@ -2454,8 +2452,7 @@
             corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
             return;
         }
-
-        // Com o filtro "Marcas não colocadas (mês)" ativo, a lista fica
+// Com o filtro "Marcas não colocadas (mês)" ativo, a lista fica
         // reduzida ao essencial: nome do cliente + só as marcas selecionadas
         // que lhe faltam — em vez da tabela completa com todas as marcas e
         // estados (Foco/OK/Negociado/etc.), que aqui não é relevante.
@@ -2488,6 +2485,7 @@
 
         filtrados.forEach(item => {
             const tr = document.createElement('tr');
+            tr.dataset.cliente = item.cliente || '';
             const iconeComprouHtml = item.comprouMes
                 ? `<span class="icone-comprou sim" title="Já comprou este mês">✅ Comprou</span>`
                 : `<span class="icone-comprou nao" title="Ainda não comprou este mês">○ Não comprou</span>`;
@@ -2559,7 +2557,39 @@
             tr.innerHTML = html;
             corpo.appendChild(tr);
         });
+        requestAnimationFrame(atualizarFocoCartaoCentral_);
     }
+
+    /** Determina qual cartão de cliente está mais próximo do centro do ecrã
+     *  (o que o scroll-snap acabou de centrar) e esbate/oculta os detalhes
+     *  dos restantes, deixando só o nome visível, e destaca o cartão em
+     *  foco com uma borda de cor, para não se confundirem. */
+    function atualizarFocoCartaoCentral_() {
+        const linhas = Array.from(document.querySelectorAll('#tabelaVisitas tr'));
+        if (!linhas.length) return;
+        const centroViewport = window.innerHeight / 2;
+        let indiceAtual = 0, menorDist = Infinity;
+        linhas.forEach((tr, i) => {
+            const rect = tr.getBoundingClientRect();
+            if (rect.height === 0) return;
+            const centroLinha = rect.top + rect.height / 2;
+            const dist = Math.abs(centroLinha - centroViewport);
+            if (dist < menorDist) { menorDist = dist; indiceAtual = i; }
+        });
+        linhas.forEach((tr, i) => {
+            tr.classList.toggle('linha-cliente-fora-foco', i !== indiceAtual);
+            tr.classList.toggle('linha-cliente-em-foco', i === indiceAtual);
+            tr.classList.toggle('linha-cliente-anterior-imediato', i === indiceAtual - 1);
+        });
+    }
+
+    let tickingFocoCartao_ = false;
+    window.addEventListener('scroll', () => {
+        if (!tickingFocoCartao_) {
+            tickingFocoCartao_ = true;
+            requestAnimationFrame(() => { atualizarFocoCartaoCentral_(); tickingFocoCartao_ = false; });
+        }
+    }, { passive: true });
 
     /** Diz se a coluna de marca `coluna` conta para a Tipologia indicada,
      *  segundo a tabela Tipo→Marcas (REGRAS_TIPOLOGIA_). Tipologias que não
@@ -2973,7 +3003,9 @@
         }, 30);
     }
 
-    /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
+        
+    }
+       /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
     /** Atualiza em tempo real a pré-visualização do DN Total enquanto o
      *  utilizador ajusta o campo "Objetivo (%)" no cartão Picos. */
     function atualizarPreviewPicos_(totalPossivel) {
@@ -3467,7 +3499,6 @@
                 bodyLines.push(`${namePadded} : ${quantidadesEncomenda[prod.id]} un.`);
             }
         });
-
         bodyLines.push(`------------------------------------------------------`);
         bodyLines.push(`Total de Caixas/Packs Solicitados: ${document.getElementById("totalItemCount").innerText}`);
         bodyLines.push(``);
@@ -3564,3 +3595,4 @@
 </script>
 </body>
 </html>
+        
