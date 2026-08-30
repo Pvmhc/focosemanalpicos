@@ -25,7 +25,7 @@
         .container { max-width: 1400px; margin: 0 auto; }
 
         header {
-            margin-bottom: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 18px;
+            margin-bottom: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 18px;
             background: var(--card); border: 1px solid var(--border); border-radius: 16px;
             box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
         }
@@ -36,11 +36,11 @@
 
         .actions-card {
             background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-            padding: 10px 12px; margin-bottom: 16px;
+            padding: 8px 10px; margin-bottom: 8px;
             box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
         }
         @media (min-width: 768px) {
-            .actions-card { padding: 16px 20px; }
+            .actions-card { padding: 14px 18px; }
         }
 
         .resumo-foco .resumo-card { padding: 0; }
@@ -73,105 +73,82 @@
         .picos-card {
             background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
             border: 1px solid var(--border); border-radius: 14px;
-            padding: 14px 16px; flex: 0 0 auto; min-width: 230px;
+            padding: 8px 12px; flex: 0 0 auto; min-width: 0;
             box-shadow: 0 1px 2px rgba(11,12,16,.04);
         }
-        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
         .picos-card-titulo {
-            font-size: 0.95rem; font-weight: 800; color: var(--text);
-            display: flex; align-items: center; gap: 8px; letter-spacing: 0;
+            font-size: 0.78rem; font-weight: 800; color: var(--text);
+            display: flex; align-items: center; gap: 6px; letter-spacing: 0;
         }
         .picos-icon-badge {
-            width: 26px; height: 26px; border-radius: 50%; background: var(--primary);
+            width: 19px; height: 19px; border-radius: 50%; background: var(--primary);
             display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
         }
-        .picos-icon-badge svg { width: 14px; height: 14px; fill: #fff; }
-        .picos-objetivo-sufixo { font-weight: 600; font-size: 0.78rem; color: var(--muted); letter-spacing: 0; text-transform: none; }
-        .picos-editar-btn { background: none; border: none; padding: 5px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 7px; }
+        .picos-icon-badge svg { width: 11px; height: 11px; fill: #fff; }
+        .picos-objetivo-sufixo { font-weight: 600; font-size: 0.66rem; color: var(--muted); letter-spacing: 0; text-transform: none; }
+        .picos-editar-btn { background: none; border: none; padding: 4px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 7px; }
         .picos-editar-btn:hover { color: var(--primary); background: var(--ok-bg); }
-        .picos-editar-btn svg { width: 15px; height: 15px; }
+        .picos-editar-btn svg { width: 13px; height: 13px; }
 
-        .picos-stats { display: flex; gap: 6px; margin-bottom: 12px; }
+        .picos-stats { display: flex; gap: 6px; margin-bottom: 6px; }
         .picos-stat { flex: 1; text-align: center; padding: 2px; }
-        .picos-stat-valor { font-size: 1.55rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+        .picos-stat-valor { font-size: 1.02rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
         .picos-stat-valor.cor-total { color: var(--text); }
         .picos-stat-valor.cor-efetuadas { color: var(--ok-color); }
         .picos-stat-valor.cor-diferenca.pendente { color: var(--negociado-color); }
         .picos-stat-valor.cor-diferenca.concluido { color: var(--ok-color); }
         .picos-stat-label {
-            font-size: 0.68rem; font-weight: 600; color: var(--muted); margin-top: 3px; white-space: nowrap;
+            font-size: 0.58rem; font-weight: 600; color: var(--muted); margin-top: 2px; white-space: nowrap;
         }
         .picos-clientes-link {
-            display: flex; align-items: center; gap: 8px; width: 100%;
+            display: flex; align-items: center; gap: 6px; width: 100%;
             background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
-            padding: 9px 11px; margin-bottom: 12px; cursor: pointer;
-            font-size: 0.8rem; color: var(--text); font-weight: 700; text-align: left;
+            padding: 6px 9px; margin-bottom: 6px; cursor: pointer;
+            font-size: 0.72rem; color: var(--text); font-weight: 700; text-align: left;
         }
         .picos-clientes-link:hover { background: var(--ok-bg); border-color: var(--ok-color); }
-        .picos-clientes-link svg { width: 16px; height: 16px; color: var(--primary); flex: 0 0 auto; }
+        .picos-clientes-link svg { width: 14px; height: 14px; color: var(--primary); flex: 0 0 auto; }
         .picos-clientes-hint { color: var(--muted); font-weight: 600; }
 
-        /* Lista de clientes/marcas compradas dentro do modal "Clientes com compra".
-           Usa divs em flex (em vez de <table>) para que o nome do estabelecimento
-           e as marcas fiquem sempre na MESMA linha, e para não herdar as regras
-           genéricas de "table/thead/tbody" (empilhadas em cartão) definidas mais
-           abaixo para a tabela principal de rotas. */
-        .lista-clientes-picos { display: flex; flex-direction: column; font-size: 0.85rem; }
-        .lista-clientes-picos-cabecalho {
-            display: flex; align-items: center; gap: 12px; padding: 10px 20px;
-            border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 1;
+        /* Tabela de clientes/marcas compradas dentro do modal "Clientes com compra" */
+        .tabela-clientes-picos { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .tabela-clientes-picos thead th {
+            position: sticky; top: 0; background: var(--card); text-align: left; padding: 10px 20px;
+            font-size: 0.66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+            border-bottom: 1px solid var(--border);
         }
-        .lista-clientes-picos-cabecalho .col-nome-cliente,
-        .lista-clientes-picos-cabecalho .col-marcas-compradas {
-            font-size: 0.66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700;
-        }
-        .linha-cliente-picos {
-            display: flex; align-items: center; gap: 10px; padding: 10px 20px;
-            border-bottom: 1px solid var(--border); flex-wrap: nowrap;
-        }
-        .linha-cliente-picos:last-child { border-bottom: none; }
-        .col-nome-cliente {
-            flex: 0 0 34%; max-width: 34%; font-weight: 700; color: var(--text);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .col-marcas-compradas {
-            flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: nowrap;
-            align-items: center; gap: 4px; overflow-x: auto;
-            -webkit-overflow-scrolling: touch; padding-bottom: 2px;
-        }
+        .tabela-clientes-picos tbody td { padding: 10px 20px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .tabela-clientes-picos tbody tr:last-child td { border-bottom: none; }
+        .tabela-clientes-picos .nome-cliente { font-weight: 700; color: var(--text); }
+        .tabela-clientes-picos .marcas-badges { display: flex; flex-wrap: wrap; gap: 4px; }
         .marca-badge {
             display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem;
             font-weight: 700; background: var(--ok-bg); color: var(--ok-color); white-space: nowrap;
-            flex: 0 0 auto;
         }
-        .marca-badge.em-falta { background: var(--nok-bg); color: var(--nok-color); }
         .marca-badge.sem-marcas { background: var(--vazio-bg); color: var(--vazio-color); font-weight: 600; }
+        .marca-badge.marca-badge-falta { background: #fef2f2; color: #b91c1c; }
 
-        /* Linha compacta de um cliente quando o filtro "Marcas colocadas (mês)"
-           está ativo — sobrepõe as regras genéricas de tbody td:first-child
-           (pensadas para o nome do cliente em destaque) para que aqui caibam
-           o nome + marcas + botões de foco numa única linha normal. */
-        .linha-marca-foco-td {
-            display: flex !important; font-weight: 400 !important; font-size: 0.85rem !important;
-            color: var(--text) !important; border-bottom: none !important; padding: 2px 0 !important; margin-bottom: 0 !important;
+        .linha-marcas-falta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
+        .linha-marcas-falta-nome { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+        .linha-marcas-falta .marcas-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-end; }
+        button.marca-badge { border: none; cursor: pointer; font-family: inherit; }
+        button.marca-badge.marca-badge-falta.negociado { background: #ffedd5; color: #c2410c; }
+        .btn-icone-whatsapp-linha {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #1e9e56;
+            background: #fff; color: #1e9e56; cursor: pointer; flex-shrink: 0; padding: 0;
         }
-        /* Botões de foco no modo compacto: largura automática (em vez dos 132px
-           fixos do .btn-estado normal, pensados para colunas), para o texto
-           "Marca: Estado" não transbordar para fora do cartão em ecrãs estreitos. */
-        .btn-estado-compacto {
-            width: auto !important; height: auto !important; padding: 6px 10px !important;
-            font-size: 0.72rem !important; white-space: nowrap;
-        }
-        .marcas-foco-botoes { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+        .btn-icone-whatsapp-linha:hover { background: #1e9e56; color: #fff; }
         .modal-clientes-picos-vazio { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 0.9rem; }
         .modal-clientes-picos-contagem { padding: 10px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
 
         .picos-progress-row { display: flex; align-items: center; gap: 10px; }
-        .picos-progress-track { flex: 1; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+        .picos-progress-track { flex: 1; height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
         .picos-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s ease; }
         .picos-progress-percent-block { text-align: right; flex: 0 0 auto; line-height: 1.15; }
-        .picos-progress-percent { font-size: 1.05rem; font-weight: 800; color: var(--text); }
-        .picos-progress-percent-label { font-size: 0.62rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+        .picos-progress-percent { font-size: 0.92rem; font-weight: 800; color: var(--text); }
+        .picos-progress-percent-label { font-size: 0.58rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 
         .picos-edit-grid { display: flex; gap: 8px; margin-bottom: 9px; }
         .picos-edit-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -191,7 +168,10 @@
            dois cartões (o que ocupa o dobro da altura), mostra-se 1 de cada
            vez e desliza-se para o lado (arrastar/swipe, setas, ou bolinhas)
            para alternar. No PC mantém-se o layout lado-a-lado de sempre. */
-        .resumo-foco-slider { position: relative; overflow: hidden; }
+        .resumo-foco-slider { position: relative; overflow: hidden; transition: height .22s ease; }
+        .resumo-foco-slide { display: flex; justify-content: center; }
+        .resumo-foco-slide > .resumo-card { width: 100%; }
+        .resumo-foco-slide > .picos-card { width: 100%; max-width: 380px; }
         .resumo-foco-track.resumo-foco-linha { flex-wrap: nowrap; }
         .resumo-foco-tabs { display: none; }
         @media (max-width: 767px) {
@@ -206,7 +186,7 @@
             .resumo-foco-tab.ativo { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(11,12,16,.12); }
         }
         @media (min-width: 768px) {
-            .resumo-foco-slider { overflow: visible; }
+            .resumo-foco-slider { overflow: visible; height: auto !important; }
             .resumo-foco-track.resumo-foco-linha { transform: none !important; }
         }
         @media (max-width: 767px) {
@@ -214,13 +194,13 @@
             .resumo-foco-slide { flex: 0 0 100% !important; width: 100%; min-width: 0; }
         }
         @media (max-width: 767px) {
-            .resumo-foco-linha { flex-direction: column; align-items: stretch; }
+            .resumo-foco-linha { flex-direction: column; align-items: center; }
             .picos-card { width: 100%; min-width: 0; }
-            .picos-stat-valor { font-size: 1.3rem; }
+            .picos-stat-valor { font-size: 0.95rem; }
         }
 
         /* --- Link para o Vendedor / Modo de leitura --- */
-        .link-vendedor-row { display: none; justify-content: flex-end; align-items: center; gap: 8px; margin: -6px 0 4px; flex-wrap: wrap; }
+        .link-vendedor-row { display: flex; justify-content: flex-end; margin: -6px 0 4px; }
         .btn-link-vendedor {
             display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
             border-radius: 8px; border: 1px solid var(--border); background: #fff;
@@ -228,9 +208,6 @@
         }
         .btn-link-vendedor svg { width: 15px; height: 15px; }
         .btn-link-vendedor:hover { border-color: #ff2b2b; color: #ff2b2b; }
-        .btn-link-vendedor-icone { padding: 7px; }
-        .btn-link-vendedor-icone svg { width: 17px; height: 17px; }
-        #btnPartilharWhatsappVendedor:hover { border-color: #25D366; color: #25D366; }
         .cabecalho-modo-vendedor { display: none; }
         body.modo-vendedor-view .cabecalho-modo-vendedor {
             display: block; background: #fff; border: 1px solid var(--border); border-radius: 10px;
@@ -259,6 +236,17 @@
             display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; text-transform: uppercase;
         }
         header h1 .star-icon { width: 18px; height: 18px; flex: 0 0 auto; opacity: .7; }
+        .btn-sync-titulo {
+            flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border);
+            background: #fff; color: #008200; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; padding: 0; margin-left: 2px;
+        }
+        .btn-sync-titulo svg { width: 16px; height: 16px; transition: transform .2s ease; }
+        .btn-sync-titulo:hover { border-color: #008200; }
+        .btn-sync-titulo.a-sincronizar svg { animation: girarSync 0.9s linear infinite; }
+        .btn-sync-titulo.sucesso { border-color: #16974f; background: var(--ok-bg, #dcfce7); color: #16974f; }
+        .btn-sync-titulo:disabled { cursor: default; opacity: .85; }
+        @keyframes girarSync { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .resumo-foco { flex: 1; }
         @media (min-width: 768px) { header { flex-direction: row-reverse; } header .resumo-foco { padding-left: 0; padding-right: 24px; border-left: none; border-right: 1px solid var(--border); } }
         
@@ -353,26 +341,28 @@
         }
         .modal-foco-footer { padding: 16px 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; border-radius: 0 0 14px 14px; }
 
-        /* Ecrã de bloqueio (PIN) para entrar na app — cobre tudo até ser
-           introduzido o código correto. Visível por definição (sem precisar
-           de classe "aberto"); é escondido via JS assim que o PIN estiver certo
-           ou se já tiver sido desbloqueado nesta sessão do browser. */
-        .app-lock-overlay {
-            position: fixed; inset: 0; z-index: 99999; background: var(--bg);
+        /* Ecrã de bloqueio (PIN de entrada na app) */
+        .lock-overlay {
+            position: fixed; inset: 0; z-index: 99999; background: var(--bg, #f4f5f7);
             display: flex; align-items: center; justify-content: center; padding: 20px;
         }
-        .app-lock-box {
-            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12);
-            padding: 28px 26px; width: 100%; max-width: 300px; text-align: center;
+        .lock-overlay.desbloqueado { display: none; }
+        .lock-box {
+            background: #fff; border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 320px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12); display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-        .app-lock-box .star-icon { width: 34px; height: 34px; margin-bottom: 10px; }
-        .app-lock-box h1 { font-size: 1.1rem; margin: 0 0 4px; color: var(--text); }
-        .app-lock-box p { margin: 0 0 16px; color: var(--muted); font-size: 0.85rem; }
-        .app-lock-erro { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; margin-top: 8px; }
-        .app-lock-box .btn-submit { width: 100%; margin-top: 14px; }
-
-        /* Modal de código de acesso (PIN) para Excel / Marca Foco */
+        .lock-box h2 { margin: 0 0 4px; font-size: 1.1rem; }
+        .lock-box p { margin: 0 0 14px; color: var(--muted); font-size: 0.85rem; }
+        .lock-input {
+            width: 100%; text-align: center; font-size: 1.4rem; letter-spacing: 6px; padding: 10px;
+            border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 6px;
+        }
+        .lock-input.erro { border-color: #dc2626; animation: abanarPin 0.3s; }
+        .lock-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
+        .lock-box .btn-submit { width: 100%; margin-top: 6px; }
+        body.acesso-utilizador .btn-limpar,
+        body.acesso-utilizador .settings-menu-wrapper { display: none !important; }
+        body.acesso-utilizador .actions-card { display: none !important; }
         .modal-pin-body { padding: 22px 20px 6px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
         .modal-pin-body p { margin: 0 0 4px; color: var(--muted); font-size: 0.88rem; text-align: center; }
         .modal-pin-input {
@@ -387,35 +377,32 @@
            ícones, em vez de 3 caixas separadas (essas caixas cortavam o texto
            por cima da seta, ex.: nomes de gestor mais compridos). */
         .filtro-principal-bar {
-            display: flex; align-items: center; gap: 14px; background: var(--card);
-            border: 1px solid var(--border); border-radius: 999px; padding: 12px 20px;
-            margin-bottom: 16px; flex-wrap: nowrap;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card);
+            border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px;
+            margin-bottom: 8px; flex-wrap: nowrap;
         }
-        .filtro-segmento { display: flex; align-items: center; gap: 7px; min-width: 0; }
+        .filtro-segmento { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; cursor: pointer; }
         .filtro-segmento svg { width: 15px; height: 15px; color: var(--primary); flex: 0 0 auto; }
-        .filtro-gestor { flex: 1 1 0; min-width: 0; }
+        .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+        .filtro-gestor { flex: 0 0 auto; min-width: 0; overflow: hidden; }
+        .filtro-gestor .filtro-segmento-rotulo { overflow: hidden; text-overflow: ellipsis; }
         .filtro-semana, .filtro-vendedor { flex: 0 0 auto; }
         .filtro-separador { color: var(--border); font-weight: 900; flex: 0 0 auto; font-size: 1.1rem; line-height: 1; }
-        .filtro-segmento select {
-            border: none; background-color: transparent; appearance: none; padding: 2px 16px 2px 0;
-            font-size: 0.86rem; font-weight: 700; color: var(--text); font-family: inherit;
-            min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008200' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat; background-position: right center; background-size: 12px;
+        /* O <select> real fica invisível mas continua clicável por cima do
+           rótulo fixo — assim mostra sempre "Gestor / Semana / Vendedor"
+           em vez do valor escolhido, poupando espaço; o valor só aparece
+           dentro do popup nativo ao tocar. */
+        .filtro-select-oculto {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            opacity: 0; border: none; appearance: none; cursor: pointer; padding: 0;
         }
-        .filtro-segmento select:focus { outline: none; }
         @media (max-width: 639px) {
-            .filtro-principal-bar { border-radius: 16px; flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
-            .filtro-gestor { flex: 1 1 100%; order: 1; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-            .filtro-separador.sep-gestor-semana { display: none; }
-            .filtro-semana { order: 2; flex: 1 1 0; }
-            .filtro-separador.sep-semana-vendedor { order: 2; }
-            .filtro-vendedor { order: 3; flex: 1 1 0; }
+            .filtro-principal-bar { border-radius: 999px; flex-wrap: nowrap; padding: 8px 12px; gap: 8px; }
+            .filtro-segmento-rotulo { font-size: 0.78rem; }
         }
 
-        .filters-grid { display: grid; grid-template-columns: 1fr; gap: 12px; background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
-        .filters-grid, .filter-control { min-width: 0; max-width: 100%; }
-        .filter-control.full-largura { grid-column: 1 / -1; }
+        .filters-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+        .filter-control.full-largura { grid-column: 1 / -1; min-width: 0; }
         @media (min-width: 600px) { .filters-grid { padding: 24px; } }
         .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .filter-control select {
@@ -430,74 +417,36 @@
            selecionar várias) — substitui o antigo <select> de contagem. Ao
            selecionar marcas, a lista de clientes passa a mostrar quem ainda
            não tem TODAS essas marcas colocadas este mês. */
-        /* --- Painel "Marcas não colocadas": layout fluido e seguro em mobile --- */
-        .marcas-filtro-header {
-            display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-            min-width: 0;
-        }
-        .marcas-filtro-titulo {
-            font-size: 0.75rem; color: var(--primary); font-weight: 700;
-            text-transform: uppercase; line-height: 1.25; min-width: 0;
-        }
-        .marcas-filtro-contagem {
-            font-size: 0.78rem; font-weight: 700; color: var(--muted);
-            white-space: nowrap; flex: 0 0 auto;
-        }
+        .marcas-filtro-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap; }
+        .marcas-filtro-titulo { font-size: 0.72rem; color: var(--primary); font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .marcas-filtro-contagem { font-size: 0.78rem; font-weight: 700; color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
         .marcas-filtro-editar {
-            margin-left: auto; background: none; border: none; padding: 5px;
-            cursor: pointer; color: var(--muted); display: flex; align-items: center;
-            justify-content: center; border-radius: 7px; flex: 0 0 auto;
+            margin-left: auto; background: none; border: none; padding: 4px; cursor: pointer;
+            color: var(--muted); display: flex; align-items: center; border-radius: 7px; flex: 0 0 auto;
         }
         .marcas-filtro-editar:hover { color: var(--primary); background: var(--ok-bg); }
         .marcas-filtro-editar svg { width: 15px; height: 15px; }
-
         .marcas-filtro-chips {
-            display: flex;
-            flex-wrap: nowrap;
-            gap: 7px;
-            width: 100%;
-            min-width: 0;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding: 1px 1px 5px;
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch;
+            min-width: 0; width: 100%; scroll-snap-type: x proximity;
+            -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+            mask-image: linear-gradient(to right, #000 92%, transparent 100%);
         }
         .marca-chip {
-            flex: 0 0 auto;
-            width: auto;
-            display: flex; align-items: center; gap: 7px;
-            border: 1.5px solid var(--border); background: #fff; border-radius: 12px;
-            padding: 6px 12px 6px 6px; cursor: pointer; font-size: 0.78rem;
-            font-weight: 700; color: var(--text); white-space: nowrap;
-            transition: border-color .15s ease, background .15s ease, transform .1s ease;
+            flex: 0 0 auto; display: flex; align-items: center; gap: 7px; scroll-snap-align: start;
+            border: 1.5px solid var(--border); background: #fff; border-radius: 999px;
+            padding: 6px 14px 6px 6px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text);
+            transition: border-color .15s ease, background .15s ease;
         }
-        .marca-chip:active { transform: scale(.985); }
         .marca-chip.ativa { border-color: var(--primary); background: var(--ok-bg); color: var(--primary-dark); }
         .marca-chip-logo {
-            width: 26px; height: 26px; border-radius: 50%; overflow: hidden;
-            flex: 0 0 26px; display: flex; align-items: center; justify-content: center;
-            background: var(--bg); border: 1px solid var(--border);
+            width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+            display: flex; align-items: center; justify-content: center; background: var(--bg);
+            border: 1px solid var(--border);
         }
-        .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; }
         .marca-chip-fallback { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
-        .marca-chip-nome {
-            white-space: nowrap;
-            text-align: left;
-        }
-
-        @media (max-width: 767px) {
-            .filters-grid { padding: 12px; }
-            .filter-control.full-largura { min-width: 0; width: 100%; }
-            .marcas-filtro-header { gap: 6px; }
-            .marcas-filtro-titulo { font-size: 0.68rem; }
-            .marcas-filtro-contagem { font-size: 0.7rem; }
-            .marcas-filtro-chips { gap: 6px; }
-            .marca-chip {
-                border-radius: 10px;
-                padding: 5px 10px 5px 5px;
-                font-size: 0.72rem;
-            }
-            .marca-chip-logo { width: 24px; height: 24px; flex-basis: 24px; }
-        }
+        .marca-chip-nome { white-space: nowrap; }
 
         /* Modal de gestão de logotipos (upload por marca) */
         .lista-logotipos { display: flex; flex-direction: column; }
@@ -519,13 +468,13 @@
         .btn-logotipo-carregar:hover { border-color: var(--primary); color: var(--primary); }
         .btn-logotipo-remover { color: #dc2626; }
         .btn-logotipo-remover:hover { background: #fef2f2; border-color: #fecaca; }
-        .days-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px; }
-        .tab-btn { flex: 1; min-width: 90px; padding: 12px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
+        .days-tabs { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 6px; }
+        .tab-btn { flex: 1; min-width: 90px; padding: 9px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
         .tab-btn.active { background: var(--accent); color: white; }
 
-        .search-row { position: relative; margin-bottom: 14px; }
+        .search-row { position: relative; margin-bottom: 8px; }
         .search-row input {
-            width: 100%; padding: 12px 16px 12px 42px; font-size: 0.92rem; font-weight: 500;
+            width: 100%; padding: 10px 16px 10px 42px; font-size: 0.92rem; font-weight: 500;
             border: 1px solid var(--border); border-radius: 12px; background: var(--card);
             color: var(--text); box-sizing: border-box;
         }
@@ -565,99 +514,6 @@
         .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
         .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
         .badge-colocou.nao { background-color: var(--vazio-bg); color: var(--vazio-color); }
-
-        /* --- Lista de leitura para o Vendedor ---
-           No link partilhado, a informação fica resumida a Cliente + Marcas:
-           verde = comprou este mês; vermelho = ainda falta. */
-        .vendor-list-row td.vendor-list-client {
-            display: block;
-            width: 100%;
-            padding: 12px 0;
-            border-bottom: none;
-        }
-        .vendor-list-row td.vendor-list-marcas {
-            display: block;
-            width: 100%;
-            padding: 0 0 12px;
-            border-bottom: 1px solid var(--border);
-        }
-        .vendor-list-client-name {
-            font-size: 1rem;
-            font-weight: 800;
-            color: var(--text);
-            line-height: 1.25;
-        }
-        .vendor-list-client-meta {
-            margin-top: 3px;
-            font-size: .68rem;
-            color: var(--muted);
-            font-weight: 600;
-        }
-        .vendor-list-badges {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: center;
-            gap: 6px;
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 2px;
-        }
-        .vendor-list-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            font-size: .62rem;
-            line-height: 1;
-            font-weight: 800;
-            overflow: hidden;
-            border: 2px solid transparent;
-        }
-        .vendor-list-badge img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-        }
-        .vendor-list-badge-fallback {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-        }
-        .vendor-list-badge.comprada {
-            background: var(--ok-bg);
-            color: var(--ok-color);
-            border-color: var(--ok-color);
-        }
-        .vendor-list-badge.falta {
-            background: var(--nok-bg);
-            color: var(--nok-color);
-            border-color: var(--nok-color);
-        }
-        @media (min-width: 768px) {
-            .vendor-list-row {
-                display: table-row !important;
-                background: transparent !important;
-                border: none !important;
-                padding: 0 !important;
-            }
-            .vendor-list-row td.vendor-list-client {
-                width: 34%;
-                padding: 12px 16px;
-                border-bottom: 1px solid var(--border);
-            }
-            .vendor-list-row td.vendor-list-marcas {
-                width: 66%;
-                padding: 12px 16px;
-                border-bottom: 1px solid var(--border);
-            }
-        }
         .svg-icon { width: 16px; height: 16px; fill: currentColor; }
         @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
         /* Cortina de carregamento a ecrã inteiro */
@@ -763,14 +619,14 @@
 </head>
 <body>
 
-<div class="app-lock-overlay" id="appLockOverlay">
-    <div class="app-lock-box">
-        <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
-        <h1>Roteiro Cloud Equipa</h1>
-        <p>Introduz o código de acesso</p>
-        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="modal-pin-input" id="appLockInput" autocomplete="off">
-        <div class="app-lock-erro" id="appLockErro"></div>
-        <button class="btn-submit" onclick="desbloquearApp_()">Entrar</button>
+<div class="lock-overlay" id="lockOverlay">
+    <div class="lock-box">
+        <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b" style="width:34px;height:34px;margin-bottom:6px;"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
+        <h2>Acesso à app</h2>
+        <p>Introduz o código de acesso.</p>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="lock-input" id="lockInput" autocomplete="off">
+        <div class="lock-erro-msg" id="lockErro"></div>
+        <button type="button" class="btn-submit" onclick="confirmarPinEntrada_()">Entrar</button>
     </div>
 </div>
 
@@ -805,17 +661,15 @@
         <h1>
             <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
             Roteiro Cloud Equipa
+            <button class="btn-sync-titulo" id="btnSyncTitulo" onclick="sincronizarManualmente()" title="Sincronizar" aria-label="Sincronizar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            </button>
         </h1>
         <div id="resumoFoco" class="resumo-foco"></div>
     </header>
 
     <div class="actions-card">
         <div class="actions-bar">
-            <button class="btn-action btn-sync" id="btnSync" onclick="sincronizarManualmente()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-                Sincronizar
-            </button>
-            <div class="actions-divider"></div>
             <button class="btn-action btn-limpar" onclick="limparFocoGestor()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 Limpar
@@ -850,7 +704,8 @@
     <div class="filtro-principal-bar">
         <div class="filtro-segmento filtro-gestor">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <select id="comercialSelect" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
+            <span class="filtro-segmento-rotulo">Gestor</span>
+            <select id="comercialSelect" class="filtro-select-oculto" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
                 <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
                 <option value="Rui Carlos Correia Pratas">Rui Carlos Correia Pratas</option>
@@ -862,7 +717,8 @@
         <span class="filtro-separador sep-gestor-semana">·</span>
         <div class="filtro-segmento filtro-semana">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <select id="semanaSelect" onchange="atualizarVisualizacao()">
+            <span class="filtro-segmento-rotulo">Semana</span>
+            <select id="semanaSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
                 <option value="1">Semana 1</option>
                 <option value="2">Semana 2</option>
                 <option value="3">Semana 3</option>
@@ -872,7 +728,8 @@
         <span class="filtro-separador sep-semana-vendedor">·</span>
         <div class="filtro-segmento filtro-vendedor">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <select id="vendedorSelect" onchange="atualizarVisualizacao()">
+            <span class="filtro-segmento-rotulo">Vendedor</span>
+            <select id="vendedorSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
                 <option value="">Todos</option>
             </select>
         </div>
@@ -912,15 +769,11 @@
     <div id="cabecalhoModoVendedor" class="cabecalho-modo-vendedor"></div>
 
     <div class="link-vendedor-row">
-        <button class="btn-link-vendedor btn-link-vendedor-icone" id="btnPartilharWhatsappVendedor" onclick="partilharTabelaWhatsapp_()" title="Enviar por WhatsApp" aria-label="Enviar por WhatsApp">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.29-.15-1.71-.84-1.97-.94-.27-.1-.46-.15-.66.15-.2.29-.76.94-.93 1.13-.17.2-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.76-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.49.1-.2.05-.37-.02-.51-.07-.15-.66-1.58-.9-2.16-.24-.58-.48-.5-.66-.5-.17-.01-.37-.01-.56-.01-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.44s1.05 2.83 1.19 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.67.61.7.22 1.34.19 1.84.12.56-.08 1.71-.7 1.96-1.38.24-.68.24-1.26.17-1.38-.07-.12-.27-.2-.56-.35z"/><path d="M12.02 2C6.5 2 2.02 6.48 2.02 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.95 9.95 0 0012.02 22C17.53 22 22 17.52 22 12S17.53 2 12.02 2zm0 18.13c-1.65 0-3.19-.46-4.5-1.26l-.32-.19-3.01.79.8-2.93-.21-.3a8.12 8.12 0 01-1.26-4.34c0-4.5 3.67-8.16 8.19-8.16 4.51 0 8.19 3.66 8.19 8.16 0 4.51-3.68 8.23-8.88 8.23z"/></svg>
-        </button>
-        <button class="btn-link-vendedor btn-link-vendedor-icone" id="btnPartilharEmailVendedor" onclick="partilharTabelaEmail_()" title="Enviar por email" aria-label="Enviar por email">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+        <button class="btn-action btn-link-vendedor" id="btnCopiarLinkVendedor" onclick="copiarLinkVendedor_()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 007.07 7.07l1.5-1.5"/></svg>
+            Copiar link para o Vendedor
         </button>
     </div>
-
-
 
     <div class="search-row">
         <svg class="svg-icon search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -1189,32 +1042,27 @@
         // usado no modal que abre ao clicar em "N clientes" no cartão PICOS.
         const clientesDetalhe = clientesComCompraLista
             .map(cli => {
-                const compradas = Object.keys(cli.historico)
-                    .filter(m => cli.historico[m] && cli.historico[m].mes);
-                // Marcas exigidas pela Tipologia do cliente (REGRAS_TIPOLOGIA_),
-                // resolvidas para os nomes reais das colunas do Excel — para
-                // saber quais ainda faltam comprar este mês (mostradas a
-                // vermelho). Duas chaves canónicas (ex.: sagres_bar/garrafa)
-                // podem resolver para a mesma coluna, daí o dedupe com Set.
-                // Se a Tipologia estiver vazia ou não corresponder a nenhuma
-                // regra conhecida, não presumir "sem marcas exigidas" (isso
-                // fazia aparecer incorretamente "Todas as marcas colocadas"
-                // mesmo quando o cliente só tinha comprado 1 de várias
-                // marcas) — assume-se antes que todas as marcas da lista
-                // importada são exigidas, para nunca esconder marcas em falta.
-                const marcasReq = obterRegraTipologia_(cli.tipologia);
-                const colunasReq = marcasReq
-                    ? Array.from(new Set(
-                        marcasReq.map(chave => resolverColunaMarca_(chave)).filter(Boolean)
-                      ))
-                    : (marcasLista || []).slice();
-                const emFalta = colunasReq.filter(c => !compradas.includes(c));
+                const marcasCompradas = Object.keys(cli.historico)
+                    .filter(m => cli.historico[m] && cli.historico[m].mes)
+                    .sort((a, b) => a.localeCompare(b, 'pt'));
+
+                // Marcas que a tipologia deste cliente exige e que ainda não
+                // foram compradas este mês — usa a mesma regra por tipologia
+                // do cálculo de Picos (Objetivo/Efetuadas), para os dois
+                // sítios nunca desalinharem.
+                const marcasReq = obterRegraTipologia_(cli.tipologia) || [];
+                const marcasNaoCompradas = marcasReq
+                    .map(chaveCanonica => resolverColunaMarca_(chaveCanonica))
+                    .filter(coluna => coluna && !(cli.historico[coluna] && cli.historico[coluna].mes))
+                    .filter((coluna, i, arr) => arr.indexOf(coluna) === i) // 2 chaves podem resolver à mesma coluna
+                    .sort((a, b) => a.localeCompare(b, 'pt'));
+
                 return {
                     cliente: cli.cliente || '(sem nome)',
                     numero: cli.numero || '',
                     tipologia: cli.tipologia || '',
-                    marcasCompradas: compradas.sort((a, b) => a.localeCompare(b, 'pt')),
-                    marcasEmFalta: emFalta.sort((a, b) => a.localeCompare(b, 'pt'))
+                    marcasCompradas: marcasCompradas,
+                    marcasNaoCompradas: marcasNaoCompradas
                 };
             })
             .sort((a, b) => a.cliente.localeCompare(b.cliente, 'pt'));
@@ -1501,7 +1349,7 @@
         if (overlay) overlay.style.display = 'none';
     }
 
-    /** Abre o modal com a lista "Nome do cliente → marcas compradas este mês"
+    /** Abre o modal com a tabela "Nome do cliente → marcas compradas este mês"
      *  para o Gestor indicado — chamado ao clicar em "N clientes" no cartão
      *  PICOS. Usa o mesmo cálculo (calcularPicosAutomatico_) que já alimenta
      *  os números do cartão, para nunca desalinhar os dois. */
@@ -1519,26 +1367,25 @@
             corpo.innerHTML = `<div class="modal-clientes-picos-vazio">Ainda não há clientes com compra registada este mês para "${com || 'sem gestor'}".</div>`;
         } else {
             const linhas = detalhe.map(cli => {
-                // Apenas as marcas exigidas pela Tipologia que ainda faltam
-                // comprar este mês (vermelho) — as já compradas não são mostradas.
-                const badgesFalta = (cli.marcasEmFalta || []).map(m => `<span class="marca-badge em-falta">${m}</span>`);
-                const badges = badgesFalta.join('')
-                    || `<span class="marca-badge">Todas as marcas colocadas</span>`;
+                const badgesCompradas = cli.marcasCompradas.length > 0
+                    ? cli.marcasCompradas.map(m => `<span class="marca-badge">${m}</span>`).join('')
+                    : `<span class="marca-badge sem-marcas">Sem marcas assinaladas</span>`;
+                const badgesFalta = cli.marcasNaoCompradas.length > 0
+                    ? cli.marcasNaoCompradas.map(m => `<span class="marca-badge marca-badge-falta">${m}</span>`).join('')
+                    : `<span class="marca-badge sem-marcas">—</span>`;
                 return `
-                    <div class="linha-cliente-picos">
-                        <div class="col-nome-cliente" title="${cli.cliente}">${cli.cliente}</div>
-                        <div class="col-marcas-compradas">${badges}</div>
-                    </div>`;
+                    <tr>
+                        <td class="nome-cliente">${cli.cliente}</td>
+                        <td><div class="marcas-badges">${badgesCompradas}</div></td>
+                        <td><div class="marcas-badges">${badgesFalta}</div></td>
+                    </tr>`;
             }).join('');
             corpo.innerHTML = `
                 <div class="modal-clientes-picos-contagem">${detalhe.length} cliente${detalhe.length === 1 ? '' : 's'} com compra este mês</div>
-                <div class="lista-clientes-picos">
-                    <div class="lista-clientes-picos-cabecalho">
-                        <div class="col-nome-cliente">Cliente</div>
-                        <div class="col-marcas-compradas">Marcas em falta</div>
-                    </div>
-                    ${linhas}
-                </div>`;
+                <table class="tabela-clientes-picos">
+                    <thead><tr><th>Cliente</th><th>Marcas compradas</th><th>Marcas em falta (tipologia)</th></tr></thead>
+                    <tbody>${linhas}</tbody>
+                </table>`;
         }
 
         document.getElementById('modalClientesPicosOverlay').classList.add('aberto');
@@ -1578,18 +1425,6 @@
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
-        // Com o filtro "Marcas colocadas (mês)" ativo, a tabela passa a mostrar
-        // uma linha simples por cliente (nome + marcas aplicáveis + foco só da(s)
-        // marca(s) selecionada(s) no chip) em vez de uma coluna por marca — o
-        // cabeçalho acompanha esse modo compacto.
-        if (MODO_VENDEDOR_ATIVO_) {
-            linha.innerHTML = `<th>Cliente</th><th>Marcas compradas</th>`;
-            return;
-        }
-        if (MARCAS_FILTRO_SELECIONADAS_.length > 0) {
-            linha.innerHTML = `<th>Estabelecimento</th><th colspan="${marcasLista.length}">Foco · ${MARCAS_FILTRO_SELECIONADAS_.join(', ')}</th>`;
-            return;
-        }
         const cobertura = calcularCoberturaPorMarca_();
         linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
             const pct = cobertura[m];
@@ -1665,4 +1500,156 @@
         if (cabecalho) {
             cabecalho.textContent = `Vendedor: ${selectVendedor.value || VENDEDOR_URL_} · Gestor: ${selectComercial.value}`;
         }
-        atualizarVisuali
+        atualizarVisualizacao();
+    }
+
+    function copiarLinkVendedor_() {
+        const com = document.getElementById('comercialSelect').value;
+        const vend = document.getElementById('vendedorSelect').value;
+        if (!vend) { alert('Seleciona primeiro um Vendedor específico (não "Todos").'); return; }
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.searchParams.set('modo', 'vendedor');
+        url.searchParams.set('comercial', com);
+        url.searchParams.set('vendedor', vend);
+        const link = url.toString();
+
+        const feedback = (ok) => {
+            const btn = document.getElementById('btnCopiarLinkVendedor');
+            if (!btn) return;
+            const textoOriginal = btn.textContent;
+            btn.textContent = ok ? 'Link copiado!' : 'Erro ao copiar';
+            setTimeout(() => { btn.textContent = textoOriginal; }, 1800);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(() => feedback(true)).catch(() => feedback(false));
+        } else {
+            try {
+                const tmp = document.createElement('textarea');
+                tmp.value = link;
+                document.body.appendChild(tmp);
+                tmp.select();
+                document.execCommand('copy');
+                document.body.removeChild(tmp);
+                feedback(true);
+            } catch (e) { feedback(false); }
+        }
+    }
+
+    // --- PIN DE ENTRADA NA APP (dois níveis de acesso) ---
+    const PIN_ENTRADA_UTILIZADOR_ = '1940';
+    const PIN_ENTRADA_ADMIN_ = '2011';
+
+    function confirmarPinEntrada_() {
+        const input = document.getElementById('lockInput');
+        const valor = input.value.trim();
+        if (valor === PIN_ENTRADA_UTILIZADOR_ || valor === PIN_ENTRADA_ADMIN_) {
+            document.body.classList.toggle('acesso-utilizador', valor === PIN_ENTRADA_UTILIZADOR_);
+            document.getElementById('lockOverlay').classList.add('desbloqueado');
+        } else {
+            input.classList.add('erro');
+            document.getElementById('lockErro').textContent = 'Código incorreto.';
+            input.value = '';
+            input.focus();
+            setTimeout(() => input.classList.remove('erro'), 350);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const lockInput = document.getElementById('lockInput');
+        if (lockInput) {
+            setTimeout(() => lockInput.focus(), 50);
+            lockInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') confirmarPinEntrada_();
+            });
+        }
+    });
+
+    // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
+    const CODIGO_ACESSO_ = '2363';
+    let acaoPendentePin_ = null;
+
+    function pedirCodigoAcesso_(acaoSeguinte) {
+        acaoPendentePin_ = acaoSeguinte;
+        const overlay = document.getElementById('modalPinOverlay');
+        const input = document.getElementById('modalPinInput');
+        document.getElementById('modalPinErro').textContent = '';
+        input.value = '';
+        input.classList.remove('erro');
+        overlay.classList.add('aberto');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function fecharModalPin_() {
+        document.getElementById('modalPinOverlay').classList.remove('aberto');
+        acaoPendentePin_ = null;
+    }
+
+    function confirmarPin_() {
+        const input = document.getElementById('modalPinInput');
+        if (input.value === CODIGO_ACESSO_) {
+            const acao = acaoPendentePin_;
+            fecharModalPin_();
+            if (typeof acao === 'function') acao();
+        } else {
+            input.classList.add('erro');
+            document.getElementById('modalPinErro').textContent = 'Código incorreto.';
+            input.value = '';
+            input.focus();
+            setTimeout(() => input.classList.remove('erro'), 350);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputPin = document.getElementById('modalPinInput');
+        if (inputPin) {
+            inputPin.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') confirmarPin_();
+            });
+        }
+    });
+
+    function mostrarLoading(show) {
+        document.getElementById("loadingBox").classList.toggle("show", !!show);
+    }
+
+    // --- Menu "Definições" (PDF / Excel / Marca Foco) ---
+    function alternarMenuDefinicoes_(ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById('settingsMenu');
+        const btn = document.getElementById('btnDefinicoes');
+        const aVaiAbrir = !menu.classList.contains('aberto');
+        menu.classList.toggle('aberto', aVaiAbrir);
+        btn.classList.toggle('aberto', aVaiAbrir);
+    }
+    function fecharMenuDefinicoes_() {
+        document.getElementById('settingsMenu').classList.remove('aberto');
+        document.getElementById('btnDefinicoes').classList.remove('aberto');
+    }
+    // Fecha o menu ao clicar fora dele (em qualquer parte da página).
+    document.addEventListener('click', (ev) => {
+        const wrapper = document.querySelector('.settings-menu-wrapper');
+        if (wrapper && !wrapper.contains(ev.target)) fecharMenuDefinicoes_();
+    });
+
+    function obterSemanaISO(data) {
+        const d = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
+        const diaSemana = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - diaSemana);
+        const inicioAno = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - inicioAno) / 86400000) + 1) / 7);
+    }
+
+    function calcularSemanaCiclo(semanaISO) {
+        const offset = (((semanaISO - 30) % 4) + 4) % 4;
+        return ((offset + 1) % 4) + 1;
+    }
+
+    function aplicarSemanaAtual() {
+        const semanaISO = obterSemanaISO(new Date());
+        const semanaCiclo = calcularSemanaCiclo(semanaISO);
+        const select = document.getElementById('semanaSelect');
+        Array.from(select.options).forEach(opt => {
+            const rotulo = 'Semana ' + opt.value;
+            opt.textContent = (opt.va
