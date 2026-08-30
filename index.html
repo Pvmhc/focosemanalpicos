@@ -74,7 +74,7 @@
             background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
             border: 1px solid var(--border); border-radius: 14px;
             padding: 8px 12px; box-sizing: border-box;
-            width: 100%; max-width: 380px; margin: 0 auto; overflow: hidden;
+            width: 100%; margin: 0 auto; overflow: hidden;
             box-shadow: 0 1px 2px rgba(11,12,16,.04);
         }
         .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
@@ -103,6 +103,13 @@
         .picos-stat-label {
             font-size: 0.58rem; font-weight: 600; color: var(--muted); margin-top: 2px;
         }
+        .picos-stat-progress { border-left: 1px solid var(--border); padding-left: 10px; }
+        .picos-stat-progress .picos-stat-valor { color: var(--primary); }
+        .picos-stat-progress .picos-progress-track {
+            height: 4px; background: var(--bg); border-radius: 999px; overflow: hidden;
+            border: 1px solid var(--border); margin-top: 3px;
+        }
+        .picos-stat-progress .picos-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s ease; }
         .picos-clientes-link {
             display: flex; align-items: center; gap: 6px; width: 100%;
             background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
@@ -145,8 +152,8 @@
         .modal-clientes-picos-vazio { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 0.9rem; }
         .modal-clientes-picos-contagem { padding: 10px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
 
-        .picos-progress-row { display: flex; align-items: center; gap: 10px; }
-        .picos-progress-track { flex: 1; height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+        .picos-progress-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+        .picos-progress-track { flex: 1; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
         .picos-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s ease; }
         .picos-progress-percent-block { text-align: right; flex: 0 0 auto; line-height: 1.15; }
         .picos-progress-percent { font-size: 0.92rem; font-weight: 800; color: var(--text); }
@@ -173,7 +180,7 @@
         .resumo-foco-slider { position: relative; }
         .resumo-foco-slide { display: flex; justify-content: center; }
         .resumo-foco-slide > .resumo-card { width: 100%; }
-        .resumo-foco-slide > .picos-card { width: 100%; max-width: 380px; }
+        .resumo-foco-slide > .picos-card { width: 100%; max-width: 640px; }
         .resumo-foco-tabs { display: none; }
         @media (max-width: 767px) {
             .resumo-foco-tabs {
@@ -2704,11 +2711,6 @@
                         <div class="picos-stat-label">Diferença</div>
                     </div>
                 </div>
-                <button type="button" class="picos-clientes-link" onclick="mostrarClientesPicos_('${comEscapado}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
-                    <span>${clientesComCompraMes} clientes</span>
-                    <span class="picos-clientes-hint">· clicar para ver</span>
-                </button>
                 <div class="picos-progress-row">
                     <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
                     <div class="picos-progress-percent-block">
@@ -2716,6 +2718,11 @@
                         <div class="picos-progress-percent-label">Execução</div>
                     </div>
                 </div>
+                <button type="button" class="picos-clientes-link" onclick="mostrarClientesPicos_('${comEscapado}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
+                    <span>${clientesComCompraMes} clientes</span>
+                    <span class="picos-clientes-hint">· clicar para ver</span>
+                </button>
             </div>`;
     }
 
