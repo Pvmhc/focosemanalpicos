@@ -2234,6 +2234,28 @@
         enviarAlteracaoNuvem(idRegisto, marca, proximo);
     }
 
+    /** Abre o WhatsApp para enviar uma mensagem: tenta primeiro o WhatsApp
+     *  Business e só cai para o WhatsApp normal (ou versão web) se essa app
+     *  não estiver instalada. Só é possível distinguir as duas apps de
+     *  forma fiável em Android (via "intent" com o pacote específico
+     *  com.whatsapp.w4b); em Android, se o pacote não existir, o próprio
+     *  Chrome usa automaticamente o "browser_fallback_url" abaixo, que já
+     *  abre o WhatsApp normal instalado ou, na falta de qualquer app, a
+     *  versão web. Em iOS/computador não há forma de distinguir as duas
+     *  apps a partir da página, por isso usa-se sempre o link genérico
+     *  (abre a app instalada ou o WhatsApp Web). */
+    function abrirWhatsApp_(texto) {
+        const urlGenerica = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        const isAndroid = /Android/i.test(navigator.userAgent);
+
+        if (isAndroid) {
+            const intentBusiness = `intent://send?text=${encodeURIComponent(texto)}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(urlGenerica)};end`;
+            window.location.href = intentBusiness;
+            return;
+        }
+        window.location.href = urlGenerica;
+    }
+
     /** Abre o WhatsApp (compatível com WhatsApp Business, que trata o mesmo
      *  link api.whatsapp.com/send) com uma mensagem pronta sobre o cliente e
      *  as marcas em falta, a partir da lista simplificada do filtro
@@ -2248,8 +2270,7 @@
             `*Cliente:* ${registo.cliente}${numeroCliente}`,
             `*Marcas em falta:* ${marcasEmFalta.join(', ') || '—'}`
         ];
-        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(bodyLines.join("\n"))}`;
-        window.location.href = whatsappUrl;
+        abrirWhatsApp_(bodyLines.join("\n"));
     }
 
     function obterInnerHtmlBotao(est) {
@@ -3313,8 +3334,7 @@
         bodyLines.push(`Por favor, confirmar receção e agendamento da entrega.`);
 
         const text = bodyLines.join("\n");
-        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-        window.open(whatsappUrl, '_blank');
+        abrirWhatsApp_(text);
 
         fecharModalEncomenda();
     }
