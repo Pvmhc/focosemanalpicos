@@ -73,9 +73,11 @@
         .picos-card {
             background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
             border: 1px solid var(--border); border-radius: 14px;
-            padding: 8px 12px; flex: 0 0 auto; min-width: 0;
+            padding: 8px 12px; box-sizing: border-box;
+            width: 100%; max-width: 380px; margin: 0 auto; overflow: hidden;
             box-shadow: 0 1px 2px rgba(11,12,16,.04);
         }
+        .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
         .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
         .picos-card-titulo {
             font-size: 0.78rem; font-weight: 800; color: var(--text);
@@ -92,14 +94,14 @@
         .picos-editar-btn svg { width: 13px; height: 13px; }
 
         .picos-stats { display: flex; gap: 6px; margin-bottom: 6px; }
-        .picos-stat { flex: 1; text-align: center; padding: 2px; }
+        .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
         .picos-stat-valor { font-size: 1.02rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
         .picos-stat-valor.cor-total { color: var(--text); }
         .picos-stat-valor.cor-efetuadas { color: var(--ok-color); }
         .picos-stat-valor.cor-diferenca.pendente { color: var(--negociado-color); }
         .picos-stat-valor.cor-diferenca.concluido { color: var(--ok-color); }
         .picos-stat-label {
-            font-size: 0.58rem; font-weight: 600; color: var(--muted); margin-top: 2px; white-space: nowrap;
+            font-size: 0.58rem; font-weight: 600; color: var(--muted); margin-top: 2px;
         }
         .picos-clientes-link {
             display: flex; align-items: center; gap: 6px; width: 100%;
@@ -2566,15 +2568,17 @@
             </div>
             <div class="resumo-foco-slider" id="resumoFocoSlider">
                 <div class="resumo-foco-linha resumo-foco-track" id="resumoFocoTrack">
-                    <div class="resumo-card resumo-foco-slide">
-                        <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
-                        <div class="resumo-grid">${colunas}</div>
-                        <div class="resumo-legenda">
-                            <span><span class="dot foco"></span>Foco</span>
-                            <span><span class="dot atingido"></span>Atingido</span>
+                    <div class="resumo-foco-slide">
+                        <div class="resumo-card">
+                            <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
+                            <div class="resumo-grid">${colunas}</div>
+                            <div class="resumo-legenda">
+                                <span><span class="dot foco"></span>Foco</span>
+                                <span><span class="dot atingido"></span>Atingido</span>
+                            </div>
                         </div>
                     </div>
-                    ${renderPicosCardHtml_(com, sem).replace('<div class="picos-card">', '<div class="picos-card resumo-foco-slide">')}
+                    <div class="resumo-foco-slide">${renderPicosCardHtml_(com, sem)}</div>
                 </div>
             </div>`;
 
