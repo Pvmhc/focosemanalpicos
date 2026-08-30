@@ -78,7 +78,30 @@
             box-shadow: 0 1px 2px rgba(11,12,16,.04);
         }
         .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
-        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .picos-header-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+        .picos-clientes-chip {
+            display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+            background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
+            padding: 5px 10px; font-size: 0.68rem; font-weight: 700; color: var(--text); cursor: pointer;
+        }
+        .picos-clientes-chip:hover { background: var(--ok-bg); border-color: var(--ok-color); }
+        .picos-clientes-chip svg { width: 12px; height: 12px; color: var(--primary); flex: 0 0 auto; }
+        .picos-clientes-chip .picos-clientes-hint { color: var(--muted); font-weight: 600; }
+
+        .picos-body-linha { display: flex; align-items: stretch; gap: 10px; }
+        .picos-execucao-box {
+            flex: 0 0 auto; width: 84px; background: var(--primary); border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff; padding: 6px; box-sizing: border-box;
+        }
+        .picos-execucao-percent { font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
+        .picos-execucao-label { font-size: 0.6rem; font-weight: 700; margin-top: 2px; text-align: center; opacity: .95; }
+        @media (max-width: 400px) {
+            .picos-execucao-box { width: 68px; }
+            .picos-execucao-percent { font-size: 1rem; }
+            .picos-execucao-label { font-size: 0.56rem; }
+        }
         .picos-card-titulo {
             font-size: 0.78rem; font-weight: 800; color: var(--text);
             display: flex; align-items: center; gap: 6px; letter-spacing: 0;
@@ -2693,36 +2716,37 @@
         return `
             <div class="picos-card">
                 ${cabecalho}
-                    <button class="picos-editar-btn" title="Editar" onclick="pedirCodigoAcesso_(() => editarPicos_('${comEscapado}', '${sem}'))">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                    </button>
-                </div>
-                <div class="picos-stats">
-                    <div class="picos-stat">
-                        <div class="picos-stat-valor cor-total">${total}</div>
-                        <div class="picos-stat-label">DN Objetivo</div>
-                    </div>
-                    <div class="picos-stat">
-                        <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
-                        <div class="picos-stat-label">DN efetuadas</div>
-                    </div>
-                    <div class="picos-stat">
-                        <div class="picos-stat-valor cor-diferenca ${corDiferenca}">${diferenca}</div>
-                        <div class="picos-stat-label">Diferença</div>
+                    <div class="picos-header-actions">
+                        <button type="button" class="picos-clientes-chip" onclick="mostrarClientesPicos_('${comEscapado}')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
+                            <span>${clientesComCompraMes} clientes</span>
+                            <span class="picos-clientes-hint">· ver</span>
+                        </button>
+                        <button class="picos-editar-btn" title="Editar" onclick="pedirCodigoAcesso_(() => editarPicos_('${comEscapado}', '${sem}'))">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="picos-progress-row">
-                    <div class="picos-progress-track"><div class="picos-progress-fill" style="width:${percent}%"></div></div>
-                    <div class="picos-progress-percent-block">
-                        <div class="picos-progress-percent">${percent}%</div>
-                        <div class="picos-progress-percent-label">Execução</div>
+                <div class="picos-body-linha">
+                    <div class="picos-stats">
+                        <div class="picos-stat">
+                            <div class="picos-stat-valor cor-total">${total}</div>
+                            <div class="picos-stat-label">DN Objetivo</div>
+                        </div>
+                        <div class="picos-stat">
+                            <div class="picos-stat-valor cor-efetuadas">${efetuadas}</div>
+                            <div class="picos-stat-label">DN efetuadas</div>
+                        </div>
+                        <div class="picos-stat">
+                            <div class="picos-stat-valor cor-diferenca ${corDiferenca}">${diferenca}</div>
+                            <div class="picos-stat-label">Diferença</div>
+                        </div>
+                    </div>
+                    <div class="picos-execucao-box">
+                        <div class="picos-execucao-percent">${percent}%</div>
+                        <div class="picos-execucao-label">Execução</div>
                     </div>
                 </div>
-                <button type="button" class="picos-clientes-link" onclick="mostrarClientesPicos_('${comEscapado}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5V6a2 2 0 0 1 4 0v1"/><path d="M13 8.5V5a2 2 0 0 1 4 0v5"/><path d="M17 9.5a2 2 0 0 1 4 0V13c0 4.5-2.5 8-7 8h-2c-3 0-4.5-1-6-3l-3-4.5c-.6-1 0-2.5 1.5-2.5 .8 0 1.4.4 1.8 1L8 14"/><path d="M9 11.5a2 2 0 0 0-4 0"/></svg>
-                    <span>${clientesComCompraMes} clientes</span>
-                    <span class="picos-clientes-hint">· clicar para ver</span>
-                </button>
             </div>`;
     }
 
