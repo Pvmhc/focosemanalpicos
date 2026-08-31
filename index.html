@@ -466,6 +466,26 @@
         }
         .filtro-segmento { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; cursor: pointer; }
         .filtro-segmento svg { width: 15px; height: 15px; color: var(--primary); flex: 0 0 auto; }
+        /* Avatar (foto) do Gestor/Vendedor selecionado — substitui o ícone
+           genérico quando existe uma foto carregada para essa pessoa (ver
+           modal "Fotos de Gestor/Vendedor", mesmo mecanismo dos logotipos). */
+        .filtro-avatar {
+            width: 20px; height: 20px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+            display: none; border: 1px solid var(--border); background: var(--bg);
+        }
+        .filtro-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        /* Número da semana ISO — apresentado como o avatar do Gestor,
+           para identificar rapidamente a semana real (ex.: 36), mantendo
+           o select interno com o ciclo 1–4. */
+        .filtro-semana-numero {
+            width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--ok-bg); color: var(--primary);
+            border: 1px solid var(--border);
+            font-size: 0.68rem; font-weight: 800; line-height: 1;
+        }
+        .filtro-avatar.tem-foto { display: block; }
+        .filtro-avatar.tem-foto + svg { display: none; }
         .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
         .filtro-gestor { flex: 0 0 auto; min-width: 0; overflow: hidden; }
         .filtro-gestor .filtro-segmento-rotulo { overflow: hidden; text-overflow: ellipsis; }
@@ -551,6 +571,10 @@
         .btn-logotipo-carregar:hover { border-color: var(--primary); color: var(--primary); }
         .btn-logotipo-remover { color: #dc2626; }
         .btn-logotipo-remover:hover { background: #fef2f2; border-color: #fecaca; }
+        .lista-logotipos-seccao {
+            padding: 10px 20px 6px; font-size: 0.72rem; font-weight: 800; color: var(--primary);
+            text-transform: uppercase; background: var(--bg); border-bottom: 1px solid var(--border);
+        }
         .days-tabs { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 6px; }
         .tab-btn { flex: 1; min-width: 90px; padding: 9px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted); text-align: center; }
         .tab-btn.active { background: var(--accent); color: white; }
@@ -838,6 +862,10 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                         Logotipos das marcas
                     </button>
+                    <button class="settings-menu-item item-fotospessoas" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalFotosPessoas_())">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        Fotos Gestor/Vendedor
+                    </button>
                 </div>
             </div>
             <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="carregarDadosDesdeExcel(event)">
@@ -848,6 +876,7 @@
 
     <div class="filtro-principal-bar">
         <div class="filtro-segmento filtro-gestor">
+            <span class="filtro-avatar" id="avatarGestor"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Gestor</span>
             <select id="comercialSelect" class="filtro-select-oculto" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
@@ -861,6 +890,7 @@
         </div>
         <span class="filtro-separador sep-gestor-semana">·</span>
         <div class="filtro-segmento filtro-semana">
+            <span class="filtro-semana-numero" id="numeroSemanaAtual" aria-label="Número da semana">—</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="filtro-segmento-rotulo">Semana</span>
             <select id="semanaSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
@@ -872,6 +902,7 @@
         </div>
         <span class="filtro-separador sep-semana-vendedor">·</span>
         <div class="filtro-segmento filtro-vendedor">
+            <span class="filtro-avatar" id="avatarVendedor"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Vendedor</span>
             <select id="vendedorSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
@@ -904,6 +935,24 @@
             </div>
             <div class="modal-foco-footer">
                 <button class="btn-submit" onclick="fecharModalLogotipos_()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-foco-overlay" id="modalFotosPessoasOverlay">
+        <div class="modal-foco-box" style="max-width: 440px;">
+            <div class="modal-foco-header">
+                <h2>Fotos de Gestor/Vendedor</h2>
+                <button class="modal-foco-close" onclick="fecharModalFotosPessoas_()" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-foco-body" style="padding: 0; max-height: 60vh; overflow-y: auto;">
+                <div style="padding: 12px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border);">
+                    Carrega uma foto por pessoa — fica visível para toda a equipa junto ao filtro Gestor/Vendedor.
+                </div>
+                <div class="lista-logotipos" id="listaFotosPessoas"></div>
+            </div>
+            <div class="modal-foco-footer">
+                <button class="btn-submit" onclick="fecharModalFotosPessoas_()">Fechar</button>
             </div>
         </div>
     </div>
@@ -1289,6 +1338,19 @@
             const guardado = localStorage.getItem('logotiposMarcasCache');
             if (guardado) LOGOTIPOS_MARCAS_ = JSON.parse(guardado) || {};
         } catch (e) { console.error('Erro ao carregar cache de logotipos:', e); }
+    })();
+
+    // Fotos de Gestor/Vendedor (carregadas via modal "Fotos Gestor/Vendedor"),
+    // partilhadas com toda a equipa via config no servidor — mesmo mecanismo
+    // dos logotipos das marcas: { "Vitor Manuel Heitor Catarino":
+    // "data:image/jpeg;base64,...", ... }. Chave é sempre o nome exato
+    // (Gestor ou Vendedor) tal como aparece nos respetivos <select>.
+    let FOTOS_PESSOAS_ = {};
+    (function carregarFotosPessoasCache_() {
+        try {
+            const guardado = localStorage.getItem('fotosPessoasCache');
+            if (guardado) FOTOS_PESSOAS_ = JSON.parse(guardado) || {};
+        } catch (e) { console.error('Erro ao carregar cache de fotos de pessoas:', e); }
     })();
 
     // Marcas selecionadas no filtro em chips "Marcas colocadas (mês)": ao
@@ -1925,9 +1987,15 @@
         return ((offset + 1) % 4) + 1;
     }
 
+    function atualizarNumeroSemanaVisual_() {
+        const el = document.getElementById('numeroSemanaAtual');
+        if (el) el.textContent = String(obterSemanaISO(new Date()));
+    }
+
     function aplicarSemanaAtual() {
         const semanaISO = obterSemanaISO(new Date());
         const semanaCiclo = calcularSemanaCiclo(semanaISO);
+        atualizarNumeroSemanaVisual_();
         const select = document.getElementById('semanaSelect');
         Array.from(select.options).forEach(opt => {
             const rotulo = 'Semana ' + opt.value;
@@ -2026,6 +2094,11 @@
                 LOGOTIPOS_MARCAS_ = dados.logotiposMarcas;
                 try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
                 renderMarcasFiltroChips_();
+            }
+            if (!Array.isArray(dados) && dados.fotosPessoas && typeof dados.fotosPessoas === 'object') {
+                FOTOS_PESSOAS_ = dados.fotosPessoas;
+                try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+                atualizarAvataresFiltro_();
             }
             if (!Array.isArray(dados) && Array.isArray(dados.portfolioEncomendas) && dados.portfolioEncomendas.length > 0) {
                 aplicarPortfolioRecebido_(dados.portfolioEncomendas);
@@ -2492,7 +2565,8 @@
         popularFiltroVendedor_();
         const vendedorSelect = document.getElementById('vendedorSelect');
         const vend = vendedorSelect ? vendedorSelect.value : '';
-        
+        atualizarAvataresFiltro_();
+
         localStorage.setItem('gestorSelecionado', com);
         localStorage.setItem('semanaSelecionada', sem);
 
@@ -2907,6 +2981,134 @@
         renderListaLogotipos_();
         renderMarcasFiltroChips_();
         postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + marca, valor: '' });
+    }
+
+    // --- Modal "Fotos Gestor/Vendedor" (upload de foto por pessoa, PIN) —
+    //     mesmo mecanismo dos logotipos das marcas, aplicado aos nomes dos
+    //     Gestores (lista fixa do <select> "Gestor") e dos Vendedores (todos
+    //     os nomes únicos encontrados nos dados, de qualquer Gestor). ---
+    function obterNomesGestores_() {
+        return Array.from(document.querySelectorAll('#comercialSelect option')).map(o => o.value).filter(Boolean);
+    }
+
+    function obterNomesVendedores_() {
+        return Array.from(new Set(
+            baseDadosRotas
+                .filter(i => i.vendedor && String(i.vendedor).trim() !== '')
+                .map(i => String(i.vendedor).trim())
+                .filter(v => !VALORES_INVALIDOS_VENDEDOR_.has(v.toLowerCase()))
+        )).sort((a, b) => a.localeCompare(b));
+    }
+
+    function abrirModalFotosPessoas_() {
+        renderListaFotosPessoas_();
+        document.getElementById('modalFotosPessoasOverlay').classList.add('aberto');
+    }
+
+    function fecharModalFotosPessoas_() {
+        document.getElementById('modalFotosPessoasOverlay').classList.remove('aberto');
+    }
+
+    function renderListaFotosPessoas_() {
+        const cont = document.getElementById('listaFotosPessoas');
+        if (!cont) return;
+
+        const linhaPessoa_ = (nome, idx) => {
+            const foto = FOTOS_PESSOAS_[nome];
+            const nomeEscapado = nome.replace(/'/g, "\\'");
+            const preview = foto
+                ? `<img src="${foto}" alt="${nome}">`
+                : `<span class="marca-chip-fallback">${(nome || '').replace(/[^A-Za-zÀ-ÿ0-9 ]/g, '').trim().split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}</span>`;
+            return `
+                <div class="lista-logotipos-item">
+                    <div class="lista-logotipos-preview">${preview}</div>
+                    <div class="lista-logotipos-nome">${nome}</div>
+                    <div class="lista-logotipos-acoes">
+                        <input type="file" accept="image/*" id="inputFotoPessoa${idx}" style="display:none;" onchange="carregarFotoPessoa_('${nomeEscapado}', this)">
+                        <button type="button" class="btn-logotipo-carregar" onclick="document.getElementById('inputFotoPessoa${idx}').click()">Carregar</button>
+                        ${foto ? `<button type="button" class="btn-logotipo-remover" onclick="removerFotoPessoa_('${nomeEscapado}')">Remover</button>` : ''}
+                    </div>
+                </div>`;
+        };
+
+        const gestores = obterNomesGestores_();
+        const vendedores = obterNomesVendedores_();
+
+        let html = `<div class="lista-logotipos-seccao">Gestores</div>`;
+        html += gestores.map((nome, i) => linhaPessoa_(nome, 'g' + i)).join('');
+        html += `<div class="lista-logotipos-seccao">Vendedores</div>`;
+        html += vendedores.length
+            ? vendedores.map((nome, i) => linhaPessoa_(nome, 'v' + i)).join('')
+            : `<div style="padding: 12px 20px; font-size: 0.82rem; color: var(--muted);">Nenhum vendedor encontrado nos dados atuais.</div>`;
+
+        cont.innerHTML = html;
+    }
+
+    /** Lê a foto escolhida, recorta/comprime para um avatar pequeno (mesma
+     *  técnica dos logotipos das marcas) e envia para o servidor como config
+     *  partilhada — visível para toda a equipa. */
+    function carregarFotoPessoa_(nome, inputEl) {
+        const ficheiro = inputEl.files && inputEl.files[0];
+        if (!ficheiro) return;
+
+        const leitor = new FileReader();
+        leitor.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const tamanho = 96;
+                const canvas = document.createElement('canvas');
+                canvas.width = tamanho;
+                canvas.height = tamanho;
+                const ctx = canvas.getContext('2d');
+                const lado = Math.min(img.width, img.height);
+                const offsetX = (img.width - lado) / 2;
+                const offsetY = (img.height - lado) / 2;
+                ctx.drawImage(img, offsetX, offsetY, lado, lado, 0, 0, tamanho, tamanho);
+                const dataUri = canvas.toDataURL('image/jpeg', 0.72);
+
+                FOTOS_PESSOAS_[nome] = dataUri;
+                try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+                renderListaFotosPessoas_();
+                atualizarAvataresFiltro_();
+
+                postComRetry_({ action: 'guardar_config', chave: 'fotoPessoa_' + nome, valor: dataUri })
+                    .then(r => { if (!r || r.ok === false) alert('Não foi possível guardar a foto no servidor. Tenta novamente.'); });
+            };
+            img.onerror = () => alert('Não foi possível ler esta imagem.');
+            img.src = ev.target.result;
+        };
+        leitor.readAsDataURL(ficheiro);
+        inputEl.value = '';
+    }
+
+    function removerFotoPessoa_(nome) {
+        delete FOTOS_PESSOAS_[nome];
+        try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+        renderListaFotosPessoas_();
+        atualizarAvataresFiltro_();
+        postComRetry_({ action: 'guardar_config', chave: 'fotoPessoa_' + nome, valor: '' });
+    }
+
+    /** Atualiza os avatares junto às pílulas "Gestor" e "Vendedor": mostra a
+     *  foto da pessoa atualmente selecionada, se existir; caso contrário
+     *  mantém o ícone genérico. A pílula "Semana" nunca mostra foto — só o
+     *  número, como pedido. */
+    function atualizarAvataresFiltro_() {
+        const avatarGestor = document.getElementById('avatarGestor');
+        const comercialSelect = document.getElementById('comercialSelect');
+        if (avatarGestor && comercialSelect) {
+            const foto = FOTOS_PESSOAS_[comercialSelect.value];
+            avatarGestor.innerHTML = foto ? `<img src="${foto}" alt="">` : '';
+            avatarGestor.classList.toggle('tem-foto', !!foto);
+        }
+
+        const avatarVendedor = document.getElementById('avatarVendedor');
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        if (avatarVendedor && vendedorSelect) {
+            const foto = vendedorSelect.value ? FOTOS_PESSOAS_[vendedorSelect.value] : null;
+            avatarVendedor.innerHTML = foto ? `<img src="${foto}" alt="">` : '';
+            avatarVendedor.classList.toggle('tem-foto', !!foto);
+        }
     }
 
     function renderResumoFoco(com, sem) {
@@ -3738,6 +3940,7 @@
     }
 
     const semanaSalva = localStorage.getItem('semanaSelecionada');
+    atualizarNumeroSemanaVisual_();
     if (semanaSalva) {
         const selectSemana = document.getElementById('semanaSelect');
         selectSemana.value = semanaSalva;
