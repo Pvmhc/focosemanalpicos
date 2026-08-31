@@ -226,6 +226,27 @@
         @media (min-width: 768px) {
             .resumo-foco-track.resumo-foco-linha { flex-direction: row; }
             .resumo-foco-track.resumo-foco-linha .resumo-foco-slide { display: flex !important; }
+            /* No PC há muito mais largura disponível no cabeçalho (o
+               .resumo-foco cresce com flex:1) — antes os slides não
+               cresciam, ficando os cartões Resumo/Picos com a largura
+               mínima e deixando um vazio enorme até ao título "Roteiro
+               Cloud Equipa" à direita. Agora ambos os cartões esticam e
+               preenchem o espaço, com o Picos sempre um pouco maior. */
+            /* No PC há muito mais largura disponível no cabeçalho (o
+               .resumo-foco cresce com flex:1) — antes os slides não
+               cresciam, ficando os cartões Resumo/Picos com a largura
+               mínima e deixando um vazio enorme até ao título "Roteiro
+               Cloud Equipa" à direita. Agora ambos os cartões esticam e
+               preenchem o espaço, com o Picos sempre um pouco maior — mas
+               com uma largura mínima (senão, em ecrãs médios, as 6 colunas
+               de marcas ficavam espremidas a uma letra cada); se não houver
+               espaço para os dois lado a lado, empilham (flex-wrap: wrap,
+               herdado de .resumo-foco-linha).
+            */
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide { flex: 1 1 360px; min-width: 340px; }
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide:first-child { flex: 1.15 1 400px; min-width: 400px; }
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide:last-child { flex: 1 1 340px; min-width: 320px; }
+            .resumo-foco-slide > .picos-card { max-width: none; }
         }
         @media (max-width: 767px) {
             .picos-card { width: 100%; min-width: 0; }
@@ -491,11 +512,24 @@
         }
         .filtro-avatar.tem-foto { display: block; }
         .filtro-avatar.tem-foto + svg { display: none; }
-        .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+        .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; flex: 0 0 auto; }
         .filtro-gestor { flex: 0 0 auto; min-width: 0; overflow: hidden; }
-        .filtro-gestor .filtro-segmento-rotulo { overflow: hidden; text-overflow: ellipsis; }
+        .filtro-gestor .filtro-segmento-rotulo { overflow: visible; text-overflow: clip; }
         .filtro-semana, .filtro-vendedor { flex: 0 0 auto; }
         .filtro-separador { color: var(--border); font-weight: 900; flex: 0 0 auto; font-size: 1.1rem; line-height: 1; }
+        /* Nome da pessoa atualmente escolhida em "Gestor"/"Vendedor" — no
+           telemóvel fica escondido (poupa espaço, só a pílula genérica é
+           visível); no PC há espaço de sobra, por isso mostra-se o nome
+           completo em vez de o espaço ficar por preencher. */
+        .filtro-valor-selecionado { display: none; }
+        @media (min-width: 768px) {
+            .filtro-valor-selecionado {
+                display: inline-block; color: var(--muted); font-weight: 600; font-size: 0.86rem;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px;
+                min-width: 0; flex: 0 1 auto;
+            }
+            .filtro-gestor, .filtro-vendedor { max-width: 400px; }
+        }
         /* O <select> real fica invisível mas continua clicável por cima do
            rótulo fixo — assim mostra sempre "Gestor / Semana / Vendedor"
            em vez do valor escolhido, poupando espaço; o valor só aparece
@@ -507,6 +541,14 @@
         @media (max-width: 639px) {
             .filtro-principal-bar { border-radius: 999px; flex-wrap: nowrap; padding: 8px 12px; gap: 8px; }
             .filtro-segmento-rotulo { font-size: 0.78rem; }
+        }
+        @media (min-width: 768px) {
+            /* Em ecrãs largos, "justify-content: space-between" espalhava os
+               3 segmentos pelos cantos, criando vazios enormes no meio; ao
+               mostrar agora o nome completo (acima) a barra já preenche
+               melhor o espaço com conteúdo útil, por isso passa a agrupar-se
+               à esquerda com um espaçamento generoso mas fixo. */
+            .filtro-principal-bar { justify-content: flex-start; gap: 28px; padding: 10px 22px; }
         }
 
         .filters-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
@@ -884,6 +926,7 @@
             <span class="filtro-avatar" id="avatarGestor"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Gestor</span>
+            <span class="filtro-valor-selecionado" id="valorGestorSelecionado"></span>
             <select id="comercialSelect" class="filtro-select-oculto" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
                 <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
@@ -911,6 +954,7 @@
             <span class="filtro-avatar" id="avatarVendedor"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Vendedor</span>
+            <span class="filtro-valor-selecionado" id="valorVendedorSelecionado"></span>
             <select id="vendedorSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
                 <option value="">Todos</option>
             </select>
@@ -3140,6 +3184,8 @@
             avatarGestor.innerHTML = foto ? `<img src="${foto}" alt="">` : '';
             avatarGestor.classList.toggle('tem-foto', !!foto);
         }
+        const valorGestor = document.getElementById('valorGestorSelecionado');
+        if (valorGestor && comercialSelect) valorGestor.textContent = comercialSelect.value || '';
 
         const avatarVendedor = document.getElementById('avatarVendedor');
         const vendedorSelect = document.getElementById('vendedorSelect');
@@ -3148,6 +3194,8 @@
             avatarVendedor.innerHTML = foto ? `<img src="${foto}" alt="">` : '';
             avatarVendedor.classList.toggle('tem-foto', !!foto);
         }
+        const valorVendedor = document.getElementById('valorVendedorSelecionado');
+        if (valorVendedor && vendedorSelect) valorVendedor.textContent = vendedorSelect.value || 'Todos';
     }
 
     function renderResumoFoco(com, sem) {
