@@ -484,6 +484,11 @@
             border: 1px solid var(--border);
             font-size: 0.68rem; font-weight: 800; line-height: 1;
         }
+        /* Badge com a semana do ciclo (1-4) atualmente selecionada no
+           dropdown "Semana" — antes só se via ao abrir o popup nativo. */
+        .filtro-semana-ciclo {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
         .filtro-avatar.tem-foto { display: block; }
         .filtro-avatar.tem-foto + svg { display: none; }
         .filtro-segmento-rotulo { font-size: 0.86rem; font-weight: 700; color: var(--text); white-space: nowrap; }
@@ -893,6 +898,7 @@
             <span class="filtro-semana-numero" id="numeroSemanaAtual" aria-label="Número da semana">—</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="filtro-segmento-rotulo">Semana</span>
+            <span class="filtro-semana-numero filtro-semana-ciclo" id="numeroSemanaCiclo" aria-label="Semana do ciclo selecionada">—</span>
             <select id="semanaSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
                 <option value="1">Semana 1</option>
                 <option value="2">Semana 2</option>
@@ -1421,6 +1427,11 @@
     }
 
     let focoSemanalASalvar = false;
+    // Guarda o último mapa ainda sem confirmação do servidor. Enquanto for
+    // não-nulo, a proteção contra o polling (focoSemanalASalvar) mantém-se
+    // ativa — é o que evita que uma gravação falhada "volte atrás" sozinha.
+    let focoSemanalPendenteMapa_ = null;
+    let focoSemanalRetryTimer_ = null;
 
     async function guardarFocoSemanal() {
         const semanas = ['1', '2', '3', '4'];
@@ -1435,25 +1446,49 @@
         fecharModalFocoSemanal();
         atualizarVisualizacao();
 
-        // Enquanto a gravação estiver em curso, o polling automático não pode
-        // sobrescrever MARCA_FOCO_POR_SEMANA com dados antigos do servidor
-        // (evita que a marca foco recém-escolhida "volte atrás" por corrida
-        // entre este pedido e o próximo puxarDadosDaNuvem em segundo plano).
+        await enviarFocoSemanalParaServidor_(novoMapa);
+    }
+
+    // Envia a Marca Foco para o servidor. Se falhar (ex.: lock do Apps
+    // Script ocupado por muitos GCs em simultâneo, ou várias semanas
+    // mudadas de uma vez), NÃO desiste: mantém a proteção contra o polling
+    // ativa (focoSemanalASalvar continua true) e volta a tentar sozinho em
+    // segundo plano até confirmar sucesso — em vez de libertar a proteção
+    // ao fim de 3 tentativas, o que deixava o próximo puxarDadosDaNuvem
+    // trazer de volta o valor antigo do servidor e "trocar de foco" sozinho.
+    async function enviarFocoSemanalParaServidor_(novoMapa, tentativaFundo) {
         focoSemanalASalvar = true;
+        focoSemanalPendenteMapa_ = novoMapa;
+        if (focoSemanalRetryTimer_) { clearTimeout(focoSemanalRetryTimer_); focoSemanalRetryTimer_ = null; }
+        let resultado;
         try {
             // UM ÚNICO pedido (em vez de 5 em simultâneo: guardar_config + 4x
             // limpar_foco_semanal), que sobrecarregava o lock do Apps Script e
             // fazia falhar a sincronização deste botão especificamente.
             // O backend já tinha a ação atómica pronta — só faltava usá-la aqui.
-            const resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
-            if (!resultado || resultado.ok === false) {
-                // DEBUG TEMPORÁRIO — mostra o erro real no ecrã. Remover depois de resolvido.
-                alert('DEBUG — falha ao guardar Marca Foco:\n' + JSON.stringify(resultado));
-                mostrarAvisoSync_();
-            }
-        } finally {
-            focoSemanalASalvar = false;
+            resultado = await postComRetry_({ action: 'guardar_foco_semanal_completo', marcaFocoPorSemana: novoMapa });
+        } catch (e) {
+            resultado = { ok: false, erro: e.message };
         }
+
+        // Entretanto o utilizador pode ter gravado outra alteração mais
+        // recente — se este mapa já não for o pendente atual, ignora-se
+        // (evita duas tentativas de fundo a pisarem-se uma à outra).
+        if (focoSemanalPendenteMapa_ !== novoMapa) return;
+
+        if (!resultado || resultado.ok === false) {
+            mostrarAvisoSync_();
+            focoSemanalRetryTimer_ = setTimeout(() => {
+                if (focoSemanalPendenteMapa_ === novoMapa) {
+                    enviarFocoSemanalParaServidor_(novoMapa, true);
+                }
+            }, 6000);
+            return;
+        }
+
+        // Sucesso confirmado pelo servidor — só agora a proteção pode cair.
+        focoSemanalASalvar = false;
+        focoSemanalPendenteMapa_ = null;
     }
 
     // Feedback visual imediato (local); a gravação/aplicação real acontece no
@@ -2002,6 +2037,8 @@
             opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
         });
         select.value = String(semanaCiclo);
+        const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
+        if (badgeSemanaCiclo) badgeSemanaCiclo.textContent = String(semanaCiclo);
     }
 
     // Envia um POST para o Apps Script com retry automático (com pequeno atraso)
@@ -2562,6 +2599,8 @@
     function atualizarVisualizacao() {
         const com = document.getElementById('comercialSelect').value;
         const sem = document.getElementById('semanaSelect').value;
+        const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
+        if (badgeSemanaCiclo) badgeSemanaCiclo.textContent = sem || '—';
         popularFiltroVendedor_();
         const vendedorSelect = document.getElementById('vendedorSelect');
         const vend = vendedorSelect ? vendedorSelect.value : '';
@@ -3950,6 +3989,8 @@
             const rotulo = 'Semana ' + opt.value;
             opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
         });
+        const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
+        if (badgeSemanaCiclo) badgeSemanaCiclo.textContent = semanaSalva;
     } else {
         aplicarSemanaAtual();
     }
