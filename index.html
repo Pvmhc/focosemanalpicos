@@ -162,11 +162,12 @@
         .marca-badge.sem-marcas { background: var(--vazio-bg); color: var(--vazio-color); font-weight: 600; }
         .marca-badge.marca-badge-falta { background: #fef2f2; color: #b91c1c; }
 
-        .linha-marcas-falta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
-        .linha-marcas-falta-nome { font-weight: 700; font-size: 0.92rem; color: var(--text); }
-        .linha-marcas-falta .marcas-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-end; }
+        .linha-marcas-falta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
+        .linha-marcas-falta-nome { font-weight: 700; font-size: 0.92rem; color: var(--text); flex: 1 1 auto; min-width: 140px; }
+        .linha-marcas-falta .marcas-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-end; margin-left: auto; }
         button.marca-badge { border: none; cursor: pointer; font-family: inherit; }
         button.marca-badge.marca-badge-falta.negociado { background: #ffedd5; color: #c2410c; }
+        .marca-badge.marca-badge-negociado { background: #ffedd5; color: #c2410c; }
         .btn-icone-whatsapp-linha {
             display: inline-flex; align-items: center; justify-content: center;
             width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #1e9e56;
@@ -273,7 +274,7 @@
         }
 
         /* --- Link para o Vendedor / Modo de leitura --- */
-        .link-vendedor-row { display: flex; justify-content: flex-end; margin: -6px 0 4px; }
+        .link-vendedor-row { display: flex; justify-content: flex-end; gap: 8px; margin: -6px 0 4px; }
         .btn-link-vendedor {
             display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
             border-radius: 8px; border: 1px solid var(--border); background: #fff;
@@ -281,6 +282,8 @@
         }
         .btn-link-vendedor svg { width: 15px; height: 15px; }
         .btn-link-vendedor:hover { border-color: #ff2b2b; color: #ff2b2b; }
+        .btn-link-vendedor.btn-whatsapp { border-color: #25D366; color: #128C4A; }
+        .btn-link-vendedor.btn-whatsapp:hover { background: #25D366; color: #fff; }
         .cabecalho-modo-vendedor { display: none; }
         body.modo-vendedor-view .cabecalho-modo-vendedor {
             display: block; background: #fff; border: 1px solid var(--border); border-radius: 10px;
@@ -320,7 +323,8 @@
         .btn-sync-titulo.sucesso { border-color: #16974f; background: var(--ok-bg, #dcfce7); color: #16974f; }
         .btn-sync-titulo:disabled { cursor: default; opacity: .85; }
         @keyframes girarSync { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .resumo-foco { flex: 1; }
+        .resumo-foco { flex: 1; scroll-snap-align: start; scroll-margin-top: 12px; }
+        @media (min-width: 768px) { .resumo-foco { scroll-margin-top: 24px; } }
         @media (min-width: 768px) { header { flex-direction: row-reverse; } header .resumo-foco { padding-left: 0; padding-right: 24px; border-left: none; border-right: 1px solid var(--border); } }
         
         .actions-bar {
@@ -680,6 +684,7 @@
             tbody td:not(:first-child)::before { content: none; }
             .cell-container { flex-direction: column; width: auto; justify-content: center; gap: 8px; }
         }
+
         /* ----- ESTILOS DO MODAL DE ENCOMENDAS ----- */
         .btn-cart { background-color: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(11,12,16,.1); transition: transform .15s ease, filter .15s ease; margin-top: 8px; }
         .btn-cart:hover { filter: brightness(1.1); transform: translateY(-1px); }
@@ -894,9 +899,9 @@
     <div id="cabecalhoModoVendedor" class="cabecalho-modo-vendedor"></div>
 
     <div class="link-vendedor-row">
-        <button class="btn-action btn-link-vendedor" id="btnCopiarLinkVendedor" onclick="copiarLinkVendedor_()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 007.07 7.07l1.5-1.5"/></svg>
-            Copiar link para o Vendedor
+        <button class="btn-action btn-link-vendedor btn-whatsapp" id="btnWhatsappLinkVendedor" onclick="enviarImagemVendedorWhatsApp_()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.29-.15-1.73-.85-2-.95-.27-.1-.46-.15-.66.15-.2.29-.76.95-.93 1.14-.17.2-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.76-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.49.1-.2.05-.37-.02-.51-.07-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51-.17-.01-.37-.01-.56-.01-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43 0 1.43 1.05 2.82 1.19 3.01.15.2 2.07 3.16 5.02 4.43.7.3 1.25.48 1.68.62.7.22 1.34.19 1.85.12.56-.08 1.73-.71 1.98-1.39.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.35z"/><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18a7.94 7.94 0 01-4.06-1.11l-.29-.17-3.02.79.81-2.94-.19-.3A7.96 7.96 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+            WhatsApp
         </button>
     </div>
 
@@ -1155,7 +1160,10 @@
             case '0.0%': return achar(c => normalizarTexto_(c).includes('0.0') || normalizarTexto_(c) === '00') || null;
             case 'preta': return achar(c => normalizarTexto_(c).includes('preta')) || null;
             default: return null;
-        }/** Calcula automaticamente, para um Gestor, o total de marcas POSSÍVEIS
+        }
+    }
+
+    /** Calcula automaticamente, para um Gestor, o total de marcas POSSÍVEIS
      *  a fazer (todos os clientes ÚNICOS que já compraram este mês × marcas
      *  exigidas pela Tipologia de cada um), e quantas dessas já têm a "bola"
      *  de compra do mês (hist.mes) ativa para essa marca.
@@ -1275,6 +1283,11 @@
     // selecionar 1+ marcas, a lista de clientes passa a mostrar só quem ainda
     // não tem TODAS essas marcas colocadas este mês (oportunidade de venda).
     let MARCAS_FILTRO_SELECIONADAS_ = [];
+    // Lista de {cliente, marcasNegociadas} capturada durante a última
+    // renderização do filtro "Marcas não colocadas (mês)" — usada pelo
+    // botão de WhatsApp para enviar exatamente os clientes/marcas visíveis
+    // no ecrã nesse momento (respeitando marcas, dia, semana e vendedor).
+    let ultimaListaNegociadosFiltrada_ = null;
 
     function chaveMesPicos_() {
         const agora = new Date();
@@ -1403,6 +1416,8 @@
                 }
             });
         });
+    }
+
     // Atualiza localmente (para feedback imediato no ecrã) e pede ao servidor,
     // NUM ÚNICO PEDIDO por semana, para limpar em lote a marca "FOCO SEMANAL"
     // de qualquer marca que já não seja a marca foco definida — em vez de
@@ -1662,37 +1677,130 @@
         atualizarVisualizacao();
     }
 
-    function copiarLinkVendedor_() {
+    function gerarLinkVendedor_() {
         const com = document.getElementById('comercialSelect').value;
         const vend = document.getElementById('vendedorSelect').value;
-        if (!vend) { alert('Seleciona primeiro um Vendedor específico (não "Todos").'); return; }
+        if (!vend) { alert('Seleciona primeiro um Vendedor específico (não "Todos").'); return null; }
         const url = new URL(window.location.href);
         url.search = '';
         url.searchParams.set('modo', 'vendedor');
         url.searchParams.set('comercial', com);
         url.searchParams.set('vendedor', vend);
-        const link = url.toString();
+        return { link: url.toString(), vend, com };
+    }
 
-        const feedback = (ok) => {
-            const btn = document.getElementById('btnCopiarLinkVendedor');
-            if (!btn) return;
-            const textoOriginal = btn.textContent;
-            btn.textContent = ok ? 'Link copiado!' : 'Erro ao copiar';
-            setTimeout(() => { btn.textContent = textoOriginal; }, 1800);
-        };
+    /** Agrupa as linhas da rota do Vendedor por cliente único e reúne as
+     *  marcas marcadas como Negociado (em qualquer linha/dia desse cliente). */
+    function construirDetalheClientesVendedor_(com, vend) {
+        const registos = (baseDadosRotas || []).filter(r => r.comercial === com && String(r.vendedor || '').trim() === vend);
+        const porCliente = {};
+        registos.forEach(r => {
+            const chave = chaveClienteUnica_(r);
+            if (!porCliente[chave]) porCliente[chave] = { cliente: '', marcasNegociadas: new Set() };
+            const acc = porCliente[chave];
+            if (!acc.cliente && String(r.cliente || '').trim()) acc.cliente = String(r.cliente).trim();
+            Object.keys(r.estados || {}).forEach(m => {
+                if (r.estados[m] === 'NEGOCIADO') acc.marcasNegociadas.add(m);
+            });
+        });
+        return Object.values(porCliente)
+            .filter(c => c.cliente && c.marcasNegociadas.size > 0)
+            .map(c => ({ cliente: c.cliente, marcasNegociadas: Array.from(c.marcasNegociadas).sort((a, b) => a.localeCompare(b, 'pt')) }))
+            .sort((a, b) => a.cliente.localeCompare(b.cliente, 'pt'));
+    }
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(link).then(() => feedback(true)).catch(() => feedback(false));
-        } else {
-            try {
-                const tmp = document.createElement('textarea');
-                tmp.value = link;
-                document.body.appendChild(tmp);
-                tmp.select();
-                document.execCommand('copy');
-                document.body.removeChild(tmp);
-                feedback(true);
-            } catch (e) { feedback(false); }
+    function enviarLinkVendedorWhatsApp_() {
+        const dados = gerarLinkVendedor_();
+        if (!dados) return;
+        const detalhe = ultimaListaNegociadosFiltrada_ !== null
+            ? ultimaListaNegociadosFiltrada_
+            : construirDetalheClientesVendedor_(dados.com, dados.vend);
+
+        let texto = `Clientes · ${dados.vend}\n${detalhe.length} cliente${detalhe.length === 1 ? '' : 's'} com marcas negociadas\n\n`;
+        detalhe.forEach(c => {
+            texto += `*${c.cliente}*\n${c.marcasNegociadas.join(', ')}\n\n`;
+        });
+        texto += dados.link;
+
+        abrirWhatsApp_(texto);
+    }
+
+    /** Carrega a biblioteca html2canvas sob pedido (só quando o utilizador
+     *  tenta enviar a imagem), evitando pesar o carregamento inicial. */
+    function carregarHtml2Canvas_() {
+        if (window.html2canvas) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Falha a carregar html2canvas'));
+            document.head.appendChild(script);
+        });
+    }
+
+    /** Gera uma imagem (cartões com etiquetas coloridas, no mesmo estilo da
+     *  lista "Clientes com compra este mês") com os clientes/marcas
+     *  negociadas visíveis no ecrã, e envia-a por WhatsApp — em vez de texto. */
+    async function enviarImagemVendedorWhatsApp_() {
+        const dados = gerarLinkVendedor_();
+        if (!dados) return;
+        const detalhe = ultimaListaNegociadosFiltrada_ !== null
+            ? ultimaListaNegociadosFiltrada_
+            : construirDetalheClientesVendedor_(dados.com, dados.vend);
+
+        if (detalhe.length === 0) { alert('Não há clientes com marcas negociadas para enviar.'); return; }
+
+        const btn = document.getElementById('btnWhatsappLinkVendedor');
+        const textoOriginalBtn = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = 'A gerar imagem…'; }
+
+        try {
+            await carregarHtml2Canvas_();
+
+            const container = document.createElement('div');
+            container.style.cssText = 'position:fixed; left:-9999px; top:0; width:420px; background:#ffffff; padding:20px; font-family:Inter, system-ui, -apple-system, sans-serif; box-sizing:border-box;';
+            container.innerHTML = `
+                <div style="font-size:1.15rem; font-weight:800; color:#0b0c10; margin-bottom:2px;">Marcas Negociadas · ${dados.vend}</div>
+                <div style="font-size:0.85rem; color:#657786; margin-bottom:16px;">${detalhe.length} cliente${detalhe.length === 1 ? '' : 's'}</div>
+                ${detalhe.map(c => `
+                    <div style="background:#ffffff; border:1px solid #e1e8ed; border-radius:14px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:1.05rem; font-weight:800; color:#0b0c10; border-bottom:2px solid #008200; padding-bottom:8px; margin-bottom:10px;">${c.cliente}</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                            ${c.marcasNegociadas.map(m => `<span style="background:#ffedd5; color:#c2410c; font-weight:700; font-size:0.85rem; padding:6px 14px; border-radius:999px; display:inline-block;">${m}</span>`).join('')}
+                        </div>
+                    </div>`).join('')}
+            `;
+            document.body.appendChild(container);
+
+            const canvas = await html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+            container.remove();
+
+            canvas.toBlob(async (blob) => {
+                const arquivo = new File([blob], 'clientes-negociados.png', { type: 'image/png' });
+
+                if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+                    try {
+                        await navigator.share({ files: [arquivo], title: 'Clientes negociados', text: `Clientes · ${dados.vend}` });
+                        if (btn) { btn.disabled = false; btn.innerHTML = textoOriginalBtn; }
+                        return;
+                    } catch (e) {
+                        // utilizador cancelou a partilha nativa ou falhou — cai no fallback abaixo
+                    }
+                }
+
+                // Fallback: descarrega a imagem e abre o WhatsApp já com o
+                // link, para o utilizador anexar a imagem manualmente.
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'clientes-negociados.png';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                abrirWhatsApp_(`Clientes · ${dados.vend}\n(Imagem descarregada — anexa-a aqui)\n${dados.link}`);
+                if (btn) { btn.disabled = false; btn.innerHTML = textoOriginalBtn; }
+            }, 'image/png');
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.innerHTML = textoOriginalBtn; }
+            alert('Não foi possível gerar a imagem. Verifica a ligação à internet e tenta novamente.');
         }
     }
 
@@ -1842,8 +1950,9 @@
                 await new Promise(r => setTimeout(r, 800 * (i + 1)));
             }
         }
-            }
-           // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
+    }
+
+    // --- ALTERAÇÕES PENDENTES (proteção contra "reversão" no polling) ---
     // Guarda localmente qualquer alteração (estado FOCO/OK/etc. ou "colocou")
     // que já foi aplicada no ecrã mas cujo POST ainda não teve resposta do
     // Apps Script. O polling automático (a cada 15s) lê SEMPRE a folha
@@ -1905,6 +2014,9 @@
                 LOGOTIPOS_MARCAS_ = dados.logotiposMarcas;
                 try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
                 renderMarcasFiltroChips_();
+            }
+            if (!Array.isArray(dados) && Array.isArray(dados.portfolioEncomendas) && dados.portfolioEncomendas.length > 0) {
+                aplicarPortfolioRecebido_(dados.portfolioEncomendas);
             }
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
@@ -2141,6 +2253,7 @@
                         });
                         estadosObj = Object.assign({}, estadosObj, estadosAntigosValidos);
                     }
+
                     // Preserva também o histórico "já foi foco" (focoJaMarcado)
                     // do registo anterior, para o resumo de Foco não zerar
                     // sempre que se reimporta o Excel semanal.
@@ -2371,7 +2484,7 @@
         localStorage.setItem('gestorSelecionado', com);
         localStorage.setItem('semanaSelecionada', sem);
 
-        const btnLinkVendedor = document.getElementById('btnCopiarLinkVendedor');
+        const btnLinkVendedor = document.getElementById('btnWhatsappLinkVendedor');
         if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = vend ? '' : 'none';
 
         const corpo = document.getElementById('tabelaVisitas');
@@ -2452,15 +2565,55 @@
             corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
             return;
         }
-// Com o filtro "Marcas não colocadas (mês)" ativo, a lista fica
+
+        // Link do Vendedor (modo só de leitura): mostra sempre o mesmo
+        // género de vista que a lista "clientes com compras" (badges de
+        // Marcas Compradas / Marcas em Falta), em vez da tabela completa
+        // com todas as marcas e estados, ou da vista "negociadas" — o
+        // vendedor precisa de ver o panorama completo de cada cliente.
+        if (MODO_VENDEDOR_ATIVO_) {
+            filtrados.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.dataset.cliente = item.cliente || '';
+                const marcasNegociadas = Object.keys(item.estados || {})
+                    .filter(m => item.estados[m] === 'NEGOCIADO')
+                    .sort((a, b) => a.localeCompare(b, 'pt'));
+
+                const badgesNegociadas = marcasNegociadas.length > 0
+                    ? marcasNegociadas.map(m => `<span class="marca-badge marca-badge-negociado">${m}</span>`).join('')
+                    : `<span class="marca-badge sem-marcas">Sem marcas negociadas</span>`;
+
+                tr.innerHTML = `
+                    <td colspan="${1 + marcasLista.length}">
+                        <div class="linha-marcas-falta" style="flex-direction:column;align-items:stretch;">
+                            <div class="linha-marcas-falta-nome">${item.cliente}</div>
+                            <div>
+                                <div style="font-size:0.72rem;font-weight:700;color:var(--muted);margin-bottom:4px;">Marcas negociadas</div>
+                                <div class="marcas-badges" style="justify-content:flex-start;">${badgesNegociadas}</div>
+                            </div>
+                        </div>
+                    </td>`;
+                corpo.appendChild(tr);
+            });
+            requestAnimationFrame(atualizarFocoCartaoCentral_);
+            return;
+        }
+
+        // Com o filtro "Marcas não colocadas (mês)" ativo, a lista fica
         // reduzida ao essencial: nome do cliente + só as marcas selecionadas
         // que lhe faltam — em vez da tabela completa com todas as marcas e
         // estados (Foco/OK/Negociado/etc.), que aqui não é relevante.
+        if (!emModoMarcasColocadas) ultimaListaNegociadosFiltrada_ = null;
         if (emModoMarcasColocadas) {
+            ultimaListaNegociadosFiltrada_ = [];
             filtrados.forEach(item => {
                 const tr = document.createElement('tr');
                 const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(item)]) || {};
                 const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !(historicoCliente[m] && historicoCliente[m].mes));
+                const marcasNegociadasCliente = marcasEmFalta.filter(m => item.estados[m] === 'NEGOCIADO');
+                if (marcasNegociadasCliente.length > 0) {
+                    ultimaListaNegociadosFiltrada_.push({ cliente: item.cliente, marcasNegociadas: marcasNegociadasCliente });
+                }
                 const badges = marcasEmFalta.map(m => {
                     const mEscapado = m.replace(/'/g, "\\'");
                     const estaNegociado = item.estados[m] === 'NEGOCIADO';
@@ -2480,6 +2633,7 @@
                     </td>`;
                 corpo.appendChild(tr);
             });
+            requestAnimationFrame(atualizarFocoCartaoCentral_);
             return;
         }
 
@@ -3003,9 +3157,7 @@
         }, 30);
     }
 
-        
-    }
-       /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
+    /** Guarda os valores introduzidos (localmente e na nuvem) e volta ao modo leitura. */
     /** Atualiza em tempo real a pré-visualização do DN Total enquanto o
      *  utilizador ajusta o campo "Objetivo (%)" no cartão Picos. */
     function atualizarPreviewPicos_(totalPossivel) {
@@ -3233,23 +3385,34 @@
     // --- GESTÃO DO PORTFÓLIO DE ENCOMENDAS ---
     const PORTFOLIO_STORAGE_KEY_ = 'roadbook_portfolio_encomendas_v1';
 
+    /** Converte o formato guardado ([{nome, produtos:[{id,nome}]}]) para o
+     *  catálogo usado pelo botão Encomendar, aplica-o e faz cache local
+     *  (para arranque rápido offline). Usado tanto no arranque local como
+     *  quando os dados chegam da nuvem (puxarDadosDaNuvem). */
+    function aplicarPortfolioRecebido_(dados) {
+        if (!Array.isArray(dados)) return;
+        const catalogo = [];
+        dados.forEach((marca, mi) => {
+            const nome = String(marca.nome || '').trim();
+            if (!nome) return;
+            (Array.isArray(marca.produtos) ? marca.produtos : []).forEach((prod, pi) => {
+                const produto = String(prod.nome || '').trim();
+                if (!produto) return;
+                catalogo.push({ id: String(prod.id || ('p_' + mi + '_' + pi + '_' + Date.now())), name: produto, range: nome });
+            });
+        });
+        if (catalogo.length) {
+            PRODUCT_CATALOG = catalogo;
+            try { localStorage.setItem(PORTFOLIO_STORAGE_KEY_, JSON.stringify(dados)); } catch (e) { /* ignora */ }
+        }
+    }
+
     function carregarPortfolioGuardado_() {
         try {
             const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY_);
             if (!raw) return;
             const dados = JSON.parse(raw);
-            if (!Array.isArray(dados)) return;
-            const catalogo = [];
-            dados.forEach((marca, mi) => {
-                const nome = String(marca.nome || '').trim();
-                if (!nome) return;
-                (Array.isArray(marca.produtos) ? marca.produtos : []).forEach((prod, pi) => {
-                    const produto = String(prod.nome || '').trim();
-                    if (!produto) return;
-                    catalogo.push({ id: String(prod.id || ('p_' + mi + '_' + pi + '_' + Date.now())), name: produto, range: nome });
-                });
-            });
-            if (catalogo.length) PRODUCT_CATALOG = catalogo;
+            aplicarPortfolioRecebido_(dados);
         } catch (e) { console.warn('Não foi possível carregar o portefólio guardado.', e); }
     }
 
@@ -3344,6 +3507,16 @@
         const existentes = new Set(marcasLista.map(m => m.toLowerCase()));
         dadosGuardar.forEach(m => { if (!existentes.has(m.nome.toLowerCase())) marcasLista.push(m.nome); });
         fecharModalPortfolio_();
+        // Envia para a nuvem para o portefólio passar para os outros
+        // dispositivos (antes só ficava guardado neste telemóvel).
+        mostrarIndicadorSync_(true);
+        postComRetry_({ action: 'guardar_config', chave: 'portfolioEncomendas', valor: dadosGuardar }).then(resultado => {
+            mostrarIndicadorSync_(false);
+            if (!resultado || resultado.ok === false) {
+                console.error('Erro ao guardar portefólio na nuvem:', resultado && resultado.erro);
+                mostrarAvisoSync_();
+            }
+        });
         if (clienteAtualEncomenda) {
             const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {}).filter(m => clienteAtualEncomenda.estados[m] === 'NEGOCIADO').map(m => m.toLowerCase());
             renderizarCatalogo(gamasNegociadas);
@@ -3499,6 +3672,7 @@
                 bodyLines.push(`${namePadded} : ${quantidadesEncomenda[prod.id]} un.`);
             }
         });
+
         bodyLines.push(`------------------------------------------------------`);
         bodyLines.push(`Total de Caixas/Packs Solicitados: ${document.getElementById("totalItemCount").innerText}`);
         bodyLines.push(``);
@@ -3595,4 +3769,3 @@
 </script>
 </body>
 </html>
-        
