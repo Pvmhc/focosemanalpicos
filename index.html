@@ -807,6 +807,17 @@
         .btn-submit:hover { filter: brightness(1.1); }
         .btn-whatsapp { background: #fff; color: #1e9e56; border: 1.5px solid #1e9e56; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: background 0.2s, color 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-whatsapp:hover { background: #1e9e56; color: #fff; }
+        .modal-dia-vendedor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .btn-dia-vendedor {
+            padding: 12px 8px; background: #fff; border: 1.5px solid var(--border); border-radius: 10px;
+            cursor: pointer; font-weight: 700; font-size: 0.88rem; color: var(--text); transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-dia-vendedor:hover { background: var(--vazio-bg); border-color: var(--primary); }
+        /* Chip que aparece junto do botão de WhatsApp quando há um Vendedor
+           selecionado, mostrando/permitindo mudar o filtro de dia escolhido
+           no popup "Filtrar por dia?". */
+        .btn-dia-vendedor-chip { border-color: var(--primary); color: var(--primary); }
+        .btn-dia-vendedor-chip:hover { background: var(--primary); color: #fff; }
     
         .btn-portfolio { width:34px; height:34px; border:1px solid var(--border); background:#fff; color:var(--primary); border-radius:9px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
         .btn-portfolio:hover { background:var(--ok-bg); }
@@ -955,7 +966,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Vendedor</span>
             <span class="filtro-valor-selecionado" id="valorVendedorSelecionado"></span>
-            <select id="vendedorSelect" class="filtro-select-oculto" onchange="atualizarVisualizacao()">
+            <select id="vendedorSelect" class="filtro-select-oculto" onchange="onVendedorAlterado_()">
                 <option value="">Todos</option>
             </select>
         </div>
@@ -1010,6 +1021,10 @@
     <div id="cabecalhoModoVendedor" class="cabecalho-modo-vendedor"></div>
 
     <div class="link-vendedor-row">
+        <button class="btn-action btn-dia-vendedor-chip" id="chipDiaVendedor" onclick="abrirModalDiaVendedor_()" style="display:none;">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+            <span id="chipDiaVendedorTexto">Dia: Todos</span>
+        </button>
         <button class="btn-action btn-link-vendedor btn-whatsapp" id="btnWhatsappLinkVendedor" onclick="enviarImagemVendedorWhatsApp_()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.29-.15-1.73-.85-2-.95-.27-.1-.46-.15-.66.15-.2.29-.76.95-.93 1.14-.17.2-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.76-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.49.1-.2.05-.37-.02-.51-.07-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51-.17-.01-.37-.01-.56-.01-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43 0 1.43 1.05 2.82 1.19 3.01.15.2 2.07 3.16 5.02 4.43.7.3 1.25.48 1.68.62.7.22 1.34.19 1.85.12.56-.08 1.73-.71 1.98-1.39.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.35z"/><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18a7.94 7.94 0 01-4.06-1.11l-.29-.17-3.02.79.81-2.94-.19-.3A7.96 7.96 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
             WhatsApp
@@ -1119,6 +1134,30 @@
         <div class="modal-foco-footer">
             <button class="btn-cancel" onclick="fecharModalFocoSemanal()">Cancelar</button>
             <button class="btn-submit" onclick="guardarFocoSemanal()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-foco-overlay" id="modalDiaVendedorOverlay">
+    <div class="modal-foco-box" style="max-width: 380px;">
+        <div class="modal-foco-header">
+            <h2>Filtrar por dia?</h2>
+            <button class="modal-foco-close" onclick="fecharModalDiaVendedor_()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="modal-foco-body">
+            <p style="margin:0;color:var(--muted);font-size:0.9rem;">
+                Mostrar só os clientes de <strong id="modalDiaVendedorNome"></strong> visitados num dia específico da rota, ou ver o mês todo.
+            </p>
+            <div class="modal-dia-vendedor-grid">
+                <button class="btn-dia-vendedor" onclick="escolherDiaVendedor_('Segunda')">Segunda</button>
+                <button class="btn-dia-vendedor" onclick="escolherDiaVendedor_('Terça')">Terça</button>
+                <button class="btn-dia-vendedor" onclick="escolherDiaVendedor_('Quarta')">Quarta</button>
+                <button class="btn-dia-vendedor" onclick="escolherDiaVendedor_('Quinta')">Quinta</button>
+                <button class="btn-dia-vendedor" onclick="escolherDiaVendedor_('Sexta')">Sexta</button>
+            </div>
+        </div>
+        <div class="modal-foco-footer" style="justify-content: center;">
+            <button class="btn-cancel" style="width:100%;" onclick="escolherDiaVendedor_(null)">Ver o mês todo (sem filtrar por dia)</button>
         </div>
     </div>
 </div>
@@ -1589,6 +1628,8 @@
         'nome vendedor', 'nome do vendedor', 'tipologia',
         'segmento de clientes', 'frequência de visitas', 'frequencia de visitas',
         'dia', 'dia da semana', 'dia semana', 'semana', 'semana do mês', 'id',
+        'dia vendedor', 'dia do vendedor', 'dia visita vendedor', 'dia de visita vendedor',
+        'dia de visita do vendedor', 'dia visita do vendedor',
         'numero', 'número', 'nº', 'n.º', 'nº estabelecimento', 'numero estabelecimento',
         'número do estabelecimento', 'codigo', 'código',
         'estados', 'estadosjson', 'historico', 'historicojson',
@@ -1797,6 +1838,37 @@
     }
     let baseDadosRotas = [];
     let diaAtualSelecionado = "Segunda";
+    // Dia (opcional) escolhido no popup "Filtrar por dia?" quando há um
+    // Vendedor selecionado. null = sem filtro de dia (mostra o mês todo,
+    // comportamento anterior). Repõe-se sempre que o Vendedor muda.
+    let diaFiltroVendedor_ = null;
+
+    function onVendedorAlterado_() {
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const vend = vendedorSelect ? vendedorSelect.value : '';
+        diaFiltroVendedor_ = null;
+        atualizarVisualizacao();
+        if (vend) abrirModalDiaVendedor_();
+    }
+
+    function abrirModalDiaVendedor_() {
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const vend = vendedorSelect ? vendedorSelect.value : '';
+        if (!vend) return;
+        const nomeEl = document.getElementById('modalDiaVendedorNome');
+        if (nomeEl) nomeEl.textContent = vend;
+        document.getElementById('modalDiaVendedorOverlay').classList.add('aberto');
+    }
+
+    function fecharModalDiaVendedor_() {
+        document.getElementById('modalDiaVendedorOverlay').classList.remove('aberto');
+    }
+
+    function escolherDiaVendedor_(dia) {
+        diaFiltroVendedor_ = dia; // null = mês todo
+        fecharModalDiaVendedor_();
+        atualizarVisualizacao();
+    }
 
     // --- MODO "LINK PARA O VENDEDOR" (via parâmetros na URL) ---
     // Quando o link é aberto com ?modo=vendedor&comercial=...&vendedor=...,
@@ -2197,27 +2269,55 @@
         if (!silencioso) mostrarLoading(false);
     }
 
-    async function enviarAlteracaoNuvem(id, marca, novoEstado) {
+    async function enviarAlteracaoNuvem(id, marca, novoEstado, tentativaFundo) {
         mostrarIndicadorSync_(true);
-        const resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
-        limparAlteracaoPendente_('estado', id, marca);
-        limparAlteracaoPendente_('foco', id, marca);
+        let resultado;
+        try {
+            resultado = await postComRetry_({ action: "atualizar_estado", id: id, marca: marca, novoEstado: novoEstado });
+        } catch (e) {
+            resultado = { ok: false, erro: e.message };
+        }
+        mostrarIndicadorSync_(false);
+
+        // Só liberta a proteção (alteracoesPendentes_) quando o servidor
+        // confirma mesmo sucesso — antes disto, mesmo depois de esgotadas as
+        // 3 tentativas do postComRetry_, a proteção era largada de qualquer
+        // forma. O polling seguinte (a cada ~15s) buscava então o valor
+        // antigo ainda por gravar no servidor e "revertia" o estado/foco
+        // escolhido, dando a sensação de que mudava sozinho. Agora, se
+        // falhar, mantém a proteção e tenta outra vez sozinho em segundo
+        // plano, sem bloquear o ecrã.
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
-            mostrarAvisoSync_();
+            if (!tentativaFundo) mostrarAvisoSync_();
+            setTimeout(() => enviarAlteracaoNuvem(id, marca, novoEstado, true), 6000);
+            return;
         }
-        mostrarIndicadorSync_(false);
+
+        limparAlteracaoPendente_('estado', id, marca);
+        limparAlteracaoPendente_('foco', id, marca);
     }
 
-    async function enviarColocouNuvem(id, marca, colocado) {
+    async function enviarColocouNuvem(id, marca, colocado, tentativaFundo) {
         mostrarIndicadorSync_(true);
-        const resultado = await postComRetry_({ action: "atualizar_colocou", id: id, marca: marca, colocado: colocado });
-        limparAlteracaoPendente_('colocou', id, marca);
-        if (!resultado || resultado.ok === false) {
-            console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
-            mostrarAvisoSync_();
+        let resultado;
+        try {
+            resultado = await postComRetry_({ action: "atualizar_colocou", id: id, marca: marca, colocado: colocado });
+        } catch (e) {
+            resultado = { ok: false, erro: e.message };
         }
         mostrarIndicadorSync_(false);
+
+        // Mesma proteção que em enviarAlteracaoNuvem: só larga o pendente
+        // com sucesso confirmado, senão tenta outra vez em segundo plano.
+        if (!resultado || resultado.ok === false) {
+            console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
+            if (!tentativaFundo) mostrarAvisoSync_();
+            setTimeout(() => enviarColocouNuvem(id, marca, colocado, true), 6000);
+            return;
+        }
+
+        limparAlteracaoPendente_('colocou', id, marca);
     }
 
     // Aviso discreto (sem bloquear com alert) quando algo não sincronizou mesmo após as tentativas.
@@ -2354,6 +2454,24 @@
                     let diaValRaw = obterValor(['dia', 'dia da semana', 'dia semana']);
                     let diaVal = (diaValRaw === null || diaValRaw === undefined || String(diaValRaw).trim() === '' || String(diaValRaw).trim() === '0')
                         ? '' : String(diaValRaw).trim();
+                    // Dia em que o VENDEDOR (não o gestor) visita este cliente —
+                    // vem de uma coluna própria no Excel, separada da coluna "Dia"
+                    // já existente (essa é do gestor). Usada só no popup "Filtrar
+                    // por dia?" quando se escolhe um Vendedor no filtro.
+                    let diaVendedorValRaw = obterValor([
+                        'dia vendedor', 'dia do vendedor', 'dia visita vendedor',
+                        'dia de visita vendedor', 'dia de visita do vendedor', 'dia visita do vendedor'
+                    ]);
+                    let diaVendedorVal = (diaVendedorValRaw === null || diaVendedorValRaw === undefined || String(diaVendedorValRaw).trim() === '' || String(diaVendedorValRaw).trim() === '0')
+                        ? '' : String(diaVendedorValRaw).trim();
+                    {
+                        const textoDiaVend = diaVendedorVal.toLowerCase();
+                        if (textoDiaVend.includes('seg')) diaVendedorVal = 'Segunda';
+                        else if (textoDiaVend.includes('ter')) diaVendedorVal = 'Terça';
+                        else if (textoDiaVend.includes('qua')) diaVendedorVal = 'Quarta';
+                        else if (textoDiaVend.includes('qui')) diaVendedorVal = 'Quinta';
+                        else if (textoDiaVend.includes('sex')) diaVendedorVal = 'Sexta';
+                    }
                     
                     let estadosObj = {};
                     let historicoObj = {};
@@ -2441,6 +2559,7 @@
                         tipologia: tipologiaVal,
                         comprouMes: comprouMesVal,
                         dia: diaVal,
+                        diaVendedor: diaVendedorVal,
                         semana: semanaVal,
                         estados: estadosObj,
                         historico: historicoObj,
@@ -2656,6 +2775,13 @@
         const btnLinkVendedor = document.getElementById('btnWhatsappLinkVendedor');
         if (btnLinkVendedor) btnLinkVendedor.closest('.link-vendedor-row').style.display = vend ? '' : 'none';
 
+        const chipDiaVendedor = document.getElementById('chipDiaVendedor');
+        if (chipDiaVendedor) {
+            chipDiaVendedor.style.display = vend ? '' : 'none';
+            const txt = document.getElementById('chipDiaVendedorTexto');
+            if (txt) txt.textContent = 'Dia: ' + (diaFiltroVendedor_ || 'Todos');
+        }
+
         const corpo = document.getElementById('tabelaVisitas');
         if (!corpo) return;
         corpo.innerHTML = '';
@@ -2666,14 +2792,29 @@
         const emModoMarcasColocadas = MARCAS_FILTRO_SELECIONADAS_.length > 0;
 
         const diasTabs = document.getElementById('diasTabs');
-        if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas) ? 'none' : '';
+        // Com um Vendedor selecionado, as abas normais de dia ficam escondidas
+        // — o dia passa a ser escolhido no popup "Filtrar por dia?" (chip
+        // acima da tabela), para não haver dois controlos de dia em conflito.
+        if (diasTabs) diasTabs.style.display = (emModoPesquisa || emModoMarcasColocadas || vend) ? 'none' : '';
 
         const passaVendedor = i => !vend || String(i.vendedor || '').trim() === vend;
-        // Com um Vendedor selecionado, OU com o filtro "Marcas colocadas (mês)"
-        // ativo, o filtro passa a abranger o mês todo: ignora tanto a Semana
-        // escolhida no dropdown como o Dia (tab) atual.
+        // Com um Vendedor selecionado, o filtro passa a abranger o mês todo
+        // por omissão (ignora a Semana do dropdown); o Dia só filtra se o
+        // utilizador escolher um no popup — caso contrário mostra todos os
+        // dias da rota desse vendedor. Com o filtro "Marcas colocadas (mês)"
+        // ativo, ambos são ignorados da mesma forma.
         const passaSemana = i => vend || emModoMarcasColocadas || i.semana === sem;
-        const passaDia = i => vend || emModoMarcasColocadas || i.dia === diaAtualSelecionado;
+        // O dia do Vendedor vem de uma coluna própria do Excel ("Dia
+        // Vendedor"), diferente da coluna "Dia" (essa é do gestor, usada nas
+        // abas normais). Se um registo ainda não tiver essa coluna
+        // preenchida (Excel antigo, sem reimportar), cai para trás no "Dia"
+        // do gestor em vez de nunca corresponder a nada.
+        const diaDoVendedor_ = i => i.diaVendedor || i.dia;
+        const passaDia = i => {
+            if (emModoMarcasColocadas) return true;
+            if (vend) return !diaFiltroVendedor_ || diaDoVendedor_(i) === diaFiltroVendedor_;
+            return i.dia === diaAtualSelecionado;
+        };
 
         // Quando o filtro de marcas está ativo, "já comprou esta marca este
         // mês" tem de olhar para TODAS as linhas do cliente (pode ter mais
@@ -2813,8 +2954,13 @@
                 ? `<span class="icone-comprou sim" title="Já comprou este mês">✅ Comprou</span>`
                 : `<span class="icone-comprou nao" title="Ainda não comprou este mês">○ Não comprou</span>`;
             const numeroMeta = item.numero ? `<span class="cliente-meta">Nº ${item.numero} ${iconeComprouHtml}</span>` : '';
+            // Com um Vendedor selecionado, mostra o dia de visita DELE (coluna
+            // própria do Excel), não o dia do gestor — evita confusão quando
+            // os dois diferem (ex.: filtrado por "Quarta" do vendedor, mas a
+            // etiqueta mostrava "Segunda" do gestor).
+            const diaParaEtiqueta = vend ? (item.diaVendedor || item.dia) : item.dia;
             const diaMeta = (emModoPesquisa || vend || emModoMarcasColocadas)
-                ? `<span class="cliente-meta">${item.dia || 'sem dia'} · Semana ${item.semana || '—'}</span>`
+                ? `<span class="cliente-meta">${diaParaEtiqueta || 'sem dia'} · Semana ${item.semana || '—'}</span>`
                 : '';
             
             const temNegociado = Object.values(item.estados || {}).includes("NEGOCIADO");
