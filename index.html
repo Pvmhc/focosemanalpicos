@@ -2223,6 +2223,39 @@
         return novosDados;
     }
 
+    // Envio do estado ao servidor com "debounce": cada clique atualiza o
+    // ecrã e a proteção (alteracoesPendentes_) na hora, mas o POST real só
+    // parte 5s depois do ÚLTIMO clique nesse mesmo cliente+marca. Antes,
+    // cada clique do ciclo (VAZIO → FOCO → NÃO OK → OK → NEGOCIADO) disparava
+    // logo o seu próprio pedido; com vários cliques rápidos, vários POSTs
+    // ficavam em voo ao mesmo tempo e podiam responder fora de ordem,
+    // fazendo o estado "voltar atrás" sozinho. Só se envia o valor final.
+    const DEBOUNCE_ENVIO_ESTADO_MS = 5000;
+    const timersEnvioEstado_ = new Map();
+    function agendarEnvioAlteracaoNuvem_(idRegisto, marca, novoEstado) {
+        const chave = idRegisto + '::' + marca;
+        if (timersEnvioEstado_.has(chave)) clearTimeout(timersEnvioEstado_.get(chave));
+        timersEnvioEstado_.set(chave, setTimeout(() => {
+            timersEnvioEstado_.delete(chave);
+            enviarAlteracaoNuvem(idRegisto, marca, novoEstado);
+        }, DEBOUNCE_ENVIO_ESTADO_MS));
+    }
+    // Se a página for fechada/minimizada antes dos 5s, envia já o que estiver
+    // por enviar em vez de arriscar perder a alteração.
+    function forcarEnvioEstadosPendentes_() {
+        timersEnvioEstado_.forEach((timer, chave) => {
+            clearTimeout(timer);
+            const [idRegisto, marca] = chave.split('::');
+            const registo = baseDadosRotas.find(item => String(item.id) === idRegisto);
+            if (registo) enviarAlteracaoNuvem(idRegisto, marca, registo.estados[marca] || '');
+        });
+        timersEnvioEstado_.clear();
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') forcarEnvioEstadosPendentes_();
+    });
+    window.addEventListener('pagehide', forcarEnvioEstadosPendentes_);
+
     async function puxarDadosDaNuvem(silencioso) {
         if (!silencioso) mostrarLoading(true);
         try {
@@ -2652,7 +2685,7 @@
             }
 
             atualizarVisualizacao();
-            enviarAlteracaoNuvem(idRegisto, marca, proximo);
+            agendarEnvioAlteracaoNuvem_(idRegisto, marca, proximo);
         }
     }
 
@@ -2669,7 +2702,7 @@
         registo.estados[marca] = proximo;
         marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
         atualizarVisualizacao();
-        enviarAlteracaoNuvem(idRegisto, marca, proximo);
+        agendarEnvioAlteracaoNuvem_(idRegisto, marca, proximo);
     }
 
     /** Abre o WhatsApp para enviar uma mensagem: tenta primeiro o WhatsApp
