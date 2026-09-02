@@ -1656,6 +1656,25 @@
         return numero !== '' ? 'num:' + numero.toLowerCase() : 'nome:' + String(r.cliente || '').trim().toLowerCase();
     }
 
+    /** Quando o mesmo cliente tem mais que uma visita agendada (ex.: 2ª e
+     *  5ª feira), cada visita é uma linha própria em baseDadosRotas com o
+     *  seu próprio id — mas é o mesmo estabelecimento. Ao marcar um estado
+     *  (ex.: Negociado) numa visita, replica-se de imediato para as outras
+     *  visitas do mesmo cliente (mesmo comercial, mesma marca), tanto no
+     *  ecrã como no envio ao servidor, para nunca ficarem dessincronizadas. */
+    function propagarEstadoParaOutrasVisitas_(registoOrigem, marca, novoEstado) {
+        const chave = chaveClienteUnica_(registoOrigem);
+        baseDadosRotas.forEach(outro => {
+            if (outro.id === registoOrigem.id) return;
+            if (outro.comercial !== registoOrigem.comercial) return;
+            if (chaveClienteUnica_(outro) !== chave) return;
+            if ((outro.estados[marca] || '') === novoEstado) return;
+            outro.estados[marca] = novoEstado;
+            marcarAlteracaoPendente_('estado', outro.id, marca, novoEstado);
+            agendarEnvioAlteracaoNuvem_(outro.id, marca, novoEstado);
+        });
+    }
+
     /** Reduz uma lista de registos a 1 linha por cliente único (mantém a
      *  primeira ocorrência de cada). */
     function deduplicarClientesUnicos_(registos) {
@@ -2671,6 +2690,7 @@
             const proximo = ciclo[(idxAtual + 1) % ciclo.length];
             registo.estados[marca] = proximo;
             marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
+            propagarEstadoParaOutrasVisitas_(registo, marca, proximo);
 
             // Uma vez marcada como FOCO/FOCO SEMANAL, o cliente passa a contar
             // sempre para o "Foco" do resumo — mesmo que a marcação seja depois
@@ -2701,6 +2721,7 @@
         const proximo = atual === "NEGOCIADO" ? "" : "NEGOCIADO";
         registo.estados[marca] = proximo;
         marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
+        propagarEstadoParaOutrasVisitas_(registo, marca, proximo);
         atualizarVisualizacao();
         agendarEnvioAlteracaoNuvem_(idRegisto, marca, proximo);
     }
@@ -2892,11 +2913,11 @@
               ))
             : baseDadosRotas.filter(i => i.comercial === com && passaSemana(i) && passaDia(i) && passaVendedor(i) && passaMarcasColocadas(i));
 
-        // Com o filtro "Marcas colocadas (mês)" ativo, o mesmo cliente pode
-        // aparecer em várias linhas (dias/semanas diferentes da rota) — como
-        // agora se abrange o mês todo, remove-se as repetições e mantém-se
-        // apenas 1 linha por cliente único.
-        if (emModoMarcasColocadas) {
+        // Com o filtro "Marcas colocadas (mês)" ativo, OU com um Vendedor
+        // selecionado, o mesmo cliente pode aparecer em várias linhas
+        // (visitas em dias diferentes da semana) — remove-se as repetições e
+        // mantém-se apenas 1 linha por cliente único.
+        if (emModoMarcasColocadas || vend) {
             filtrados = deduplicarClientesUnicos_(filtrados);
         }
 
