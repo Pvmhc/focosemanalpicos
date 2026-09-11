@@ -874,6 +874,83 @@
         .install-prompt-steps{text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 auto 16px;max-width:330px}
         .install-prompt-steps ol{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--text)}
         .install-prompt-steps b{color:var(--primary)}
+
+        /* ── MODO ESCURO ──────────────────────────────────────────────────
+           Ativado com a classe .dark-mode no <body> (ver alternarModoEscuro()).
+           A maior parte do layout já usa variáveis CSS (--bg, --card, --text,
+           --muted, --border e as cores de estado), por isso basta redefini-las
+           aqui. Os poucos sítios com "#fff" fixo (botões/cartões que deviam
+           acompanhar o tema) são corrigidos a seguir. */
+        body.dark-mode {
+            --primary: #22c55e; --primary-dark: #16a34a; --accent: #e8eaed;
+            --bg: #14161a; --card: #1e2127; --text: #e8eaed; --muted: #9aa4b2;
+            --border: #33373f; --heineken-red: #ff5c5c;
+            --foco-color: #60a5fa; --foco-bg: rgba(96,165,250,.14);
+            --nok-color: #ff5c5c; --nok-bg: rgba(255,92,92,.12);
+            --ok-color: #22c55e; --ok-bg: rgba(34,197,94,.14);
+            --vazio-color: #aab4c2; --vazio-bg: #262a31;
+            --negociado-color: #fbbf24; --negociado-bg: rgba(180,83,9,.22);
+            --focosemanal-color: #60a5fa; --focosemanal-bg: rgba(96,165,250,.14);
+        }
+        /* Elementos com fundo branco fixo — em modo escuro passam a seguir
+           a cor do cartão, para não sobrarem "ilhas" brancas no meio do tema
+           escuro. O texto/ícones destas peças já usam var(--primary) ou uma
+           cor fixa de marca (ex.: verde WhatsApp), que continua legível. */
+        body.dark-mode .btn-icone-whatsapp-linha,
+        body.dark-mode .btn-link-vendedor,
+        body.dark-mode .cabecalho-modo-vendedor,
+        body.dark-mode .btn-sync-titulo,
+        body.dark-mode .lock-box,
+        body.dark-mode .tab-btn,
+        body.dark-mode .range-section,
+        body.dark-mode .btn-cancel,
+        body.dark-mode .btn-whatsapp,
+        body.dark-mode .btn-dia-vendedor,
+        body.dark-mode .btn-portfolio,
+        body.dark-mode .portfolio-brand,
+        body.dark-mode .portfolio-add-product,
+        body.dark-mode .portfolio-delete,
+        body.dark-mode .portfolio-add-brand,
+        body.dark-mode .install-prompt-later,
+        body.dark-mode .marca-chip,
+        body.dark-mode select {
+            background: var(--card);
+        }
+        /* Cabeçalho da tabela principal (Estabelecimento / marcas), visível a
+           partir de 768px: usava var(--accent) como fundo com texto branco.
+           --accent passou a ser uma cor clara em modo escuro (para servir de
+           texto legível noutros sítios), por isso aqui precisa de um fundo
+           próprio, mais escuro que os cartões, para não ficar um "letreiro"
+           cinzento-claro ilegível. */
+        body.dark-mode th { background-color: #101319; color: var(--text); }
+        body.dark-mode .marca-chip.ativa { background: var(--ok-bg); }
+        body.dark-mode .filtro-select-oculto,
+        body.dark-mode .lock-input,
+        body.dark-mode .modal-pin-input {
+            background-color: var(--card); color: var(--text);
+        }
+        body.dark-mode tbody tr { border-color: var(--border); }
+        body.dark-mode .btn-limpar { border-color: #7a2c2c; }
+        body.dark-mode ::placeholder { color: var(--muted); opacity: 1; }
+        /* Botão rápido de modo escuro no cabeçalho: mostra lua (ativar) em modo
+           claro e sol (voltar ao claro) já em modo escuro. */
+        .btn-modoescuro-titulo .icone-sol { display: none; }
+        body.dark-mode .btn-modoescuro-titulo .icone-lua { display: none; }
+        body.dark-mode .btn-modoescuro-titulo .icone-sol { display: block; }
+        /* As bordas pastel dos chips de estado (foco/ok/nao-ok/negociado) eram
+           fixas para o tema claro e ficavam demasiado claras/berrantes sobre
+           fundo escuro. Em modo escuro usam uma versão translúcida da própria
+           cor do estado, e o estado "vazio" (marca não colocada) ganha um
+           fundo/borda com mais contraste em vez de quase se confundir com o
+           cartão à volta. */
+        body.dark-mode .btn-estado.vazio { border-color: #383d46; }
+        body.dark-mode .btn-estado.foco,
+        body.dark-mode .btn-estado.focosemanal { border-color: rgba(96,165,250,.35); }
+        body.dark-mode .btn-estado.nao-ok { border-color: rgba(255,92,92,.35); }
+        body.dark-mode .btn-estado.ok { border-color: rgba(34,197,94,.35); }
+        body.dark-mode .btn-estado.negociado { border-color: rgba(251,191,36,.35); }
+        /* O rodapé fixo (dock) já é escuro por natureza (fundo próprio, não
+           usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
 </head>
 <body>
@@ -1018,6 +1095,10 @@
             <button class="btn-sync-titulo" id="btnSyncTitulo" onclick="sincronizarManualmente()" title="Sincronizar" aria-label="Sincronizar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
             </button>
+            <button class="btn-sync-titulo btn-modoescuro-titulo" id="btnModoEscuroTitulo" onclick="alternarModoEscuro()" title="Alternar modo escuro" aria-label="Alternar modo escuro">
+                <svg class="icone-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                <svg class="icone-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </button>
         </h1>
         <div id="resumoFoco" class="resumo-foco"></div>
     </header>
@@ -1058,6 +1139,10 @@
                     <button class="settings-menu-item item-fotospessoas" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalFotosPessoas_())">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         Fotos Gestor/Vendedor
+                    </button>
+                    <button class="settings-menu-item item-modoescuro" id="itemModoEscuro" onclick="fecharMenuDefinicoes_(); alternarModoEscuro()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                        <span id="rotuloModoEscuro">Modo escuro</span>
                     </button>
                 </div>
             </div>
@@ -2276,6 +2361,24 @@
         return ((offset + 1) % 4) + 1;
     }
 
+    // --- MODO ESCURO ---
+    // Preferência pessoal de visualização — fica guardada no dispositivo
+    // (ao contrário da semana/dia, que passaram a ser sempre os atuais).
+    function atualizarRotuloModoEscuro_() {
+        const rotulo = document.getElementById('rotuloModoEscuro');
+        if (rotulo) rotulo.textContent = document.body.classList.contains('dark-mode') ? 'Modo claro' : 'Modo escuro';
+    }
+    function alternarModoEscuro() {
+        const ativo = document.body.classList.toggle('dark-mode');
+        try { localStorage.setItem('modoEscuro', ativo ? '1' : '0'); } catch (e) { /* ignora */ }
+        atualizarRotuloModoEscuro_();
+    }
+    (function aplicarModoEscuroGuardado_() {
+        try {
+            if (localStorage.getItem('modoEscuro') === '1') document.body.classList.add('dark-mode');
+        } catch (e) { /* ignora */ }
+    })();
+
     function atualizarNumeroSemanaVisual_() {
         const el = document.getElementById('numeroSemanaAtual');
         if (el) el.textContent = String(obterSemanaISO(new Date()));
@@ -2293,6 +2396,23 @@
         select.value = String(semanaCiclo);
         const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
         if (badgeSemanaCiclo) badgeSemanaCiclo.textContent = String(semanaCiclo);
+    }
+
+    // Seleciona automaticamente, no dock de baixo, o separador do dia da
+    // semana correspondente ao dia real de hoje (Segunda a Sexta). Ao
+    // fim de semana (Sábado/Domingo), como não há separador próprio,
+    // mostra-se Segunda por defeito (próximo dia útil).
+    function aplicarDiaAtual() {
+        const mapaDias = { 1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta' };
+        const diaSemanaHoje = new Date().getDay(); // 0=Domingo ... 6=Sábado
+        const diaAlvo = mapaDias[diaSemanaHoje] || 'Segunda';
+        const btnAlvo = Array.from(document.querySelectorAll('#diasTabs .tab-btn'))
+            .find(b => b.textContent.trim() === diaAlvo);
+        if (btnAlvo) {
+            mudarDia(diaAlvo, btnAlvo);
+        } else {
+            diaAtualSelecionado = diaAlvo;
+        }
     }
 
     // Envia um POST para o Apps Script com retry automático (com pequeno atraso)
@@ -4343,22 +4463,14 @@
         document.getElementById('comercialSelect').value = gestorSalvo;
     }
 
-    const semanaSalva = localStorage.getItem('semanaSelecionada');
+    // A app abre sempre na semana e no dia reais de hoje (não se usa mais a
+    // última semana guardada em localStorage de uma sessão anterior — essa
+    // memória confundia quem tinha ficado a ver uma semana diferente e
+    // reabria a app dias depois à espera de ver logo a semana/dia atuais).
     atualizarNumeroSemanaVisual_();
-    if (semanaSalva) {
-        const selectSemana = document.getElementById('semanaSelect');
-        selectSemana.value = semanaSalva;
-        const semanaISO = obterSemanaISO(new Date());
-        const semanaCiclo = calcularSemanaCiclo(semanaISO);
-        Array.from(selectSemana.options).forEach(opt => {
-            const rotulo = 'Semana ' + opt.value;
-            opt.textContent = (opt.value === String(semanaCiclo)) ? rotulo + ' 📍 (atual)' : rotulo;
-        });
-        const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
-        if (badgeSemanaCiclo) badgeSemanaCiclo.textContent = semanaSalva;
-    } else {
-        aplicarSemanaAtual();
-    }
+    aplicarSemanaAtual();
+    aplicarDiaAtual();
+    atualizarRotuloModoEscuro_();
 
     // Mostra imediatamente os últimos dados conhecidos (cache local) enquanto
     // o pedido real à nuvem ainda vai a caminho — evita o ecrã de "a carregar"
