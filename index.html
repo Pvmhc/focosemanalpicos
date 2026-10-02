@@ -724,6 +724,14 @@
         .btn-estado.nao-ok { background-color: var(--nok-bg); color: var(--nok-color); border-color: #fecaca; }
         .btn-estado.ok { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; }
         .btn-estado.negociado { background-color: var(--negociado-bg); color: var(--negociado-color); border-color: #fde3b0; }
+        /* Marcas em modo "Implementação": VAZIO → DISPONÍVEL → IMPLEMENTADO */
+        .btn-estado.disponivel { background-color: #f3e8ff; color: #6d28d9; border-color: #ddd6fe; font-size: 0.72rem; }
+        .btn-estado.implementado { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; font-size: 0.72rem; }
+        .btn-impl-toggle { display: block; margin: 6px auto 0; padding: 2px 9px; font-size: 0.6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 10px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: rgba(255,255,255,.7); cursor: pointer; }
+        .btn-impl-toggle:hover { border-color: rgba(255,255,255,.7); color: #fff; }
+        .btn-impl-toggle.ativo { background: #6d28d9; border-color: #6d28d9; color: #fff; }
+        body.modo-vendedor-view .btn-impl-toggle,
+        body.acesso-utilizador .btn-impl-toggle { display: none !important; }
 
         .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
         .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
@@ -949,6 +957,8 @@
         body.dark-mode .btn-estado.nao-ok { border-color: rgba(255,92,92,.35); }
         body.dark-mode .btn-estado.ok { border-color: rgba(34,197,94,.35); }
         body.dark-mode .btn-estado.negociado { border-color: rgba(251,191,36,.35); }
+        body.dark-mode .btn-estado.disponivel { background-color: rgba(167,139,250,.16); color: #c4b5fd; border-color: rgba(167,139,250,.35); }
+        body.dark-mode .btn-estado.implementado { border-color: rgba(34,197,94,.35); }
         /* O rodapé fixo (dock) já é escuro por natureza (fundo próprio, não
            usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
@@ -1798,7 +1808,7 @@
     // servidor dentro de guardar_foco_semanal_completo, num único POST.
     // Espelha exatamente a lógica do backend: limpa FOCOSEMANAL desatualizado
     // e aplica-o à nova marca foco, exceto onde já há um estado final.
-    const ESTADOS_FINAIS_FOCO_ = new Set(['OK', 'NAO OK', 'NEGOCIADO']);
+    const ESTADOS_FINAIS_FOCO_ = new Set(['OK', 'NAO OK', 'NEGOCIADO', 'DISPONIVEL', 'IMPLEMENTADO']);
     function limparFocoSemanalDesatualizadoLocal_(mapaNovo) {
         const semanas = ['1', '2', '3', '4'];
         semanas.forEach(sem => {
@@ -2019,7 +2029,9 @@
             const pctHtml = (pct === null || pct === undefined)
                 ? ''
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
-            return `<th>${m}${pctHtml}</th>`;
+            const implAtiva = ehMarcaImplementacao_(m);
+            const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
+            return `<th>${m}${pctHtml}${implHtml}</th>`;
         }).join('');
     }
 
@@ -2906,6 +2918,44 @@
         leitor.readAsBinaryString(ficheiro);
     }
 
+    // --- MARCAS EM MODO "IMPLEMENTAÇÃO" ---------------------------------
+    // Lista de marcas cujo ciclo de estados é VAZIO → DISPONÍVEL →
+    // IMPLEMENTADO (em vez de FOCO / NÃO OK / OK / NEGOCIADO). Guardada no
+    // mesmo objeto de config já sincronizado com o servidor (dadosPicos),
+    // sob uma chave reservada — assim funciona entre dispositivos sem
+    // alterações ao Apps Script.
+    const CHAVE_MARCAS_IMPLEMENTACAO_ = '__marcasImplementacao';
+    function listaMarcasImplementacao_() {
+        const v = DADOS_PICOS_[CHAVE_MARCAS_IMPLEMENTACAO_];
+        return Array.isArray(v) ? v : [];
+    }
+    function ehMarcaImplementacao_(marca) {
+        const alvo = String(marca || '').trim().toLowerCase();
+        return listaMarcasImplementacao_().some(m => String(m).trim().toLowerCase() === alvo);
+    }
+    function alternarMarcaImplementacao_(marca) {
+        // Só o acesso de editor (PIN de entrada 2011) pode alterar isto.
+        if (MODO_VENDEDOR_ATIVO_ || document.body.classList.contains('acesso-utilizador')) return;
+        pedirCodigoAcesso_(async () => {
+            const alvo = String(marca || '').trim().toLowerCase();
+            const atual = listaMarcasImplementacao_();
+            DADOS_PICOS_[CHAVE_MARCAS_IMPLEMENTACAO_] = ehMarcaImplementacao_(marca)
+                ? atual.filter(m => String(m).trim().toLowerCase() !== alvo)
+                : [...atual, marca];
+            try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+            renderCabecalhoTabela();
+            atualizarVisualizacao();
+
+            mostrarIndicadorSync_(true);
+            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+            if (!resultado || resultado.ok === false) {
+                console.error('Erro ao guardar marcas de implementação na nuvem:', resultado && resultado.erro);
+                mostrarAvisoSync_();
+            }
+            mostrarIndicadorSync_(false);
+        });
+    }
+
     function alternarEstado(idRegisto, marca) {
         if (MODO_VENDEDOR_ATIVO_) return; // link do vendedor é só de leitura
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
@@ -2918,9 +2968,11 @@
             const marcaFocoSemana = MARCA_FOCO_POR_SEMANA[registo.semana];
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
-            const ciclo = ehMarcaFoco 
-                ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
-                : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"];
+            const ciclo = ehMarcaImplementacao_(marca)
+                ? ["", "DISPONIVEL", "IMPLEMENTADO"]
+                : (ehMarcaFoco 
+                    ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
+                    : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"]);
 
             const atual = registo.estados[marca] || "";
             let idxAtual = ciclo.indexOf(atual);
@@ -3012,6 +3064,8 @@
         if (est === "NAO OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 12z"/></svg> NÃO OK`;
         if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
         if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
+        if (est === "DISPONIVEL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> DISPONÍVEL`;
+        if (est === "IMPLEMENTADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> IMPLEMENTADO`;
         return `VAZIO`;
     }
 
@@ -3998,6 +4052,8 @@
         if (est === 'NAO OK') return 'não ok';
         if (est === 'OK') return 'ok';
         if (est === 'NEGOCIADO') return 'negociado';
+        if (est === 'DISPONIVEL') return 'disponível';
+        if (est === 'IMPLEMENTADO') return 'implementado';
         return '';
     }
 
