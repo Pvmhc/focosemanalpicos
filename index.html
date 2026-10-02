@@ -2978,7 +2978,14 @@
             let idxAtual = ciclo.indexOf(atual);
             if (idxAtual === -1) idxAtual = 0;
 
-            const proximo = ciclo[(idxAtual + 1) % ciclo.length];
+            let proximo = ciclo[(idxAtual + 1) % ciclo.length];
+            if (ehMarcaImplementacao_(marca)) {
+                // Em Implementação só há DISPONÍVEL <-> IMPLEMENTADO, e só nos
+                // clientes com 1 na coluna do Excel (os restantes não têm botão).
+                const h = registo.historico && registo.historico[marca];
+                if (!(h && h.mes)) return;
+                proximo = registo.estados[marca] === "IMPLEMENTADO" ? "DISPONIVEL" : "IMPLEMENTADO";
+            }
             registo.estados[marca] = proximo;
             marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
 
@@ -3342,8 +3349,15 @@
                     if (ehColunaPreta_(m) && !ehBar) { html += `<td data-label="${m}"></td>`; return; }
                 }
 
-                const est = item.estados[m] || "";
                 const hist = item.historico[m] || { mes: false, ano: false, promo: false };
+                // Marca em modo "Implementação": o valor da coluna no Excel manda.
+                // 1 -> o cliente aparece como DISPONÍVEL (passa a IMPLEMENTADO ao
+                // clicar); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
+                // não se aplicam à tipologia do cliente.
+                const emImplementacao = ehMarcaImplementacao_(m);
+                if (emImplementacao && !hist.mes) { html += `<td data-label="${m}"></td>`; return; }
+                let est = item.estados[m] || "";
+                if (emImplementacao && est !== "IMPLEMENTADO") est = "DISPONIVEL";
                 const ehPromoMensal = !!hist.promo;
 
                 let badgeColocouHtml = '';
