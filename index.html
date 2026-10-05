@@ -3204,13 +3204,18 @@
                 // Nas marcas de implementação, "não colocadas" significa
                 // especificamente que o cliente está DISPONÍVEL.
                 if (ehMarcaImplementacao_(m)) {
-                    const registosCliente = baseDadosRotas.filter(r =>
-                        r.comercial === com &&
-                        chaveClienteUnica_(r) === chaveClienteUnica_(i)
-                    );
-                    return registosCliente.some(r =>
-                        (r.estados && r.estados[m]) === 'DISPONIVEL'
-                    );
+                    // A tabela considera DISPONÍVEL quando a marca é aplicável
+                    // ao cliente (hist.mes = true) e ainda não está IMPLEMENTADO.
+                    // Não usar apenas estados[m] === DISPONIVEL, porque o estado
+                    // pode estar vazio e a própria renderização converte-o em
+                    // DISPONÍVEL.
+                    const chaveCliente = chaveClienteUnica_(i);
+                    return baseDadosRotas.some(r => {
+                        if (r.comercial !== com || chaveClienteUnica_(r) !== chaveCliente) return false;
+                        const histMarca = (r.historico && r.historico[m]) || {};
+                        if (!histMarca.mes) return false;
+                        return !((r.estados && r.estados[m]) === 'IMPLEMENTADO');
+                    });
                 }
 
                 // Nas restantes marcas mantém-se a regra mensal existente.
