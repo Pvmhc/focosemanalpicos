@@ -94,81 +94,145 @@
             .resumo-pill { font-size: 0.86rem; padding: 5px 0; }
         }
 
-        /* Cartão "PICOS" (DN Total / DN efetuadas / Diferença), ao lado do resumo do Gestor */
+        /* Cartão "PICOS" — redesenhado em modo escuro */
         .resumo-foco-linha { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
         .resumo-foco-linha .resumo-card { flex: 1; min-width: 0; }
-        .picos-card {
-            background: linear-gradient(180deg, #fbfdfc 0%, var(--card) 100%);
-            border: 1px solid var(--border); border-radius: 14px;
-            padding: 8px 12px; box-sizing: border-box;
-            width: 100%; margin: 0 auto; overflow: hidden;
-            box-shadow: 0 1px 2px rgba(11,12,16,.04);
-        }
-        .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
-        .picos-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-        .picos-header-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-        .picos-clientes-chip {
-            display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-            background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
-            padding: 5px 10px; font-size: 0.68rem; font-weight: 700; color: var(--text); cursor: pointer;
-        }
-        .picos-clientes-chip:hover { background: var(--ok-bg); border-color: var(--ok-color); }
-        .picos-clientes-chip svg { width: 12px; height: 12px; color: var(--primary); flex: 0 0 auto; }
-        .picos-clientes-chip .picos-clientes-hint { color: var(--muted); font-weight: 600; }
 
-        .picos-body-linha { display: flex; align-items: stretch; gap: 10px; }
+        .picos-card {
+            background:
+                radial-gradient(circle at 70% 0%, rgba(255,255,255,.035), transparent 42%),
+                linear-gradient(180deg, #18212b 0%, #0c1219 100%);
+            border: 1px solid #334252;
+            border-radius: 18px;
+            padding: 12px 14px;
+            box-sizing: border-box;
+            width: 100%;
+            margin: 0 auto;
+            overflow: hidden;
+            box-shadow: 0 10px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.035);
+        }
+
+        .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
+        .picos-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+        }
+        .picos-header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+        .picos-clientes-chip {
+            display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+            background: #090f15;
+            border: 1px solid #415064;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: .70rem;
+            font-weight: 800;
+            color: #f4f7fb;
+            cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+        }
+        .picos-clientes-chip:hover { background: #111a23; border-color: var(--ok-color); }
+        .picos-clientes-chip svg { width: 14px; height: 14px; color: var(--ok-color); flex: 0 0 auto; }
+        .picos-clientes-chip .picos-clientes-hint { color: #9aaabd; font-weight: 600; }
+
+        .picos-body-linha { display: flex; align-items: stretch; gap: 12px; }
+
+        .picos-stats {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+            flex: 1;
+            align-items: stretch;
+        }
+        .picos-stat {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+            padding: 5px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-right: 1px solid #344150;
+        }
+        .picos-stat:last-child { border-right: none; }
+
+        .picos-stat-valor {
+            font-size: 1.20rem;
+            font-weight: 850;
+            line-height: 1.1;
+            letter-spacing: -.025em;
+        }
+        .picos-stat-valor.cor-total { color: #f3f6fa; }
+        .picos-stat-valor.cor-efetuadas { color: #16d66b; }
+        .picos-stat-valor.cor-diferenca.pendente { color: #16d66b; }
+        .picos-stat-valor.cor-diferenca.concluido { color: #16d66b; }
+        .picos-stat-label {
+            font-size: .64rem;
+            font-weight: 600;
+            color: #9eacbd;
+            margin-top: 5px;
+        }
+
         .picos-execucao-box {
-            flex: 0 0 auto; width: 84px; background: var(--primary); border-radius: 12px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #fff; padding: 6px; box-sizing: border-box;
+            flex: 0 0 auto;
+            width: 104px;
+            min-height: 76px;
+            background: linear-gradient(145deg, #19d66a 0%, #0fc45c 100%);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 8px;
+            box-sizing: border-box;
+            box-shadow: 0 8px 20px rgba(18,210,100,.18), inset 0 1px 0 rgba(255,255,255,.18);
         }
-        .picos-execucao-percent { font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
-        .picos-execucao-label { font-size: 0.6rem; font-weight: 700; margin-top: 2px; text-align: center; opacity: .95; }
-        @media (max-width: 400px) {
-            .picos-execucao-box { width: 68px; }
-            .picos-execucao-percent { font-size: 1rem; }
-            .picos-execucao-label { font-size: 0.56rem; }
-        }
+        .picos-execucao-percent { font-size: 1.45rem; font-weight: 900; line-height: 1.05; }
+        .picos-execucao-label { font-size: .66rem; font-weight: 800; margin-top: 4px; text-align: center; opacity: .98; }
+
         .picos-card-titulo {
-            font-size: 0.78rem; font-weight: 800; color: var(--text);
-            display: flex; align-items: center; gap: 6px; letter-spacing: 0;
+            font-size: .86rem;
+            font-weight: 850;
+            color: #f1f5f9;
+            display: flex; align-items: center; gap: 7px;
+            letter-spacing: 0;
         }
         .picos-icon-badge {
-            width: 19px; height: 19px; border-radius: 50%; background: var(--primary);
+            width: 23px; height: 23px; border-radius: 50%;
+            background: #16c968;
             display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+            box-shadow: 0 3px 10px rgba(22,201,104,.22);
         }
-        .picos-icon-badge svg { width: 11px; height: 11px; fill: #fff; }
-        .picos-objetivo-sufixo { font-weight: 600; font-size: 0.66rem; color: var(--muted); letter-spacing: 0; text-transform: none; }
-        .picos-editar-btn { background: none; border: none; padding: 4px; cursor: pointer; color: var(--muted); display: flex; align-items: center; border-radius: 7px; }
-        .picos-editar-btn:hover { color: var(--primary); background: var(--ok-bg); }
-        .picos-editar-btn svg { width: 13px; height: 13px; }
+        .picos-icon-badge svg { width: 13px; height: 13px; fill: #fff; }
+        .picos-objetivo-sufixo { font-weight: 600; font-size: .68rem; color: #91a0b2; letter-spacing: 0; text-transform: none; }
+        .picos-editar-btn {
+            background: none; border: none; padding: 5px; cursor: pointer;
+            color: #8293a8; display: flex; align-items: center; border-radius: 7px;
+        }
+        .picos-editar-btn:hover { color: #dbe5ef; background: #18232f; }
+        .picos-editar-btn svg { width: 16px; height: 16px; }
 
-        .picos-stats { display: flex; gap: 6px; margin-bottom: 6px; }
-        .picos-stat { flex: 1; min-width: 0; text-align: center; padding: 2px; }
-        .picos-stat-valor { font-size: 1.02rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
-        .picos-stat-valor.cor-total { color: var(--text); }
-        .picos-stat-valor.cor-efetuadas { color: var(--ok-color); }
-        .picos-stat-valor.cor-diferenca.pendente { color: var(--negociado-color); }
-        .picos-stat-valor.cor-diferenca.concluido { color: var(--ok-color); }
-        .picos-stat-label {
-            font-size: 0.58rem; font-weight: 600; color: var(--muted); margin-top: 2px;
-        }
-        .picos-stat-progress { border-left: 1px solid var(--border); padding-left: 10px; }
-        .picos-stat-progress .picos-stat-valor { color: var(--primary); }
+        .picos-stat-progress { border-left: 1px solid #344150; padding-left: 10px; }
+        .picos-stat-progress .picos-stat-valor { color: #16d66b; }
         .picos-stat-progress .picos-progress-track {
-            height: 4px; background: var(--bg); border-radius: 999px; overflow: hidden;
-            border: 1px solid var(--border); margin-top: 3px;
+            height: 4px; background: #111922; border-radius: 999px; overflow: hidden;
+            border: 1px solid #2f3c4a; margin-top: 3px;
         }
-        .picos-stat-progress .picos-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s ease; }
-        .picos-clientes-link {
-            display: flex; align-items: center; gap: 6px; width: 100%;
-            background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
-            padding: 6px 9px; margin-bottom: 6px; cursor: pointer;
-            font-size: 0.72rem; color: var(--text); font-weight: 700; text-align: left;
+        .picos-stat-progress .picos-progress-fill { height: 100%; background: #16d66b; border-radius: 999px; transition: width .3s ease; }
+
+        @media (max-width: 400px) {
+            .picos-card { padding: 10px 11px; }
+            .picos-body-linha { gap: 8px; }
+            .picos-execucao-box { width: 78px; min-height: 70px; }
+            .picos-execucao-percent { font-size: 1.15rem; }
+            .picos-execucao-label { font-size: .58rem; }
+            .picos-stat { padding: 4px 5px; }
+            .picos-stat-valor { font-size: 1rem; }
+            .picos-stat-label { font-size: .56rem; }
+            .picos-card-titulo { font-size: .78rem; }
+            .picos-clientes-chip { padding: 6px 9px; font-size: .64rem; }
         }
-        .picos-clientes-link:hover { background: var(--ok-bg); border-color: var(--ok-color); }
-        .picos-clientes-link svg { width: 14px; height: 14px; color: var(--primary); flex: 0 0 auto; }
-        .picos-clientes-hint { color: var(--muted); font-weight: 600; }
 
         /* Tabela de clientes/marcas compradas dentro do modal "Clientes com compra" */
         .tabela-clientes-picos { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -3204,18 +3268,13 @@
                 // Nas marcas de implementação, "não colocadas" significa
                 // especificamente que o cliente está DISPONÍVEL.
                 if (ehMarcaImplementacao_(m)) {
-                    // A tabela considera DISPONÍVEL quando a marca é aplicável
-                    // ao cliente (hist.mes = true) e ainda não está IMPLEMENTADO.
-                    // Não usar apenas estados[m] === DISPONIVEL, porque o estado
-                    // pode estar vazio e a própria renderização converte-o em
-                    // DISPONÍVEL.
-                    const chaveCliente = chaveClienteUnica_(i);
-                    return baseDadosRotas.some(r => {
-                        if (r.comercial !== com || chaveClienteUnica_(r) !== chaveCliente) return false;
-                        const histMarca = (r.historico && r.historico[m]) || {};
-                        if (!histMarca.mes) return false;
-                        return !((r.estados && r.estados[m]) === 'IMPLEMENTADO');
-                    });
+                    const registosCliente = baseDadosRotas.filter(r =>
+                        r.comercial === com &&
+                        chaveClienteUnica_(r) === chaveClienteUnica_(i)
+                    );
+                    return registosCliente.some(r =>
+                        (r.estados && r.estados[m]) === 'DISPONIVEL'
+                    );
                 }
 
                 // Nas restantes marcas mantém-se a regra mensal existente.
