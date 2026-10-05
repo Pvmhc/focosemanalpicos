@@ -710,6 +710,8 @@
         tbody td:last-child { border-bottom: none; }
         tbody td:first-child { display: block; font-weight: 800; font-size: 1.1rem; color: var(--accent); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 8px; }
         tbody td:not(:first-child)::before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 0.85rem; }
+        /* Vista em cartões (telemóvel): células sem nada (marca em Implementação com 0 no Excel, 0.0%/PRETA que não se aplicam) não mostram nem o nome da marca */
+        @media (max-width: 767px) { tbody td:empty { display: none; } }
         .cell-container { display: flex; align-items: center; gap: 12px; width: 65%; justify-content: flex-end; }
         .icons-row { display: flex; gap: 8px; align-items: center; }
         .icon-disabled { opacity: 0.12; filter: grayscale(100%); }
@@ -3199,6 +3201,19 @@
                 ? (historicoMergeadoPorCliente_[chaveClienteUnica_(i)] || {})
                 : (i.historico || {});
             return MARCAS_FILTRO_SELECIONADAS_.some(m => {
+                // Nas marcas de implementação, "não colocadas" significa
+                // especificamente que o cliente está DISPONÍVEL.
+                if (ehMarcaImplementacao_(m)) {
+                    const registosCliente = baseDadosRotas.filter(r =>
+                        r.comercial === com &&
+                        chaveClienteUnica_(r) === chaveClienteUnica_(i)
+                    );
+                    return registosCliente.some(r =>
+                        (r.estados && r.estados[m]) === 'DISPONIVEL'
+                    );
+                }
+
+                // Nas restantes marcas mantém-se a regra mensal existente.
                 const hist = historicoCliente[m] || {};
                 return !hist.mes;
             });
