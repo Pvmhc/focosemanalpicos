@@ -880,6 +880,21 @@
         }
         .loading-notice.show { display: flex; }
 
+        /* Mini-jogo da torneira (cortina de carregamento) */
+        #jogoCopoCanvas {
+            width: min(320px, 86vw, calc(52vh * 0.8)); aspect-ratio: 320 / 400; height: auto;
+            touch-action: none; border-radius: 16px; background: rgba(255,255,255,.05);
+            border: 1px solid rgba(255,243,205,.25); cursor: grab;
+        }
+        .loading-notice { gap: 14px; }
+        .jogo-pontos { font-size: .85rem; font-weight: 700; opacity: .85; }
+        #jogoCopoTexto { font-size: .95rem; max-width: 320px; }
+        .btn-saltar-loading {
+            display: none; background: transparent; color: #fff3cd; border: 1px solid rgba(255,243,205,.5);
+            border-radius: 999px; padding: 7px 18px; font-size: .8rem; font-weight: 700; cursor: pointer;
+        }
+        .btn-saltar-loading.visivel { display: inline-block; }
+
         .beer-loader { position: relative; width: 90px; height: 114px; flex-shrink: 0; }
         .beer-loader svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
         .beer-loader .copo-contorno { fill: none; stroke: #fff3cd; stroke-width: 2; }
@@ -1193,29 +1208,10 @@
 
 <div class="container">
     <div id="loadingBox" class="loading-notice show">
-        <span class="beer-loader">
-            <svg viewBox="0 0 30 38">
-                <defs>
-                    <clipPath id="clipCopo">
-                        <path d="M6 4 h18 l-1.5 28 a2 2 0 0 1 -2 2 h-11 a2 2 0 0 1 -2 -2 z" />
-                    </clipPath>
-                </defs>
-                <g clip-path="url(#clipCopo)">
-                    <g class="liquido-grupo">
-                        <rect class="liquido" x="0" y="10" width="30" height="30" />
-                        <rect class="espuma" x="0" y="8" width="30" height="4" />
-                        <circle class="bolha bolha1" cx="11" cy="30" r="1.2" />
-                        <circle class="bolha bolha2" cx="16" cy="32" r="1" />
-                        <circle class="bolha bolha3" cx="20" cy="29" r="1.3" />
-                    </g>
-                </g>
-                <path class="copo-contorno" d="M6 4 h18 l-1.5 28 a2 2 0 0 1 -2 2 h-11 a2 2 0 0 1 -2 -2 z" />
-                <g transform="translate(15,20) scale(0.024) translate(-288,-274.5)">
-                    <polygon fill="#ff2b2b" points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209" />
-                </g>
-            </svg>
-        </span>
-        <span>A ligar à nuvem e a atualizar dados...</span>
+        <canvas id="jogoCopoCanvas" aria-label="Mini-jogo: enche o copo de cerveja"></canvas>
+        <span id="jogoCopoTexto">A atualizar dados… enche o copo enquanto esperas! 🍺</span>
+        <span id="jogoCopoPontos" class="jogo-pontos">Copos cheios: 0</span>
+        <button type="button" id="btnSaltarLoading" class="btn-saltar-loading">Entrar já</button>
     </div>
 
     <header>
@@ -2459,6 +2455,7 @@
 
     function mostrarLoading(show) {
         document.getElementById("loadingBox").classList.toggle("show", !!show);
+        if (typeof jogoCopoLigar_ === 'function') jogoCopoLigar_(!!show);
     }
 
     // --- Menu "Definições" (PDF / Excel / Marca Foco) ---
@@ -4686,11 +4683,34 @@
             baseDadosRotas = JSON.parse(cache);
             atualizarVisualizacao();
             aplicarModoVendedorSeNecessario_();
-            mostrarLoading(false);
         }
     } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
 
-    puxarDadosDaNuvem(!!localStorage.getItem('baseDadosRotasCache'));
+    // Mesmo havendo cache (dados já visíveis), o copo a encher fica por cima
+    // até a nuvem responder — é aí que chegam as marcas/dados novos, e assim
+    // não se vê a lista a "mudar" sozinha passados alguns segundos.
+    // Segurança: toque no ecrã ou 25 s fecham o copo, para nunca ficar preso.
+    (function arranqueComCopo_() {
+        const temCache = !!localStorage.getItem('baseDadosRotasCache');
+        const btn = document.getElementById('btnSaltarLoading');
+        let fechado = false;
+        let tempoBtn = null;
+        const fechar = () => {
+            if (fechado) return;
+            fechado = true;
+            clearTimeout(tempoMax); clearTimeout(tempoBtn);
+            if (btn) btn.classList.remove('visivel');
+            mostrarLoading(false);
+        };
+        const tempoMax = setTimeout(fechar, 25000);
+        // Com dados já visíveis, aparece "Entrar já" ao fim de 4 s para quem não quiser esperar.
+        if (btn && temCache) {
+            btn.addEventListener('click', fechar);
+            tempoBtn = setTimeout(() => btn.classList.add('visivel'), 4000);
+        }
+        mostrarLoading(true);
+        puxarDadosDaNuvem(temCache).then(fechar, fechar);
+    })();
 
     const INTERVALO_AUTO_SYNC_MS = 15 * 1000;
     setInterval(() => {
@@ -4704,6 +4724,118 @@
             puxarDadosDaNuvem(true);
         }
     });
+</script>
+
+<script>
+/* ===== Mini-jogo da cortina de carregamento: a torneira anda de lado a lado
+   e deixa cair pingos; arrasta o copo (dedo/rato/setas) para os apanhar. ===== */
+(function () {
+    const W = 320, H = 400;
+    let cv, ctx, raf = null, ultimo = 0, ativo = false, iniciado = false;
+    let tapX, tapDir, tapT, spawnT, drops, glassX, nivel, pontos, msgT, splashes;
+    const teclas = { esq: false, dir: false };
+
+    function reset() {
+        tapX = W / 2; tapDir = 1; tapT = 1.5; spawnT = 0.4; drops = []; splashes = [];
+        glassX = W / 2; nivel = 0; msgT = 0;
+    }
+    function iniciar() {
+        cv = document.getElementById('jogoCopoCanvas');
+        if (!cv) return false;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = W * dpr; cv.height = H * dpr;
+        ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        pontos = 0; reset();
+        const mover = (e) => {
+            const r = cv.getBoundingClientRect();
+            glassX = Math.max(36, Math.min(W - 36, (e.clientX - r.left) * W / r.width));
+        };
+        cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); mover(e); });
+        cv.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') mover(e); });
+        window.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') teclas.esq = true; if (e.key === 'ArrowRight') teclas.dir = true; });
+        window.addEventListener('keyup', (e) => { if (e.key === 'ArrowLeft') teclas.esq = false; if (e.key === 'ArrowRight') teclas.dir = false; });
+        return true;
+    }
+
+    function atualizar(dt) {
+        // torneira: anda de um lado para o outro e muda de direção de vez em quando
+        tapX += tapDir * (95 + 25 * Math.sin(performance.now() / 700)) * dt;
+        if (tapX < 40) { tapX = 40; tapDir = 1; }
+        if (tapX > W - 40) { tapX = W - 40; tapDir = -1; }
+        tapT -= dt; if (tapT <= 0) { tapDir *= -1; tapT = 1 + Math.random() * 1.8; }
+        // pingos
+        spawnT -= dt;
+        if (spawnT <= 0) { drops.push({ x: tapX, y: 44, vy: 40 }); spawnT = 0.42 + Math.random() * 0.25; }
+        if (teclas.esq) glassX -= 220 * dt;
+        if (teclas.dir) glassX += 220 * dt;
+        glassX = Math.max(36, Math.min(W - 36, glassX));
+        const topo = H - 92;
+        for (let i = drops.length - 1; i >= 0; i--) {
+            const d = drops[i];
+            d.vy += 520 * dt; d.y += d.vy * dt;
+            if (msgT <= 0 && d.y >= topo && d.y <= topo + 26 && Math.abs(d.x - glassX) < 30) {
+                nivel = Math.min(1, nivel + 0.07); drops.splice(i, 1); continue;
+            }
+            if (d.y > H - 6) { splashes.push({ x: d.x, t: 0.35 }); drops.splice(i, 1); }
+        }
+        splashes.forEach(s => s.t -= dt); splashes = splashes.filter(s => s.t > 0);
+        if (nivel >= 1 && msgT <= 0) {
+            pontos++; msgT = 1.3;
+            const el = document.getElementById('jogoCopoPontos'); if (el) el.textContent = 'Copos cheios: ' + pontos;
+        }
+        if (msgT > 0) { msgT -= dt; if (msgT <= 0) nivel = 0; }
+    }
+
+    function desenhar() {
+        ctx.clearRect(0, 0, W, H);
+        // calha + torneira
+        ctx.fillStyle = 'rgba(255,243,205,.25)'; ctx.fillRect(12, 10, W - 24, 4);
+        ctx.fillStyle = '#c9ced6'; ctx.fillRect(tapX - 18, 14, 36, 20);
+        ctx.fillStyle = '#9aa3af'; ctx.fillRect(tapX - 5, 34, 10, 9);
+        ctx.fillStyle = '#ff2b2b'; ctx.fillRect(tapX - 4, 18, 8, 8);
+        // pingos
+        ctx.fillStyle = '#f5a623';
+        drops.forEach(d => { ctx.beginPath(); ctx.ellipse(d.x, d.y, 4, 6, 0, 0, Math.PI * 2); ctx.fill(); });
+        splashes.forEach(s => { ctx.fillStyle = 'rgba(245,166,35,' + (s.t * 2) + ')'; ctx.fillRect(s.x - 6, H - 4, 12, 2); });
+        // copo
+        const gx = glassX, top = H - 92, bot = H - 14, wt = 34, wb = 28;
+        const trap = () => { ctx.beginPath(); ctx.moveTo(gx - wt, top); ctx.lineTo(gx + wt, top); ctx.lineTo(gx + wb, bot); ctx.lineTo(gx - wb, bot); ctx.closePath(); };
+        ctx.save(); trap(); ctx.clip();
+        const h = (bot - top) * nivel;
+        ctx.fillStyle = '#f5a623'; ctx.fillRect(gx - wt, bot - h, wt * 2, h);
+        if (nivel > 0.04) { ctx.fillStyle = '#fffdf5'; ctx.fillRect(gx - wt, bot - h - 5, wt * 2, 8); }
+        ctx.restore();
+        trap(); ctx.strokeStyle = '#fff3cd'; ctx.lineWidth = 2.5; ctx.stroke();
+        if (msgT > 0) {
+            ctx.fillStyle = '#fff3cd'; ctx.font = '800 22px system-ui, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('Copo cheio! 🍺', W / 2, H / 2);
+        }
+    }
+
+    function ciclo(t) {
+        if (!ativo) { raf = null; return; }
+        const dt = Math.min(0.05, (t - ultimo) / 1000 || 0); ultimo = t;
+        atualizar(dt); desenhar();
+        raf = requestAnimationFrame(ciclo);
+    }
+
+    window.jogoCopoLigar_ = function (ligar) {
+        if (ligar) {
+            if (!iniciado) iniciado = iniciar();
+            if (!iniciado || ativo) return;
+            reset(); ativo = true; ultimo = performance.now();
+            raf = requestAnimationFrame(ciclo);
+        } else {
+            ativo = false;
+            if (raf) { cancelAnimationFrame(raf); raf = null; }
+        }
+    };
+    // A cortina já está visível no HTML: arranca o jogo assim que a página carrega.
+    document.addEventListener('DOMContentLoaded', () => {
+        const caixa = document.getElementById('loadingBox');
+        if (caixa && caixa.classList.contains('show')) window.jogoCopoLigar_(true);
+    });
+})();
 </script>
 </body>
 </html>
