@@ -709,6 +709,16 @@
         .marca-chip-logo img { width: 100%; height: 100%; object-fit: cover; }
         .marca-chip-fallback { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
         .marca-chip-nome { white-space: nowrap; }
+        /* Telemóvel: só os logotipos, repartidos pela largura toda — cabem
+           todas as marcas sem arrastar para o lado (o nome fica no title). */
+        @media (max-width: 639px) {
+            .marcas-filtro-chips {
+                overflow-x: hidden; gap: 5px; padding-bottom: 0;
+                -webkit-mask-image: none; mask-image: none;
+            }
+            .marca-chip { flex: 1 1 0; min-width: 0; justify-content: center; padding: 4px 0; gap: 0; }
+            .marca-chip-nome { display: none; }
+        }
 
         /* Modal de gestão de logotipos (upload por marca) */
         .lista-logotipos { display: flex; flex-direction: column; }
@@ -3591,7 +3601,7 @@
                 : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
             const mEscapado = m.replace(/'/g, "\\'");
             return `
-                <button type="button" class="marca-chip ${ativa ? 'ativa' : ''}" onclick="alternarMarcaFiltro_('${mEscapado}')">
+                <button type="button" class="marca-chip ${ativa ? 'ativa' : ''}" title="${m}" aria-label="${m}" onclick="alternarMarcaFiltro_('${mEscapado}')">
                     <span class="marca-chip-logo">${conteudoLogo}</span>
                     <span class="marca-chip-nome">${m}</span>
                 </button>`;
