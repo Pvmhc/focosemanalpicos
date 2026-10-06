@@ -385,6 +385,16 @@
             margin-left: auto; flex: 0 0 auto; background: var(--primary); color: #fff;
             padding: 3px 9px; border-radius: 999px; font-weight: 800; font-size: 0.74rem;
         }
+        /* Telemóvel: tudo numa só linha, sem ter de arrastar para o lado —
+           rótulos abreviados e sem o nome "Picos" (a estrela já o identifica). */
+        .lbl-curto { display: none; }
+        @media (max-width: 639px) {
+            .lbl-longo { display: none; }
+            .lbl-curto { display: inline; }
+            .picos-sticky-nome { display: none; }
+            .picos-sticky-bar { overflow: hidden; gap: 5px; padding: 7px 10px; font-size: 0.72rem; }
+            .picos-sticky-execucao { margin-left: auto; }
+        }
         @media (max-width: 400px) {
             .picos-sticky-bar { font-size: 0.66rem; padding: 7px 10px; gap: 5px; }
             .picos-sticky-label { font-size: 0.68rem; }
@@ -3961,17 +3971,17 @@
             <span class="picos-sticky-icon">
                 <svg viewBox="0 0 576 549"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
             </span>
-            <span class="picos-sticky-label">Picos</span>
-            <span class="picos-sticky-label">DN Objetivo</span>
+            <span class="picos-sticky-label picos-sticky-nome">Picos</span>
+            <span class="picos-sticky-label"><span class="lbl-longo">DN Objetivo</span><span class="lbl-curto">Obj.</span></span>
             <span class="picos-sticky-num cor-total">${total}</span>
             <span class="picos-sticky-sep">·</span>
-            <span class="picos-sticky-label">DN Realizada</span>
+            <span class="picos-sticky-label"><span class="lbl-longo">DN Realizada</span><span class="lbl-curto">Real.</span></span>
             <span class="picos-sticky-num cor-efetuadas">${efetuadas}</span>
             <span class="picos-sticky-sep">·</span>
-            <span class="picos-sticky-label">Diferença</span>
+            <span class="picos-sticky-label"><span class="lbl-longo">Diferença</span><span class="lbl-curto">Dif.</span></span>
             <span class="picos-sticky-num cor-diferenca ${corDiferenca}">${diferenca}</span>
             <span class="picos-sticky-sep">·</span>
-            <span class="picos-sticky-execucao">Execução ${percent}%</span>`;
+            <span class="picos-sticky-execucao"><span class="lbl-longo">Execução </span><span class="lbl-curto">Exec. </span>${percent}%</span>`;
     }
 
     /** Constrói o HTML do cartão "PICOS" (DN Total / DN efetuadas / Diferença)
