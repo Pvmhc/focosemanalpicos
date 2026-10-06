@@ -47,6 +47,13 @@
             html { scroll-snap-type: none; }
             .resumo-foco { scroll-snap-align: none; }
         }
+        /* Telemóvel: o scroll-snap obrigatório só tinha um ponto de paragem
+           (o cartão Resumo, dentro do cabeçalho), por isso a página "saltava"
+           por cima do título "Roteiro Cloud Equipa" + botões de sincronizar e
+           modo escuro, que ficavam inalcançáveis. O próprio cabeçalho passa a
+           ser também um ponto de paragem no topo. */
+        header { scroll-snap-align: start; scroll-margin-top: 12px; }
+        @media (min-width: 1024px) { header { scroll-snap-align: none; } }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; }
         @media (min-width: 768px) { body { padding: 24px; } }
         .container { max-width: 1400px; margin: 0 auto; }
@@ -625,8 +632,17 @@
             opacity: 0; border: none; appearance: none; cursor: pointer; padding: 0;
         }
         @media (max-width: 639px) {
-            .filtro-principal-bar { border-radius: 999px; flex-wrap: nowrap; padding: 8px 12px; gap: 8px; }
-            .filtro-segmento-rotulo { font-size: 0.78rem; }
+            /* Telemóvel: tudo tem de caber na pílula (antes o "Vendedor"
+               saía fora do cartão). Reduz avatar, espaços e fontes, tira o
+               ícone do calendário e deixa os segmentos encolher. */
+            .filtro-principal-bar { border-radius: 999px; flex-wrap: nowrap; padding: 6px 10px; gap: 4px; overflow: hidden; }
+            .filtro-segmento { gap: 4px; flex: 0 1 auto; min-width: 0; }
+            .filtro-segmento-rotulo { font-size: 0.72rem; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+            .filtro-avatar { width: 32px; height: 32px; }
+            .filtro-segmento svg { width: 13px; height: 13px; }
+            .filtro-semana > svg { display: none; }
+            .filtro-semana-numero { width: 22px; height: 22px; font-size: 0.62rem; }
+            .filtro-separador { font-size: 0.9rem; }
         }
         @media (min-width: 768px) {
             /* Em ecrãs largos, "justify-content: space-between" espalhava os
