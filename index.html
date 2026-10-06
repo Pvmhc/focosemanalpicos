@@ -889,16 +889,16 @@
         .beer-loader .bolha { fill: rgba(255,255,255,0.85); }
 
         @keyframes encherCopo {
-            0%   { transform: translateY(24px); }
-            60%  { transform: translateY(4px); }
-            100% { transform: translateY(4px); }
+            0%   { transform: translateY(26px); }
+            80%  { transform: translateY(-1px); }
+            100% { transform: translateY(-1px); }
         }
         @keyframes subirBolha {
             0%   { transform: translateY(0); opacity: 0; }
             15%  { opacity: 1; }
             100% { transform: translateY(-16px); opacity: 0; }
         }
-        .beer-loader .liquido-grupo { animation: encherCopo 1.6s ease-out infinite alternate; }
+        .beer-loader .liquido-grupo { animation: encherCopo 2.4s ease-in-out infinite; }
         .beer-loader .bolha1 { animation: subirBolha 1.3s ease-in infinite; animation-delay: 0.1s; }
         .beer-loader .bolha2 { animation: subirBolha 1.5s ease-in infinite; animation-delay: 0.5s; }
         .beer-loader .bolha3 { animation: subirBolha 1.1s ease-in infinite; animation-delay: 0.9s; }
@@ -1192,7 +1192,7 @@
 </div>
 
 <div class="container">
-    <div id="loadingBox" class="loading-notice">
+    <div id="loadingBox" class="loading-notice show">
         <span class="beer-loader">
             <svg viewBox="0 0 30 38">
                 <defs>
@@ -4686,6 +4686,7 @@
             baseDadosRotas = JSON.parse(cache);
             atualizarVisualizacao();
             aplicarModoVendedorSeNecessario_();
+            mostrarLoading(false);
         }
     } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
 
