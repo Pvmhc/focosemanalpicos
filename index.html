@@ -894,6 +894,15 @@
             border-radius: 999px; padding: 7px 18px; font-size: .8rem; font-weight: 700; cursor: pointer;
         }
         .btn-saltar-loading.visivel { display: inline-block; }
+        /* Jogo aberto de propósito (ícone no cabeçalho): sem "a carregar", com botão Fechar */
+        .btn-fechar-jogo { display: none; }
+        .loading-notice.modo-livre .btn-fechar-jogo { display: inline-block; }
+        .loading-notice.modo-livre #btnSaltarLoading { display: none !important; }
+        @media (max-width: 639px) {
+            header h1 { font-size: 0.92rem; gap: 6px; }
+            .btn-sync-titulo { width: 28px; height: 28px; }
+            .btn-sync-titulo svg { width: 15px; height: 15px; }
+        }
 
         .beer-loader { position: relative; width: 90px; height: 114px; flex-shrink: 0; }
         .beer-loader svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
@@ -1212,6 +1221,7 @@
         <span id="jogoCopoTexto">A atualizar dados… enche o copo enquanto esperas! 🍺</span>
         <span id="jogoCopoPontos" class="jogo-pontos">Copos cheios: 0</span>
         <button type="button" id="btnSaltarLoading" class="btn-saltar-loading">Entrar já</button>
+        <button type="button" id="btnFecharJogo" class="btn-saltar-loading btn-fechar-jogo" onclick="fecharJogoLivre_()">Fechar jogo</button>
     </div>
 
     <header>
@@ -1224,6 +1234,9 @@
             <button class="btn-sync-titulo btn-modoescuro-titulo" id="btnModoEscuroTitulo" onclick="alternarModoEscuro()" title="Alternar modo escuro" aria-label="Alternar modo escuro">
                 <svg class="icone-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                 <svg class="icone-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </button>
+            <button class="btn-sync-titulo btn-jogo-titulo" id="btnJogoTitulo" onclick="abrirJogoLivre_()" title="Jogar: enche o copo" aria-label="Jogar: enche o copo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 00-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 019.83 16h4.34a2 2 0 011.41.59L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.55-.6-6.58-.68-7.26A4 4 0 0017.32 5z"/></svg>
             </button>
         </h1>
         <div id="resumoFoco" class="resumo-foco"></div>
@@ -2453,7 +2466,26 @@
         }
     });
 
+    window.jogoLivre_ = false;   // true quando o jogo foi aberto pelo ícone (não é "a carregar")
+    function abrirJogoLivre_() {
+        window.jogoLivre_ = true;
+        const caixa = document.getElementById('loadingBox');
+        caixa.classList.add('modo-livre');
+        const t = document.getElementById('jogoCopoTexto');
+        if (t) t.textContent = 'Joga à vontade! Mexe o dedo para o boneco apanhar os pingos 🍺';
+        mostrarLoading(true);
+    }
+    function fecharJogoLivre_() {
+        window.jogoLivre_ = false;
+        const caixa = document.getElementById('loadingBox');
+        caixa.classList.remove('modo-livre');
+        const t = document.getElementById('jogoCopoTexto');
+        if (t) t.textContent = 'A atualizar dados… enche o copo enquanto esperas! 🍺';
+        mostrarLoading(false);
+    }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.jogoLivre_) fecharJogoLivre_(); });
     function mostrarLoading(show) {
+        if (!show && window.jogoLivre_) return;   // não fecha o jogo de quem está a jogar
         document.getElementById("loadingBox").classList.toggle("show", !!show);
         if (typeof jogoCopoLigar_ === 'function') jogoCopoLigar_(!!show);
     }
