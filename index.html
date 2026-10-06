@@ -792,6 +792,19 @@
         tbody td:not(:first-child)::before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 0.85rem; }
         /* Vista em cartões (telemóvel): células sem nada (marca em Implementação com 0 no Excel, 0.0%/PRETA que não se aplicam) não mostram nem o nome da marca */
         @media (max-width: 767px) { tbody td:empty { display: none; } }
+        /* Telemóvel: o cartão do cliente saía para fora do ecrã e ficava mais
+           largo que os restantes quadros (cabeçalho, filtros). A causa era a
+           linha de cada marca (bolinha + bandeira + botão de 132px + "Colocou")
+           ser mais larga que o cartão, e a tabela crescia para a acomodar.
+           Agora tabela/linhas ocupam sempre 100% e o conteúdo da marca encolhe. */
+        @media (max-width: 767px) {
+            table, tbody { display: block; width: 100%; max-width: 100%; }
+            tbody tr { width: 100%; max-width: 100%; overflow: hidden; }
+            tbody td { min-width: 0; gap: 8px; }
+            .cell-container { width: auto; flex: 1 1 auto; min-width: 0; gap: 6px; }
+            .cell-container .btn-estado { width: 104px; flex: 0 1 104px; min-width: 0; padding: 6px 6px; }
+            .cell-container .badge-colocou { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        }
         .cell-container { display: flex; align-items: center; gap: 12px; width: 65%; justify-content: flex-end; }
         .icons-row { display: flex; gap: 8px; align-items: center; }
         .icon-disabled { opacity: 0.12; filter: grayscale(100%); }
