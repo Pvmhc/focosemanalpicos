@@ -895,8 +895,7 @@
         }
         .btn-saltar-loading.visivel { display: inline-block; }
         /* Jogo aberto de propósito (ícone no cabeçalho): sem "a carregar", com botão Fechar */
-        .btn-fechar-jogo { display: none; }
-        .loading-notice.modo-livre .btn-fechar-jogo { display: inline-block; }
+        .btn-fechar-jogo { display: inline-block; }
         .loading-notice.modo-livre #btnSaltarLoading { display: none !important; }
         @media (max-width: 639px) {
             header h1 { font-size: 0.92rem; gap: 6px; }
@@ -1220,8 +1219,7 @@
         <canvas id="jogoCopoCanvas" aria-label="Mini-jogo: enche o copo de cerveja"></canvas>
         <span id="jogoCopoTexto">A atualizar dados… enche o copo enquanto esperas! 🍺</span>
         <span id="jogoCopoPontos" class="jogo-pontos">Copos cheios: 0</span>
-        <button type="button" id="btnSaltarLoading" class="btn-saltar-loading">Entrar já</button>
-        <button type="button" id="btnFecharJogo" class="btn-saltar-loading btn-fechar-jogo" onclick="fecharJogoLivre_()">Fechar jogo</button>
+        <button type="button" id="btnFecharJogo" class="btn-saltar-loading btn-fechar-jogo" onclick="botaoFecharJogo_()">Fechar jogo</button>
     </div>
 
     <header>
@@ -2467,7 +2465,9 @@
     });
 
     window.jogoLivre_ = false;   // true quando o jogo foi aberto pelo ícone (não é "a carregar")
+    window.jogoDispensado_ = false;   // true quando o utilizador fechou o jogo a meio de uma operação (não voltar a abrir até acabar)
     function abrirJogoLivre_() {
+        window.jogoDispensado_ = false;
         window.jogoLivre_ = true;
         const caixa = document.getElementById('loadingBox');
         caixa.classList.add('modo-livre');
@@ -2483,8 +2483,16 @@
         if (t) t.textContent = 'A atualizar dados… enche o copo enquanto esperas! 🍺';
         mostrarLoading(false);
     }
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.jogoLivre_) fecharJogoLivre_(); });
+    // Botão "Fechar jogo": fecha sempre, mesmo durante um carregamento/sincronização.
+    // Se for a meio de uma operação, a cortina não volta a aparecer até ela terminar.
+    function botaoFecharJogo_() {
+        if (!window.jogoLivre_) window.jogoDispensado_ = true;
+        fecharJogoLivre_();
+    }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') botaoFecharJogo_(); });
     function mostrarLoading(show) {
+        if (!show) window.jogoDispensado_ = false;           // operação acabou: volta ao normal
+        if (show && window.jogoDispensado_) return;          // utilizador fechou o jogo: não reabrir
         if (!show && window.jogoLivre_) return;   // não fecha o jogo de quem está a jogar
         document.getElementById("loadingBox").classList.toggle("show", !!show);
         if (typeof jogoCopoLigar_ === 'function') jogoCopoLigar_(!!show);
@@ -3062,6 +3070,9 @@
             } catch (erro) {
                 alert("Erro ao importar para o Google Sheets: " + erro.message);
                 console.error(erro);
+            } finally {
+                // Carregado e atualizado (ou falhou): o jogo fecha sempre.
+                fecharJogoLivre_();
             }
         };
         leitor.readAsBinaryString(ficheiro);
