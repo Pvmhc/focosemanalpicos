@@ -2754,8 +2754,8 @@
             lockGuardarLocal_(nome, h, PERFIL_ACESSO_);
         }
         document.body.classList.toggle('acesso-utilizador', PERFIL_ACESSO_ !== 'editor');
-        document.getElementById('lockOverlay').classList.add('desbloqueado');
         aplicarBloqueioGestor_();
+        document.getElementById('lockOverlay').classList.add('desbloqueado');
         if (!MODO_VENDEDOR_ATIVO_ && UTILIZADOR_ID_) {
             try { localStorage.setItem('gestorLembrado', UTILIZADOR_ID_); } catch (e) {}
         }
@@ -2769,7 +2769,6 @@
                 atualizarVisualizacao();
             }
         }
-        aplicarBloqueioGestor_();
         pinBuffer_ = ''; pinAtualizarPontos_();
         if (typeof window.mostrarInstallPromptRB === 'function') {
             setTimeout(window.mostrarInstallPromptRB, 700);
@@ -2777,7 +2776,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        aplicarBloqueioGestor_();
         if (MODO_VENDEDOR_ATIVO_) {          // link só de leitura: não pede identificação, só o código partilhado
             UTILIZADOR_ID_ = 'Link vendedor' + (VENDEDOR_URL_ ? ': ' + VENDEDOR_URL_ : '');
             document.getElementById('lockQuemFoto').parentElement.style.display = 'none';
@@ -3640,40 +3638,6 @@
         'sábado', 'sabado', 'domingo', 'anual', 'mensal', 'semana', 'todos'
     ]);
 
-    // Apenas o Editor e o Bruno Rocha podem mudar manualmente de Gestor.
-    // Para todos os restantes utilizadores, o Gestor fica fixo no utilizador
-    // que fez o login. O login continua a permitir escolher quem entra.
-    function podeAlterarGestor_() {
-        return PERFIL_ACESSO_ === 'editor' ||
-               String(UTILIZADOR_ID_ || '').trim().toLowerCase() === 'bruno rocha';
-    }
-
-    function aplicarBloqueioGestor_() {
-        const sel = document.getElementById('comercialSelect');
-        if (!sel) return;
-        const bloqueado = !MODO_VENDEDOR_ATIVO_ && !podeAlterarGestor_();
-        sel.disabled = bloqueado;
-        sel.setAttribute('aria-disabled', bloqueado ? 'true' : 'false');
-    }
-
-    function alterarGestorFiltro_() {
-        const sel = document.getElementById('comercialSelect');
-        if (!sel) return;
-
-        // Segurança adicional: se um utilizador tentar alterar o select por
-        // código/teclado, repõe imediatamente o gestor autenticado.
-        if (!podeAlterarGestor_() && !MODO_VENDEDOR_ATIVO_) {
-            if (UTILIZADOR_ID_ && Array.from(sel.options).some(o => o.value === UTILIZADOR_ID_)) {
-                sel.value = UTILIZADOR_ID_;
-            }
-            aplicarBloqueioGestor_();
-            return;
-        }
-
-        popularFiltroVendedor_();
-        atualizarVisualizacao();
-    }
-
     function popularFiltroVendedor_() {
         const selectVendedor = document.getElementById('vendedorSelect');
         if (!selectVendedor) return;
@@ -4170,6 +4134,38 @@
     //     mesmo mecanismo dos logotipos das marcas, aplicado aos nomes dos
     //     Gestores (lista fixa do <select> "Gestor") e dos Vendedores (todos
     //     os nomes únicos encontrados nos dados, de qualquer Gestor). ---
+    // Apenas o Editor e o Bruno Rocha podem mudar manualmente de Gestor.
+    // Os restantes utilizadores ficam sempre no Gestor com que fizeram login.
+    function podeAlterarGestor_() {
+        return PERFIL_ACESSO_ === 'editor' ||
+               String(UTILIZADOR_ID_ || '').trim().toLowerCase() === 'bruno rocha';
+    }
+
+    function aplicarBloqueioGestor_() {
+        const sel = document.getElementById('comercialSelect');
+        if (!sel) return;
+        const bloqueado = !MODO_VENDEDOR_ATIVO_ && !podeAlterarGestor_();
+        sel.disabled = bloqueado;
+        sel.setAttribute('aria-disabled', bloqueado ? 'true' : 'false');
+    }
+
+    function alterarGestorFiltro_() {
+        const sel = document.getElementById('comercialSelect');
+        if (!sel) return;
+
+        if (!podeAlterarGestor_() && !MODO_VENDEDOR_ATIVO_) {
+            if (UTILIZADOR_ID_ && Array.from(sel.options).some(o => o.value === UTILIZADOR_ID_)) {
+                sel.value = UTILIZADOR_ID_;
+            }
+            aplicarBloqueioGestor_();
+            return;
+        }
+
+        popularFiltroVendedor_();
+        atualizarVisualizacao();
+        aplicarBloqueioGestor_();
+    }
+
     function obterNomesGestores_() {
         return Array.from(document.querySelectorAll('#comercialSelect option')).map(o => o.value).filter(Boolean);
     }
@@ -5477,6 +5473,10 @@
         if (caixa && caixa.classList.contains('show')) window.jogoCopoLigar_(true);
     });
 })();
+
+    document.addEventListener('DOMContentLoaded', function () {
+        aplicarBloqueioGestor_();
+    });
 </script>
 </body>
 </html>
