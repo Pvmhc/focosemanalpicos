@@ -2746,6 +2746,9 @@
         }
         document.body.classList.toggle('acesso-utilizador', PERFIL_ACESSO_ !== 'editor');
         document.getElementById('lockOverlay').classList.add('desbloqueado');
+        if (!MODO_VENDEDOR_ATIVO_ && UTILIZADOR_ID_) {
+            try { localStorage.setItem('gestorLembrado', UTILIZADOR_ID_); } catch (e) {}
+        }
         // Abre já na vista do gestor que se identificou (não no modo link-vendedor)
         if (!MODO_VENDEDOR_ATIVO_ && UTILIZADOR_ID_) {
             const selG = document.getElementById('comercialSelect');
@@ -2771,6 +2774,11 @@
             lockDefinirModo_('entrar');
         } else {
             lockRenderGestores_();
+            // Lembra o último gestor que entrou neste dispositivo: salta a escolha da foto e pede só o PIN
+            let lembrado = '';
+            try { lembrado = localStorage.getItem('gestorLembrado') || ''; } catch (e) {}
+            const idxL = lockListaGestores_.indexOf(lembrado);
+            if (lembrado && idxL !== -1) lockEscolherGestor_(idxL);
         }
     });
 
