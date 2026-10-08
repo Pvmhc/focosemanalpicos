@@ -550,23 +550,66 @@
 
         /* Ecrã de bloqueio (PIN de entrada na app) */
         .lock-overlay {
-            position: fixed; inset: 0; z-index: 99999; background: var(--bg, #f4f5f7);
+            position: fixed; inset: 0; z-index: 99999; background: var(--bg, #f3f4f6);
             display: flex; align-items: center; justify-content: center; padding: 20px;
         }
         .lock-overlay.desbloqueado { display: none; }
         .lock-box {
-            background: #fff; border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 320px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.12); display: flex; flex-direction: column; align-items: center; text-align: center;
+            width: 100%; max-width: 330px; display: flex; flex-direction: column;
+            align-items: center; text-align: center; background: transparent;
         }
-        .lock-box h2 { margin: 0 0 4px; font-size: 1.1rem; }
-        .lock-box p { margin: 0 0 14px; color: var(--muted); font-size: 0.85rem; }
-        .lock-input {
-            width: 100%; text-align: center; font-size: 1.4rem; letter-spacing: 6px; padding: 10px;
-            border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 6px;
+        .lock-titulo { margin: 0 0 22px; color: var(--muted); font-size: 0.95rem; font-weight: 400; }
+        .lock-dots { display: flex; gap: 18px; margin-bottom: 8px; }
+        .lock-dots.erro { animation: abanarPin 0.3s; }
+        .lock-dot {
+            width: 15px; height: 15px; border-radius: 50%; box-sizing: border-box;
+            border: 2px solid #9ca3af; background: transparent; transition: background 0.12s, border-color 0.12s;
         }
-        .lock-input.erro { border-color: #dc2626; animation: abanarPin 0.3s; }
-        .lock-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; }
-        .lock-box .btn-submit { width: 100%; margin-top: 6px; }
+        .lock-dot.cheio { background: var(--text, #0b0c10); border-color: var(--text, #0b0c10); }
+        .lock-dots.erro .lock-dot { border-color: #dc2626; background: #dc2626; }
+        .lock-erro-msg { color: #dc2626; font-size: 0.8rem; font-weight: 700; min-height: 18px; margin-bottom: 10px; }
+        .lock-link {
+            margin-top: 18px; background: none; border: 0; cursor: pointer; font-family: inherit;
+            font-size: 0.85rem; font-weight: 600; color: var(--muted); text-decoration: underline; padding: 6px 10px;
+        }
+        .lock-link:disabled { visibility: hidden; }
+        .lock-passo { width: 100%; display: flex; flex-direction: column; align-items: center; }
+        .lock-passo[hidden] { display: none; }
+        .lock-gestores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 10px; width: 100%; }
+        .lock-gestor {
+            background: none; border: 0; padding: 0; cursor: pointer; display: flex; flex-direction: column;
+            align-items: center; gap: 8px; font-family: inherit; color: var(--text, #0b0c10);
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        .lock-gestor:active .lock-gestor-foto { transform: scale(0.94); }
+        .lock-gestor-foto {
+            width: 76px; height: 76px; border-radius: 50%; overflow: hidden; background: #fff;
+            border: 2px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.1); transition: transform 0.08s;
+            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.3rem; color: #6b7280;
+        }
+        .lock-gestor-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .lock-gestor-nome { font-size: 0.78rem; font-weight: 600; line-height: 1.2; max-width: 92px; }
+        .lock-quem { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: none; border: 0; cursor: pointer; font-family: inherit; color: var(--text, #0b0c10); }
+        .lock-quem .lock-gestor-foto { width: 46px; height: 46px; font-size: 0.95rem; }
+        .lock-quem-nome { font-size: 0.9rem; font-weight: 700; text-align: left; }
+        .lock-quem-trocar { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+        .lock-teclado {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%;
+        }
+        .lock-tecla {
+            height: 62px; border-radius: 16px; border: 1px solid #e5e7eb; background: #fff; color: #111827;
+            font-family: Arial, Helvetica, sans-serif; font-size: 1.6rem; font-weight: 700; cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08); -webkit-tap-highlight-color: transparent;
+            transition: transform 0.08s, background 0.08s; touch-action: manipulation;
+        }
+        .lock-tecla:active { transform: scale(0.95); background: #f3f4f6; }
+        .lock-tecla.vazia { visibility: hidden; }
+        .lock-tecla.apagar {
+            background: transparent; border-color: transparent; box-shadow: none; color: #6b7280;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .lock-tecla.apagar svg { width: 24px; height: 24px; }
+        .lock-tecla.apagar:active { background: rgba(0,0,0,0.06); }
         body.acesso-utilizador .btn-limpar,
         body.acesso-utilizador .settings-menu-wrapper { display: none !important; }
         body.acesso-utilizador .actions-card { display: none !important; }
@@ -1054,7 +1097,6 @@
         body.dark-mode .btn-link-vendedor,
         body.dark-mode .cabecalho-modo-vendedor,
         body.dark-mode .btn-sync-titulo,
-        body.dark-mode .lock-box,
         body.dark-mode .tab-btn,
         body.dark-mode .range-section,
         body.dark-mode .btn-cancel,
@@ -1079,7 +1121,8 @@
         body.dark-mode th { background-color: #101319; color: var(--text); }
         body.dark-mode .marca-chip.ativa { background: var(--ok-bg); }
         body.dark-mode .filtro-select-oculto,
-        body.dark-mode .lock-input,
+        body.dark-mode .lock-tecla:not(.apagar) { background: var(--card); color: var(--text); border-color: var(--border); }
+        body.dark-mode .lock-tecla.apagar { color: var(--muted); }
         body.dark-mode .modal-pin-input {
             background-color: var(--card); color: var(--text);
         }
@@ -1208,12 +1251,39 @@
 
 <div class="lock-overlay" id="lockOverlay">
     <div class="lock-box">
-        <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b" style="width:34px;height:34px;margin-bottom:6px;"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
-        <h2>Acesso à app</h2>
-        <p>Introduz o código de acesso.</p>
-        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="lock-input" id="lockInput" autocomplete="off">
+        <div class="lock-passo" id="lockPassoGestor">
+            <p class="lock-titulo">Quem és tu? Toca na tua foto</p>
+            <div class="lock-gestores" id="lockGestores"></div>
+            <div class="lock-erro-msg" id="lockGestoresErro" style="margin-top:14px;"></div>
+        </div>
+        <div class="lock-passo" id="lockPassoPin" hidden>
+            <button type="button" class="lock-quem" onclick="lockVoltarGestor_()" aria-label="Trocar de utilizador">
+                <span class="lock-gestor-foto" id="lockQuemFoto"></span>
+                <span class="lock-quem-nome"><span id="lockQuemNome"></span><span class="lock-quem-trocar">Não és tu? Trocar</span></span>
+            </button>
+        <p class="lock-titulo" id="lockTituloPin">Introduza o PIN para entrar</p>
+        <div class="lock-dots" id="lockDots">
+            <span class="lock-dot"></span><span class="lock-dot"></span><span class="lock-dot"></span><span class="lock-dot"></span>
+        </div>
         <div class="lock-erro-msg" id="lockErro"></div>
-        <button type="button" class="btn-submit" onclick="confirmarPinEntrada_()">Entrar</button>
+        <div class="lock-teclado">
+            <button type="button" class="lock-tecla" onclick="pinDigito_('1')">1</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('2')">2</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('3')">3</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('4')">4</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('5')">5</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('6')">6</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('7')">7</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('8')">8</button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('9')">9</button>
+            <button type="button" class="lock-tecla vazia" tabindex="-1" aria-hidden="true"></button>
+            <button type="button" class="lock-tecla" onclick="pinDigito_('0')">0</button>
+            <button type="button" class="lock-tecla apagar" onclick="pinApagar_()" aria-label="Apagar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><line x1="12" y1="9" x2="18" y2="15"/><line x1="18" y1="9" x2="12" y2="15"/></svg>
+            </button>
+        </div>
+        <button type="button" class="lock-link" id="lockLinkAcao" onclick="lockLinkAcao_()">Mudar PIN</button>
+        </div>
     </div>
 </div>
 
@@ -2395,36 +2465,321 @@
         }
     }
 
-    // --- PIN DE ENTRADA NA APP (dois níveis de acesso) ---
-    const PIN_ENTRADA_UTILIZADOR_ = '1940';
-    const PIN_ENTRADA_ADMIN_ = '2011';
+    // --- ENTRADA NA APP: foto do gestor + PIN pessoal (validado no servidor) ---
+    // Os PINs já não estão neste ficheiro: cada gestor tem o seu, guardado
+    // (cifrado) no Apps Script. O perfil (editor / utilizador) vem do servidor.
+    const PIN_TAMANHO_ = 4;
+    const NOME_AUTH_LINK_VENDEDOR_ = '__vendedor__';
+    let pinBuffer_ = '';
+    let UTILIZADOR_ID_ = '';          // gestor que se identificou (vai para o log)
+    let PERFIL_ACESSO_ = '';          // 'editor' ou 'utilizador' (definido pelo servidor)
+    let lockModo_ = 'entrar';         // entrar | criar1 | criar2 | mudar0 | mudar1 | mudar2 | bloqueado
+    let lockTemPin_ = false;
+    let lockOffline_ = false;
+    let lockOcupado_ = false;
+    let lockPinTemp_ = '';
+    let lockPinAtual_ = '';
+    let lockReq_ = 0;
+    let lockListaGestores_ = [];
 
-    function confirmarPinEntrada_() {
-        const input = document.getElementById('lockInput');
-        const valor = input.value.trim();
-        if (valor === PIN_ENTRADA_UTILIZADOR_ || valor === PIN_ENTRADA_ADMIN_) {
-            document.body.classList.toggle('acesso-utilizador', valor === PIN_ENTRADA_UTILIZADOR_);
-            document.getElementById('lockOverlay').classList.add('desbloqueado');
-            if (typeof window.mostrarInstallPromptRB === 'function') {
-                setTimeout(window.mostrarInstallPromptRB, 700);
-            }
+    const LOCK_TITULOS_ = {
+        entrar: 'Introduza o PIN para entrar',
+        criar1: 'Cria o teu PIN (4 dígitos)',
+        criar2: 'Repete o PIN para confirmar',
+        mudar0: 'Introduz o PIN atual',
+        mudar1: 'Escolhe o novo PIN',
+        mudar2: 'Repete o novo PIN',
+        bloqueado: ''
+    };
+
+    function lockNomeAuth_() { return MODO_VENDEDOR_ATIVO_ ? NOME_AUTH_LINK_VENDEDOR_ : UTILIZADOR_ID_; }
+    function lockNomeCurto_(nome) {
+        const p = String(nome || '').trim().split(/\s+/);
+        return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : p.join(' ');
+    }
+    function lockIniciais_(nome) {
+        return String(nome || '').replace(/[^A-Za-zÀ-ÿ0-9 ]/g, '').trim().split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase();
+    }
+    function lockFotoHtml_(nome) {
+        const foto = (typeof FOTOS_PESSOAS_ !== 'undefined') ? FOTOS_PESSOAS_[nome] : null;
+        return foto ? `<img src="${foto}" alt="">` : lockIniciais_(nome);
+    }
+    function lockRenderGestores_() {
+        const cont = document.getElementById('lockGestores');
+        const passo = document.getElementById('lockPassoGestor');
+        if (!cont || !passo || passo.hidden) return;
+        lockListaGestores_ = obterNomesGestores_();
+        cont.innerHTML = lockListaGestores_.map((nome, i) => `
+            <button type="button" class="lock-gestor" onclick="lockEscolherGestor_(${i})">
+                <span class="lock-gestor-foto">${lockFotoHtml_(nome)}</span>
+                <span class="lock-gestor-nome">${lockNomeCurto_(nome)}</span>
+            </button>`).join('');
+    }
+
+    function pinAtualizarPontos_() {
+        document.querySelectorAll('#lockDots .lock-dot').forEach((d, i) => {
+            d.classList.toggle('cheio', i < pinBuffer_.length);
+        });
+    }
+    function lockMensagem_(txt, ok) {
+        const el = document.getElementById('lockErro');
+        el.textContent = txt || '';
+        el.style.color = ok ? '#16a34a' : '';
+    }
+    function lockTitulo_(txt) { document.getElementById('lockTituloPin').textContent = txt; }
+
+    function lockDefinirModo_(m) {
+        lockModo_ = m;
+        pinBuffer_ = ''; pinAtualizarPontos_();
+        lockTitulo_(LOCK_TITULOS_[m] || '');
+        const link = document.getElementById('lockLinkAcao');
+        if (m === 'entrar') {
+            link.textContent = 'Mudar PIN';
+            link.disabled = !(lockTemPin_ && !lockOffline_ && !MODO_VENDEDOR_ATIVO_);
+        } else if (m === 'bloqueado') {
+            link.textContent = ''; link.disabled = true;
         } else {
-            input.classList.add('erro');
-            document.getElementById('lockErro').textContent = 'Código incorreto.';
-            input.value = '';
-            input.focus();
-            setTimeout(() => input.classList.remove('erro'), 350);
+            link.textContent = 'Cancelar'; link.disabled = false;
+        }
+    }
+    function lockLinkAcao_() {
+        if (lockOcupado_) return;
+        lockMensagem_('');
+        lockPinTemp_ = ''; lockPinAtual_ = '';
+        if (lockModo_ === 'entrar') lockDefinirModo_('mudar0');
+        else if (lockModo_.indexOf('mudar') === 0) lockDefinirModo_('entrar');
+        else lockVoltarGestor_();
+    }
+    function lockMostrarPasso_(pin) {
+        document.getElementById('lockPassoGestor').hidden = pin;
+        document.getElementById('lockPassoPin').hidden = !pin;
+        lockMensagem_('');
+        pinBuffer_ = ''; pinAtualizarPontos_();
+        if (!pin) lockRenderGestores_();
+    }
+    function lockVoltarGestor_() {
+        lockReq_++;
+        UTILIZADOR_ID_ = '';
+        lockOffline_ = false; lockTemPin_ = false; lockOcupado_ = false;
+        lockPinTemp_ = ''; lockPinAtual_ = '';
+        lockMostrarPasso_(false);
+    }
+
+    // Pedido ao servidor (com tempo limite). Devolve { ok:false, offline:true } se não houver ligação.
+    async function lockPedido_(payload) {
+        payload = Object.assign({ utilizador: UTILIZADOR_ID_ }, payload);
+        for (let t = 0; t < 2; t++) {
+            const ctrl = new AbortController();
+            const to = setTimeout(() => ctrl.abort(), 12000);
+            try {
+                const resp = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload), signal: ctrl.signal
+                });
+                clearTimeout(to);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const d = await resp.json();
+                if (d && d.ok === false && /ocupado/i.test(d.erro || '') && t === 0) {
+                    await new Promise(r => setTimeout(r, 800));
+                    continue;
+                }
+                return d;
+            } catch (e) {
+                clearTimeout(to);
+                if (t === 1) return { ok: false, offline: true, erro: e.message };
+                await new Promise(r => setTimeout(r, 600));
+            }
+        }
+        return { ok: false, offline: true, erro: 'sem resposta' };
+    }
+
+    // Cópia local (hash) do PIN, só para conseguir entrar sem rede depois de já ter entrado uma vez
+    async function lockHashLocal_(nome, pin) {
+        try {
+            if (!(window.crypto && crypto.subtle)) return '';
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('picos:' + nome + ':' + pin));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) { return ''; }
+    }
+    function lockGuardarLocal_(nome, h, perfil) {
+        if (!h) return;
+        try { localStorage.setItem('pinLocal_' + nome, JSON.stringify({ h: h, perfil: perfil })); } catch (e) {}
+    }
+    function lockLerLocal_(nome) {
+        try { return JSON.parse(localStorage.getItem('pinLocal_' + nome) || 'null'); } catch (e) { return null; }
+    }
+
+    async function lockEscolherGestor_(i) {
+        const nome = lockListaGestores_[i];
+        if (!nome) return;
+        UTILIZADOR_ID_ = nome;
+        document.getElementById('lockGestoresErro').textContent = '';
+        document.getElementById('lockQuemFoto').innerHTML = lockFotoHtml_(nome);
+        document.getElementById('lockQuemNome').textContent = lockNomeCurto_(nome);
+        const req = ++lockReq_;
+        lockMostrarPasso_(true);
+        lockOffline_ = false; lockTemPin_ = false;
+        lockDefinirModo_('bloqueado');
+        lockTitulo_('A verificar…');
+        lockOcupado_ = true;
+        const r = await lockPedido_({ action: 'estado_pin', nome: nome });
+        if (req !== lockReq_) return;
+        lockOcupado_ = false;
+        if (r && r.ok) {
+            lockTemPin_ = !!r.temPin;
+            if (!r.temPin && r.editor) {
+                lockDefinirModo_('bloqueado');
+                lockTitulo_('PIN do editor por definir');
+                lockMensagem_('Define-o no script do Google (função definirPinEditor).');
+            } else {
+                lockDefinirModo_(r.temPin ? 'entrar' : 'criar1');
+            }
+        } else if (r && r.offline && lockLerLocal_(nome)) {
+            lockTemPin_ = true; lockOffline_ = true;
+            lockDefinirModo_('entrar');
+            lockMensagem_('Sem ligação — PIN validado neste dispositivo.');
+        } else {
+            lockVoltarGestor_();
+            document.getElementById('lockGestoresErro').textContent =
+                (r && r.offline) ? 'Sem ligação ao servidor. Tenta de novo.' : ((r && r.erro) || 'Erro. Tenta de novo.');
+        }
+    }
+
+    function pinDigito_(n) {
+        if (lockOcupado_ || lockModo_ === 'bloqueado') return;
+        if (pinBuffer_.length >= PIN_TAMANHO_) return;
+        lockMensagem_('');
+        pinBuffer_ += n;
+        pinAtualizarPontos_();
+        if (pinBuffer_.length === PIN_TAMANHO_) setTimeout(lockProcessarPin_, 120);
+    }
+    function pinApagar_() {
+        if (lockOcupado_) return;
+        pinBuffer_ = pinBuffer_.slice(0, -1);
+        pinAtualizarPontos_();
+    }
+
+    // Abana os pontos, mostra a mensagem e (opcionalmente) muda de modo
+    function lockErroPin_(msg, proximoModo) {
+        const dots = document.getElementById('lockDots');
+        dots.classList.add('erro');
+        lockMensagem_(msg);
+        setTimeout(() => {
+            dots.classList.remove('erro');
+            lockDefinirModo_(proximoModo || lockModo_);
+        }, 400);
+    }
+
+    async function lockProcessarPin_() {
+        const pin = pinBuffer_;
+        const modo = lockModo_;
+        const nome = lockNomeAuth_();
+        if (pin.length !== PIN_TAMANHO_ || lockOcupado_) return;
+
+        if (modo === 'criar1') { lockPinTemp_ = pin; lockDefinirModo_('criar2'); return; }
+        if (modo === 'criar2') {
+            if (pin !== lockPinTemp_) { lockPinTemp_ = ''; lockErroPin_('Os PINs não coincidem. Tenta de novo.', 'criar1'); return; }
+            lockOcupado_ = true; lockTitulo_('A guardar…');
+            const r = await lockPedido_({ action: 'criar_pin', nome: nome, pin: pin });
+            lockOcupado_ = false;
+            if (r && r.ok) { lockPinTemp_ = ''; await lockConcluirEntrada_(nome, pin, r.perfil, true); return; }
+            lockPinTemp_ = '';
+            if (r && r.jaTemPin) { lockTemPin_ = true; lockErroPin_(r.erro, 'entrar'); return; }
+            lockErroPin_((r && r.offline) ? 'Sem ligação ao servidor.' : ((r && r.erro) || 'Não foi possível criar o PIN.'), 'criar1');
+            return;
+        }
+        if (modo === 'mudar0') { lockPinAtual_ = pin; lockDefinirModo_('mudar1'); return; }
+        if (modo === 'mudar1') {
+            if (pin === lockPinAtual_) { lockErroPin_('O novo PIN tem de ser diferente do atual.', 'mudar1'); return; }
+            lockPinTemp_ = pin; lockDefinirModo_('mudar2'); return;
+        }
+        if (modo === 'mudar2') {
+            if (pin !== lockPinTemp_) { lockPinTemp_ = ''; lockErroPin_('Os PINs não coincidem. Tenta de novo.', 'mudar1'); return; }
+            lockOcupado_ = true; lockTitulo_('A guardar…');
+            const r = await lockPedido_({ action: 'mudar_pin', nome: nome, pinAtual: lockPinAtual_, pinNovo: pin });
+            lockOcupado_ = false;
+            if (r && r.ok) {
+                const h = await lockHashLocal_(nome, pin);
+                const loc = lockLerLocal_(nome);
+                if (h) lockGuardarLocal_(nome, h, (loc && loc.perfil) || 'utilizador');
+                lockPinTemp_ = ''; lockPinAtual_ = '';
+                lockDefinirModo_('entrar');
+                lockMensagem_('PIN alterado. Entra com o novo PIN.', true);
+                return;
+            }
+            lockPinTemp_ = ''; lockPinAtual_ = '';
+            lockErroPin_((r && r.offline) ? 'Sem ligação ao servidor.' : ((r && r.erro) || 'Não foi possível mudar o PIN.'), 'mudar0');
+            return;
+        }
+
+        // modo === 'entrar'
+        const tentarLocal = async () => {
+            const loc = lockLerLocal_(nome);
+            const h = await lockHashLocal_(nome, pin);
+            return (loc && h && loc.h === h) ? loc : null;
+        };
+        if (lockOffline_) {
+            const loc = await tentarLocal();
+            if (loc) await lockConcluirEntrada_(nome, pin, loc.perfil, false);
+            else lockErroPin_('PIN incorreto.');
+            return;
+        }
+        lockOcupado_ = true; lockTitulo_('A verificar…');
+        const r = await lockPedido_({ action: 'login', nome: nome, pin: pin });
+        lockOcupado_ = false;
+        if (r && r.ok) { await lockConcluirEntrada_(nome, pin, r.perfil, true); return; }
+        if (r && r.offline) {
+            const loc = await tentarLocal();
+            if (loc) { lockOffline_ = true; await lockConcluirEntrada_(nome, pin, loc.perfil, false); }
+            else lockErroPin_('Sem ligação ao servidor.');
+            return;
+        }
+        if (r && r.semPin) { lockTemPin_ = false; lockErroPin_(r.erro, 'criar1'); return; }
+        lockErroPin_((r && r.erro) || 'PIN incorreto.');
+    }
+
+    async function lockConcluirEntrada_(nome, pin, perfil, doServidor) {
+        PERFIL_ACESSO_ = (perfil === 'editor') ? 'editor' : 'utilizador';
+        if (doServidor) {
+            const h = await lockHashLocal_(nome, pin);
+            lockGuardarLocal_(nome, h, PERFIL_ACESSO_);
+        }
+        document.body.classList.toggle('acesso-utilizador', PERFIL_ACESSO_ !== 'editor');
+        document.getElementById('lockOverlay').classList.add('desbloqueado');
+        // Abre já na vista do gestor que se identificou (não no modo link-vendedor)
+        if (!MODO_VENDEDOR_ATIVO_ && UTILIZADOR_ID_) {
+            const selG = document.getElementById('comercialSelect');
+            if (Array.from(selG.options).some(o => o.value === UTILIZADOR_ID_)) {
+                selG.value = UTILIZADOR_ID_;
+                try { localStorage.setItem('gestorSelecionado', UTILIZADOR_ID_); } catch (e) {}
+                popularFiltroVendedor_();
+                atualizarVisualizacao();
+            }
+        }
+        pinBuffer_ = ''; pinAtualizarPontos_();
+        if (typeof window.mostrarInstallPromptRB === 'function') {
+            setTimeout(window.mostrarInstallPromptRB, 700);
         }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const lockInput = document.getElementById('lockInput');
-        if (lockInput) {
-            setTimeout(() => lockInput.focus(), 50);
-            lockInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') confirmarPinEntrada_();
-            });
+        if (MODO_VENDEDOR_ATIVO_) {          // link só de leitura: não pede identificação, só o código partilhado
+            UTILIZADOR_ID_ = 'Link vendedor' + (VENDEDOR_URL_ ? ': ' + VENDEDOR_URL_ : '');
+            document.getElementById('lockQuemFoto').parentElement.style.display = 'none';
+            lockMostrarPasso_(true);
+            lockTemPin_ = true;
+            lockDefinirModo_('entrar');
+        } else {
+            lockRenderGestores_();
         }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        const ov = document.getElementById('lockOverlay');
+        if (!ov || ov.classList.contains('desbloqueado')) return;
+        if (document.getElementById('lockPassoPin').hidden) return;
+        if (/^[0-9]$/.test(e.key)) pinDigito_(e.key);
+        else if (e.key === 'Backspace') pinApagar_();
     });
 
     // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
@@ -2605,7 +2960,7 @@
                 const resposta = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(Object.assign({ utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ }, payload))
                 });
                 if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
                 const dados = await resposta.json();
@@ -3062,7 +3417,7 @@
                 const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: "limpar_e_importar", rows: listaNovosDados })
+                    body: JSON.stringify({ action: "limpar_e_importar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ })
                 });
                 if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
                 const resultadoImport = await respostaImport.json();
@@ -3867,6 +4222,7 @@
      *  mantém o ícone genérico. A pílula "Semana" nunca mostra foto — só o
      *  número, como pedido. */
     function atualizarAvataresFiltro_() {
+        if (typeof lockRenderGestores_ === 'function') lockRenderGestores_();
         const avatarGestor = document.getElementById('avatarGestor');
         const comercialSelect = document.getElementById('comercialSelect');
         if (avatarGestor && comercialSelect) {
