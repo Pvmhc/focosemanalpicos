@@ -764,6 +764,13 @@
         }
 
         /* Modal de gestão de logotipos (upload por marca) */
+        .lista-logotipos-item { flex-wrap: wrap; }
+        .pessoa-gestao { flex: 0 0 100%; display: flex; gap: 16px; padding: 0 0 2px 56px; margin-top: -4px; }
+        .pessoa-gestao button { background: none; border: 0; padding: 2px 0; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--muted); text-decoration: underline; }
+        .pessoa-gestao button.apagar { color: #dc2626; }
+        .pessoa-add { display: flex; gap: 8px; padding: 10px 20px 14px; border-bottom: 1px solid var(--border); }
+        .pessoa-add input { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; background: var(--card); color: var(--text); }
+        .pessoa-add button { padding: 8px 12px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
         .lista-logotipos { display: flex; flex-direction: column; }
         .lista-logotipos-item {
             display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border);
@@ -1348,7 +1355,7 @@
                     </button>
                     <button class="settings-menu-item item-fotospessoas" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => abrirModalFotosPessoas_())">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        Fotos Gestor/Vendedor
+                        Gestores / Vendedores
                     </button>
                     <button class="settings-menu-item item-portfolio" onclick="fecharMenuDefinicoes_(); alternarEditarImplementacao_()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -1372,7 +1379,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="filtro-segmento-rotulo">Gestor</span>
             <span class="filtro-valor-selecionado" id="valorGestorSelecionado"></span>
-            <select id="comercialSelect" class="filtro-select-oculto" onchange="popularFiltroVendedor_(); atualizarVisualizacao()">
+            <select id="comercialSelect" class="filtro-select-oculto" onchange="alterarGestorFiltro_()">
                 <option value="Gonçalo Sousa Fernandes">Gonçalo Sousa Fernandes</option>
                 <option value="Vitor Manuel Heitor Catarino">Vitor Manuel Heitor Catarino</option>
                 <option value="Rui Carlos Correia Pratas">Rui Carlos Correia Pratas</option>
@@ -1437,12 +1444,12 @@
     <div class="modal-foco-overlay" id="modalFotosPessoasOverlay">
         <div class="modal-foco-box" style="max-width: 440px;">
             <div class="modal-foco-header">
-                <h2>Fotos de Gestor/Vendedor</h2>
+                <h2>Gestores e vendedores</h2>
                 <button class="modal-foco-close" onclick="fecharModalFotosPessoas_()" aria-label="Fechar">&times;</button>
             </div>
             <div class="modal-foco-body" style="padding: 0; max-height: 60vh; overflow-y: auto;">
                 <div style="padding: 12px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border);">
-                    Carrega uma foto por pessoa — fica visível para toda a equipa junto ao filtro Gestor/Vendedor.
+                    Carrega uma foto por pessoa (visível para toda a equipa), acrescenta ou apaga gestores e apaga ou renomeia vendedores. Os vendedores vêm da coluna Vendedor do Excel.
                 </div>
                 <div class="lista-logotipos" id="listaFotosPessoas"></div>
             </div>
@@ -2473,6 +2480,7 @@
     let pinBuffer_ = '';
     let UTILIZADOR_ID_ = '';          // gestor que se identificou (vai para o log)
     let PERFIL_ACESSO_ = '';          // 'editor' ou 'utilizador' (definido pelo servidor)
+    let PIN_EDITOR_SESSAO_ = '';      // PIN do editor, só em memória e só nesta sessão (para confirmar ações de gestão no servidor)
     let lockModo_ = 'entrar';         // entrar | criar1 | criar2 | mudar0 | mudar1 | mudar2 | bloqueado
     let lockTemPin_ = false;
     let lockOffline_ = false;
@@ -2740,12 +2748,14 @@
 
     async function lockConcluirEntrada_(nome, pin, perfil, doServidor) {
         PERFIL_ACESSO_ = (perfil === 'editor') ? 'editor' : 'utilizador';
+        PIN_EDITOR_SESSAO_ = (PERFIL_ACESSO_ === 'editor' && doServidor) ? pin : '';
         if (doServidor) {
             const h = await lockHashLocal_(nome, pin);
             lockGuardarLocal_(nome, h, PERFIL_ACESSO_);
         }
         document.body.classList.toggle('acesso-utilizador', PERFIL_ACESSO_ !== 'editor');
         document.getElementById('lockOverlay').classList.add('desbloqueado');
+        aplicarBloqueioGestor_();
         if (!MODO_VENDEDOR_ATIVO_ && UTILIZADOR_ID_) {
             try { localStorage.setItem('gestorLembrado', UTILIZADOR_ID_); } catch (e) {}
         }
@@ -2759,6 +2769,7 @@
                 atualizarVisualizacao();
             }
         }
+        aplicarBloqueioGestor_();
         pinBuffer_ = ''; pinAtualizarPontos_();
         if (typeof window.mostrarInstallPromptRB === 'function') {
             setTimeout(window.mostrarInstallPromptRB, 700);
@@ -2766,6 +2777,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        aplicarBloqueioGestor_();
         if (MODO_VENDEDOR_ATIVO_) {          // link só de leitura: não pede identificação, só o código partilhado
             UTILIZADOR_ID_ = 'Link vendedor' + (VENDEDOR_URL_ ? ': ' + VENDEDOR_URL_ : '');
             document.getElementById('lockQuemFoto').parentElement.style.display = 'none';
@@ -3088,6 +3100,7 @@
                 try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
                 atualizarAvataresFiltro_();
             }
+            if (!Array.isArray(dados) && Array.isArray(dados.listaGestores)) aplicarListaGestores_(dados.listaGestores);
             if (!Array.isArray(dados) && Array.isArray(dados.portfolioEncomendas) && dados.portfolioEncomendas.length > 0) {
                 aplicarPortfolioRecebido_(dados.portfolioEncomendas);
             }
@@ -3627,6 +3640,40 @@
         'sábado', 'sabado', 'domingo', 'anual', 'mensal', 'semana', 'todos'
     ]);
 
+    // Apenas o Editor e o Bruno Rocha podem mudar manualmente de Gestor.
+    // Para todos os restantes utilizadores, o Gestor fica fixo no utilizador
+    // que fez o login. O login continua a permitir escolher quem entra.
+    function podeAlterarGestor_() {
+        return PERFIL_ACESSO_ === 'editor' ||
+               String(UTILIZADOR_ID_ || '').trim().toLowerCase() === 'bruno rocha';
+    }
+
+    function aplicarBloqueioGestor_() {
+        const sel = document.getElementById('comercialSelect');
+        if (!sel) return;
+        const bloqueado = !MODO_VENDEDOR_ATIVO_ && !podeAlterarGestor_();
+        sel.disabled = bloqueado;
+        sel.setAttribute('aria-disabled', bloqueado ? 'true' : 'false');
+    }
+
+    function alterarGestorFiltro_() {
+        const sel = document.getElementById('comercialSelect');
+        if (!sel) return;
+
+        // Segurança adicional: se um utilizador tentar alterar o select por
+        // código/teclado, repõe imediatamente o gestor autenticado.
+        if (!podeAlterarGestor_() && !MODO_VENDEDOR_ATIVO_) {
+            if (UTILIZADOR_ID_ && Array.from(sel.options).some(o => o.value === UTILIZADOR_ID_)) {
+                sel.value = UTILIZADOR_ID_;
+            }
+            aplicarBloqueioGestor_();
+            return;
+        }
+
+        popularFiltroVendedor_();
+        atualizarVisualizacao();
+    }
+
     function popularFiltroVendedor_() {
         const selectVendedor = document.getElementById('vendedorSelect');
         if (!selectVendedor) return;
@@ -4149,7 +4196,7 @@
         const cont = document.getElementById('listaFotosPessoas');
         if (!cont) return;
 
-        const linhaPessoa_ = (nome, idx) => {
+        const linhaPessoa_ = (nome, idx, gestao) => {
             const foto = FOTOS_PESSOAS_[nome];
             const nomeEscapado = nome.replace(/'/g, "\\'");
             const preview = foto
@@ -4164,20 +4211,118 @@
                         <button type="button" class="btn-logotipo-carregar" onclick="document.getElementById('inputFotoPessoa${idx}').click()">Carregar</button>
                         ${foto ? `<button type="button" class="btn-logotipo-remover" onclick="removerFotoPessoa_('${nomeEscapado}')">Remover</button>` : ''}
                     </div>
+                    ${gestao || ''}
                 </div>`;
         };
 
         const gestores = obterNomesGestores_();
         const vendedores = obterNomesVendedores_();
+        listaGestoresModal_ = gestores;
+        listaVendedoresModal_ = vendedores;
 
         let html = `<div class="lista-logotipos-seccao">Gestores</div>`;
-        html += gestores.map((nome, i) => linhaPessoa_(nome, 'g' + i)).join('');
+        html += gestores.map((nome, i) => linhaPessoa_(nome, 'g' + i,
+            (nome === UTILIZADOR_ID_) ? '' : `<div class="pessoa-gestao"><button type="button" class="apagar" onclick="apagarGestor_(${i})">Apagar gestor</button></div>`
+        )).join('');
+        html += `<div class="pessoa-add"><input type="text" id="novoGestorNome" maxlength="80" placeholder="Nome completo do novo gestor"><button type="button" onclick="adicionarGestor_()">Adicionar</button></div>`;
         html += `<div class="lista-logotipos-seccao">Vendedores</div>`;
         html += vendedores.length
-            ? vendedores.map((nome, i) => linhaPessoa_(nome, 'v' + i)).join('')
+            ? vendedores.map((nome, i) => linhaPessoa_(nome, 'v' + i,
+                `<div class="pessoa-gestao"><button type="button" onclick="renomearVendedor_(${i})">Renomear</button><button type="button" class="apagar" onclick="apagarVendedor_(${i})">Apagar vendedor</button></div>`
+            )).join('')
             : `<div style="padding: 12px 20px; font-size: 0.82rem; color: var(--muted);">Nenhum vendedor encontrado nos dados atuais.</div>`;
 
         cont.innerHTML = html;
+    }
+
+    // --- Gerir gestores e vendedores (só o editor; o servidor volta a confirmar o PIN do editor) ---
+    let listaGestoresModal_ = [];
+    let listaVendedoresModal_ = [];
+
+    function pessoaNomeValido_(n) { return !!n && n.length <= 80 && /^[^<>"'&\\`]+$/.test(n); }
+
+    function sessaoEditorOk_() {
+        if (PERFIL_ACESSO_ !== 'editor' || !PIN_EDITOR_SESSAO_) {
+            alert('Para gerir gestores e vendedores entra com o PIN do editor, com ligação à internet.');
+            return false;
+        }
+        return true;
+    }
+
+    function aplicarListaGestores_(lista) {
+        if (!Array.isArray(lista) || !lista.length) return;
+        const sel = document.getElementById('comercialSelect');
+        if (!sel) return;
+        const iguais = lista.length === sel.options.length && lista.every((g, i) => sel.options[i].value === g);
+        if (iguais) return;
+        const atual = sel.value;
+        sel.innerHTML = lista.map(g => `<option value="${g}">${g}</option>`).join('');
+        sel.value = lista.indexOf(atual) !== -1 ? atual : lista[0];
+        try { localStorage.setItem('listaGestoresCache', JSON.stringify(lista)); } catch (e) { /* ignora */ }
+    }
+
+    async function gravarListaGestores_(nova) {
+        const r = await postComRetry_({ action: 'guardar_gestores', gestores: nova, pinEditor: PIN_EDITOR_SESSAO_ });
+        if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível guardar. Tenta novamente.'); return false; }
+        aplicarListaGestores_(r.gestores);
+        popularFiltroVendedor_();
+        atualizarVisualizacao();
+        renderListaFotosPessoas_();
+        return true;
+    }
+
+    async function adicionarGestor_() {
+        if (!sessaoEditorOk_()) return;
+        const input = document.getElementById('novoGestorNome');
+        const nome = (input.value || '').trim().replace(/\s+/g, ' ');
+        if (!pessoaNomeValido_(nome)) { alert('Escreve um nome válido (sem aspas nem símbolos como < > & \\).'); return; }
+        if (listaGestoresModal_.some(g => g.toLowerCase() === nome.toLowerCase())) { alert('Esse gestor já existe.'); return; }
+        await gravarListaGestores_(listaGestoresModal_.concat([nome]));
+    }
+
+    async function apagarGestor_(i) {
+        if (!sessaoEditorOk_()) return;
+        const nome = listaGestoresModal_[i];
+        if (!nome) return;
+        if (!confirm('Apagar o gestor "' + nome + '"?\n\nO PIN dele é apagado e deixa de poder entrar. Os clientes que tem na folha ficam guardados, mas só voltam a aparecer se forem atribuídos a outro gestor no Excel.')) return;
+        await gravarListaGestores_(listaGestoresModal_.filter((g, k) => k !== i));
+    }
+
+    async function apagarVendedor_(i) {
+        if (!sessaoEditorOk_()) return;
+        const nome = listaVendedoresModal_[i];
+        if (!nome) return;
+        if (!confirm('Apagar o vendedor "' + nome + '"?\n\nOs clientes dele ficam sem vendedor e a foto é apagada. Se o Excel ainda tiver este nome, volta a aparecer na próxima importação.')) return;
+        const r = await postComRetry_({ action: 'remover_vendedor', nome: nome, pinEditor: PIN_EDITOR_SESSAO_ });
+        if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível apagar. Tenta novamente.'); return; }
+        baseDadosRotas.forEach(reg => { if (String(reg.vendedor || '').trim() === nome) reg.vendedor = ''; });
+        delete FOTOS_PESSOAS_[nome];
+        try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+        popularFiltroVendedor_();
+        atualizarVisualizacao();
+        renderListaFotosPessoas_();
+    }
+
+    async function renomearVendedor_(i) {
+        if (!sessaoEditorOk_()) return;
+        const de = listaVendedoresModal_[i];
+        if (!de) return;
+        const resp = prompt('Novo nome para "' + de + '" (os clientes dele passam para o novo nome):', de);
+        if (resp === null) return;
+        const para = resp.trim().replace(/\s+/g, ' ');
+        if (para === de) return;
+        if (!pessoaNomeValido_(para)) { alert('Nome inválido (sem aspas nem símbolos como < > & \\).'); return; }
+        const r = await postComRetry_({ action: 'renomear_vendedor', de: de, para: para, pinEditor: PIN_EDITOR_SESSAO_ });
+        if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível renomear. Tenta novamente.'); return; }
+        baseDadosRotas.forEach(reg => { if (String(reg.vendedor || '').trim() === de) reg.vendedor = para; });
+        if (FOTOS_PESSOAS_[de]) {
+            if (!FOTOS_PESSOAS_[para]) FOTOS_PESSOAS_[para] = FOTOS_PESSOAS_[de];
+            delete FOTOS_PESSOAS_[de];
+            try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+        }
+        popularFiltroVendedor_();
+        atualizarVisualizacao();
+        renderListaFotosPessoas_();
     }
 
     /** Lê a foto escolhida, recorta/comprime para um avatar pequeno (mesma
@@ -5077,6 +5222,7 @@
     }
 
     // --- INICIALIZAÇÃO COM LOCALSTORAGE ---
+    try { aplicarListaGestores_(JSON.parse(localStorage.getItem('listaGestoresCache') || 'null')); } catch (e) { /* ignora */ }
     const gestorSalvo = localStorage.getItem('gestorSelecionado');
     if (gestorSalvo) {
         document.getElementById('comercialSelect').value = gestorSalvo;
