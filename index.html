@@ -1158,6 +1158,17 @@
         /* O rodapé fixo (dock) já é escuro por natureza (fundo próprio, não
            usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
+<style>
+#prospPicos{margin:14px 0}#prospPicos h3{margin:0 0 8px;font-size:14px}
+.pp-c{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px;margin:8px 0}
+.pp-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.pp-n{border:0;background:none;padding:0;font:700 15px Inter,system-ui,sans-serif;color:var(--foco-color);text-align:left;text-decoration:underline;cursor:pointer}
+.pp-s{color:var(--muted);font-size:13px;margin-top:2px}.pp-b{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.pp-b.Prospeção{background:var(--foco-bg);color:var(--foco-color)}.pp-b.Reconquista{background:var(--negociado-bg);color:var(--negociado-color)}.pp-b.Execução{background:#f3eeff;color:#7c3aed}
+.pp-r{display:flex;gap:6px;margin-top:10px}.pp-r button{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px;font:700 13px Inter,system-ui,sans-serif;cursor:pointer;background:var(--card);color:var(--text)}
+.pp-r .on.ok{background:var(--ok-bg);color:var(--ok-color);border-color:var(--ok-color)}.pp-r .on.nv{background:var(--foco-bg);color:var(--foco-color);border-color:var(--foco-color)}
+#prospOverlay{position:fixed;inset:0;z-index:2147483000;background:var(--bg);display:none}#prospOverlay iframe{width:100%;height:100%;border:0}
+</style>
 </head>
 <body>
 
@@ -1498,7 +1509,8 @@
             <tbody id="tabelaVisitas"></tbody>
         </table>
     </div>
-    <div id="bottomDockSpacer"></div>
+    <div id="prospPicos"></div>
+<div id="bottomDockSpacer"></div>
 </div>
 <script>
     // Reserva, no fluxo normal da página, um espaço com a altura exata
@@ -5478,6 +5490,60 @@
     document.addEventListener('DOMContentLoaded', function () {
         aplicarBloqueioGestor_();
     });
+</script>
+<div id="prospOverlay"></div>
+<script>
+(function () {
+  const PROSP_URL = 'prospecao.html';   // a app de Prospeção tem de estar na mesma pasta/site que esta
+  const $ = id => document.getElementById(id);
+  let rows = [], ts = 0, aCarregar = false;
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const add = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+  const segunda = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return iso(d); };
+  const nz = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[.,]/g, '').trim();
+  const esc = t => escapeHtml_(String(t == null ? '' : t));
+  const DIAS = { 'Segunda': 0, 'Terça': 1, 'Quarta': 2, 'Quinta': 3, 'Sexta': 4 };
+  function mg(a, b) { const x = nz(a).split(/\s+/), y = nz(b).split(/\s+/); if (x[0] !== y[0]) return false; const l = x[x.length - 1], m = y[y.length - 1]; return l === m || (l.length === 1 && m[0] === l) || (m.length === 1 && l[0] === m); }
+
+  async function carregar() {
+    if (aCarregar || !UTILIZADOR_ID_) return; aCarregar = true;
+    let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&t=' + Date.now())).json(); } catch (e) {}
+    if (!d || !d.ok) d = await postComRetry_({ action: 'prospeccao_ler' });
+    aCarregar = false; if (d && d.ok) { rows = d.rows || []; ts = Date.now(); desenhar(); }
+  }
+  function desenhar() {
+    const box = $('prospPicos'); if (!box) return;
+    const pesq = $('pesquisaCliente'), vend = $('vendedorSelect');
+    if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length || !(diaAtualSelecionado in DIAS)) { box.innerHTML = ''; return; }
+    if (!ts || Date.now() - ts > 45000) carregar();
+    const dia = add(segunda(), DIAS[diaAtualSelecionado]), com = $('comercialSelect').value;
+    const l = rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com));
+    if (!l.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + '</h3>' + l.map(r => {
+      const tp = r.tipoVisita === 'Execução Barril' ? 'Execução' : r.tipoVisita;
+      return '<div class="pp-c"><div class="pp-t"><div><button class="pp-n" onclick="prospAbrir_(\'' + r.id + '\')">' + esc(r.nome) + '</button><div class="pp-s">' + esc(r.localidade) +
+        '</div></div><span class="pp-b ' + tp + '">' + tp + '</span></div><div class="pp-r"><button class="ok' + (r.estado === 'conquistado' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'conquistado\')">Conquistado</button>' +
+        '<button class="nv' + (r.estado === 'novavisita' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'novavisita\')">Nova visita</button></div></div>';
+    }).join('');
+  }
+  window.prospResp_ = async function (id, estado) {
+    const d = await postComRetry_({ action: 'prospeccao_atualizar', id: id, estado: estado });
+    if (!d || !d.ok) { alert('Não foi possível guardar: ' + ((d && d.erro) || 'sem ligação')); return; }
+    const i = rows.findIndex(r => r.id === id); if (i > -1) rows[i] = d.row; desenhar();
+  };
+  window.prospAbrir_ = function (id) {
+    const ov = $('prospOverlay'); ov.innerHTML = '<iframe src="' + PROSP_URL + '?embed=1" title="Prospeção"></iframe>'; ov.style.display = 'block'; ov.dataset.id = id;
+  };
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin) return; const m = e.data || {}, ov = $('prospOverlay');
+    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, rows: rows }, location.origin);
+    if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); }
+  });
+  const orig = window.atualizarVisualizacao;
+  window.atualizarVisualizacao = function () { const r = orig.apply(this, arguments); try { desenhar(); } catch (e) { console.error(e); } return r; };
+  mudarDiaOrig_ = window.mudarDia; window.mudarDia = function () { const r = mudarDiaOrig_.apply(this, arguments); try { desenhar(); } catch (e) {} return r; };
+})();
+var mudarDiaOrig_;
 </script>
 </body>
 </html>
