@@ -5571,7 +5571,12 @@
     const seg = segunda(), com = $('comercialSelect').value;
     const marcadas = rows.filter(r => r.dataPlaneada && r.dataPlaneada >= seg && (r.estado === 'planeada' || r.estado === 'novavisita') && mg(r.gestor, com))
       .sort((a, b) => a.dataPlaneada < b.dataPlaneada ? -1 : a.dataPlaneada > b.dataPlaneada ? 1 : 0);
-    const dia = diaAtualSelecionado in DIAS ? add(seg, DIAS[diaAtualSelecionado]) : null;
+    // A data do dia depende também da "Semana" (1-4) escolhida no filtro: conta-se quantas semanas
+    // à frente da semana de referência fica essa semana do ciclo (0 a 3).
+    const semSel = parseInt($('semanaSelect').value, 10) || 1;
+    const cicloRef = calcularSemanaCiclo(obterSemanaISO(new Date(seg + 'T12:00:00')));
+    const offSem = (((semSel - cicloRef) % 4) + 4) % 4;
+    const dia = diaAtualSelecionado in DIAS ? add(seg, offSem * 7 + DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
     const l = modo === 'todas' ? marcadas : (dia ? rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com)) : []);
     if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção · sem visitas marcadas</h3>' : ''; return; }
