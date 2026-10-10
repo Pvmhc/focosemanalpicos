@@ -1170,7 +1170,7 @@
            usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
 <style>
-#prospPicos{margin:14px 0}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
+#prospPicos{margin:14px 0}#prospPicos .pp-d{display:inline-flex;align-items:center;gap:8px}#prospPicos .pp-pi{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;padding:0;text-decoration:none}#prospPicos .pp-pi.tem{color:var(--primary);border-color:var(--primary);background:var(--ok-bg)}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
 .pp-c{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px;margin:8px 0}
 .pp-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .pp-n{border:0;background:none;padding:0;font:700 15px Inter,system-ui,sans-serif;color:var(--foco-color);text-align:left;text-decoration:underline;cursor:pointer}
@@ -5512,7 +5512,9 @@
 <div id="prospOverlay"></div>
 <script>
 (function () {
-  const PROSP_URL = 'https://prospe-oalgarve.onrender.com/', PROSP_ORIGIN = 'https://prospe-oalgarve.onrender.com';   // a app de Prospeção tem de estar na mesma pasta/site que esta
+  const PROSP_URL = 'https://prospe-oalgarve.onrender.com/', PROSP_ORIGIN = 'https://prospe-oalgarve.onrender.com', PROPOSTA_URL = 'https://propostacomercial-abmm.onrender.com/';
+  let propIds = new Set();
+  function carregarPropostas_() { let f = document.getElementById('propMapFrame'); if (f) f.remove(); f = document.createElement('iframe'); f.id = 'propMapFrame'; f.style.display = 'none'; f.src = PROSP_URL + '?propmap=1&t=' + Date.now(); document.body.appendChild(f); }   // a app de Prospeção tem de estar na mesma pasta/site que esta
   const $ = id => document.getElementById(id);
   let rows = [], ts = 0, aCarregar = false;
   const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -5533,11 +5535,16 @@
   let modo = 'dia';   // 'dia' = visitas do dia selecionado; 'todas' = todas as prospeções marcadas
   const NOMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   window.prospCiclo_ = function () { modo = modo === 'dia' ? 'todas' : 'dia'; desenhar(); };
+  const SVG_DOC = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+  function iconeProp_(r) {
+    if (propIds.has(r.id)) return '<button class="pp-pi tem" title="Ver proposta" onclick="prospAbrir_(\'' + r.id + '\',true)">' + SVG_DOC + '<polyline points="9 15 11 17 15 13"/></svg></button>';
+    return '<a class="pp-pi" title="Fazer proposta" href="' + PROPOSTA_URL + '" target="_blank" rel="noopener">' + SVG_DOC + '<line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg></a>';
+  }
   function cartao(r, mostraDia) {
     const tp = r.tipoVisita === 'Execução Barril' ? 'Execução' : r.tipoVisita;
     const dd = mostraDia ? NOMES[new Date(r.dataPlaneada + 'T12:00:00').getDay()] + ' ' + r.dataPlaneada.slice(8) + '/' + r.dataPlaneada.slice(5, 7) + ' · ' : '';
     return '<div class="pp-c"><div class="pp-t"><div><button class="pp-n" onclick="prospAbrir_(\'' + r.id + '\')">' + esc(r.nome) + '</button><div class="pp-s">' + dd + esc(r.localidade) +
-      '</div></div><span class="pp-b ' + tp + '">' + tp + '</span></div><div class="pp-r"><button class="ok' + (r.estado === 'conquistado' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'conquistado\')">Conquistado</button>' +
+      '</div></div><span class="pp-d">' + iconeProp_(r) + '<span class="pp-b ' + tp + '">' + tp + '</span></span></div><div class="pp-r"><button class="ok' + (r.estado === 'conquistado' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'conquistado\')">Conquistado</button>' +
       '<button class="rc' + (r.estado === 'recusou' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'recusou\')">Recusou</button>' +
       '<button class="nv' + (r.estado === 'novavisita' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'novavisita\')">Nova visita</button></div></div>';
   }
@@ -5555,22 +5562,24 @@
     const dia = diaAtualSelecionado in DIAS ? add(seg, DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
     const l = modo === 'todas' ? marcadas : (dia ? rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com)) : []);
-    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção <a class="pp-prop" href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Proposta</a>· sem visitas marcadas</h3>' : ''; return; }
-    box.innerHTML = '<h3>Prospeção <a class="pp-prop" href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Proposta</a>· ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
+    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção · sem visitas marcadas</h3>' : ''; return; }
+    box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
   }
   window.prospResp_ = async function (id, estado) {
     const d = await postComRetry_({ action: 'prospeccao_atualizar', id: id, estado: estado });
     if (!d || !d.ok) { alert('Não foi possível guardar: ' + ((d && d.erro) || 'sem ligação')); return; }
     const i = rows.findIndex(r => r.id === id); if (i > -1) rows[i] = d.row; desenhar();
   };
-  window.prospAbrir_ = function (id) {
-    const ov = $('prospOverlay'); ov.innerHTML = '<iframe src="' + PROSP_URL + '?embed=1" title="Prospeção"></iframe>'; ov.style.display = 'block'; ov.dataset.id = id;
+  window.prospAbrir_ = function (id, prop) {
+    const ov = $('prospOverlay'); ov.innerHTML = '<iframe src="' + PROSP_URL + '?embed=1" title="Prospeção"></iframe>'; ov.style.display = 'block'; ov.dataset.id = id; ov.dataset.prop = prop ? '1' : '';
   };
   window.addEventListener('message', e => {
     if (e.origin !== PROSP_ORIGIN) return; const m = e.data || {}, ov = $('prospOverlay');
-    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, rows: rows }, PROSP_ORIGIN);
-    if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); }
+    if (m.tipo === 'propostas') { propIds = new Set(m.ids || []); desenhar(); return; }
+    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, prop: !!ov.dataset.prop, rows: rows }, PROSP_ORIGIN);
+    if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); carregarPropostas_(); }
   });
+  carregarPropostas_();
   const orig = window.atualizarVisualizacao;
   window.atualizarVisualizacao = function () { const r = orig.apply(this, arguments); try { desenhar(); } catch (e) { console.error(e); } return r; };
   mudarDiaOrig_ = window.mudarDia; window.mudarDia = function () { const r = mudarDiaOrig_.apply(this, arguments); try { desenhar(); } catch (e) {} return r; };
