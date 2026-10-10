@@ -1170,7 +1170,7 @@
            usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
 <style>
-#prospPicos{margin:14px 0}#prospPicos h3{margin:0 0 8px;font-size:14px}
+#prospPicos{margin:14px 0}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
 .pp-c{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px;margin:8px 0}
 .pp-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .pp-n{border:0;background:none;padding:0;font:700 15px Inter,system-ui,sans-serif;color:var(--foco-color);text-align:left;text-decoration:underline;cursor:pointer}
@@ -5555,8 +5555,8 @@
     const dia = diaAtualSelecionado in DIAS ? add(seg, DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
     const l = modo === 'todas' ? marcadas : (dia ? rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com)) : []);
-    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção <a href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial" style="text-decoration:none;margin:0 4px">📄</a>· sem visitas marcadas</h3>' : ''; return; }
-    box.innerHTML = '<h3>Prospeção <a href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial" style="text-decoration:none;margin:0 4px">📄</a>· ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
+    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção <a class="pp-prop" href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Proposta</a>· sem visitas marcadas</h3>' : ''; return; }
+    box.innerHTML = '<h3>Prospeção <a class="pp-prop" href="https://propostacomercial-abmm.onrender.com/" target="_blank" rel="noopener" title="Abrir Proposta Comercial"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Proposta</a>· ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
   }
   window.prospResp_ = async function (id, estado) {
     const d = await postComRetry_({ action: 'prospeccao_atualizar', id: id, estado: estado });
