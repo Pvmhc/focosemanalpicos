@@ -5546,7 +5546,19 @@
   const nz = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[.,]/g, '').trim();
   const esc = t => escapeHtml_(String(t == null ? '' : t));
   const DIAS = { 'Segunda': 0, 'Terça': 1, 'Quarta': 2, 'Quinta': 3, 'Sexta': 4 };
-  function mg(a, b) { const x = nz(a).split(/\s+/), y = nz(b).split(/\s+/); if (x[0] !== y[0]) return false; const l = x[x.length - 1], m = y[y.length - 1]; return l === m || (l.length === 1 && m[0] === l) || (m.length === 1 && l[0] === m); }
+  function mg(a,b){
+    // Compara nomes de pessoas tolerando abreviaturas ("V. Catarino", "Vitor C.", "Vitor M. H. Catarino"),
+    // nomes do meio em falta, ordem trocada ("Catarino, Vitor"), partículas (de/da/do) e pequenas gralhas.
+    const PART=['de','da','do','das','dos','e'];
+    const tk=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(t=>t&&PART.indexOf(t)<0);
+    const lev=(p,q)=>{let r=[];for(let j=0;j<=q.length;j++)r[j]=j;for(let i=1;i<=p.length;i++){let c=[i];for(let j=1;j<=q.length;j++)c[j]=Math.min(r[j]+1,c[j-1]+1,r[j-1]+(p[i-1]===q[j-1]?0:1));r=c}return r[q.length]};
+    const ig=(p,q)=>{if(p===q)return true;if(p.length===1||q.length===1)return p[0]===q[0];const n=Math.max(p.length,q.length);return n>=5&&lev(p,q)<=(n>=7?2:1)};
+    const x=tk(a),y=tk(b);if(!x.length||!y.length)return false;
+    const s=x.length<=y.length?x:y,l=x.length<=y.length?y:x;
+    if(s.length===1)return s[0].length>1&&(ig(s[0],l[0])||ig(s[0],l[l.length-1]));
+    const usados=[];
+    return s.every(t=>{const i=l.findIndex((u,k)=>usados.indexOf(k)<0&&ig(t,u));if(i<0)return false;usados.push(i);return true});
+  }
 
   async function carregar() {
     if (aCarregar || !UTILIZADOR_ID_) return; aCarregar = true;
