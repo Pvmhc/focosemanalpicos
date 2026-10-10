@@ -713,7 +713,22 @@
                mostrar agora o nome completo (acima) a barra já preenche
                melhor o espaço com conteúdo útil, por isso passa a agrupar-se
                à esquerda com um espaçamento generoso mas fixo. */
-            .filtro-principal-bar { justify-content: flex-start; gap: 28px; padding: 10px 22px; }
+            .filtro-principal-bar { justify-content: center; gap: 28px; padding: 10px 22px; }
+        }
+        /* PC: barra compacta e centrada, com divisórias finas em vez de pontos */
+        @media (min-width: 768px) {
+            .filtro-principal-bar {
+                width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto;
+                box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.04);
+                gap: 0; padding: 8px 12px;
+            }
+            .filtro-segmento { padding: 4px 22px; border-radius: 999px; transition: background .15s ease; }
+            .filtro-segmento:hover { background: var(--ok-bg); }
+            .filtro-separador { font-size: 0; width: 1px; height: 28px; background: var(--border); }
+            .filters-grid { text-align: center; }
+            .marcas-filtro-header { justify-content: center; }
+            .marcas-filtro-editar { margin-left: 4px; }
+            .marcas-filtro-chips { justify-content: center; }
         }
 
         .filters-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
@@ -721,8 +736,8 @@
         @media (min-width: 600px) { .filters-grid { padding: 24px; } }
         /* PC: barra de filtros e cartão das marcas alinhados ao mesmo eixo/largura do resto da página (1400px), compactos e sem vazios. */
         @media (min-width: 900px) {
-            .filtro-principal-bar, .filters-grid { max-width: 1400px; margin-left: auto; margin-right: auto; box-sizing: border-box; width: 100%; }
-            .filtro-principal-bar { padding: 8px 22px; gap: 22px; }
+            .filters-grid { max-width: 1400px; margin-left: auto; margin-right: auto; box-sizing: border-box; width: 100%; }
+            .filtro-principal-bar { padding: 8px 12px; gap: 0; }
             .filtro-avatar { width: 36px; height: 36px; }
             .filters-grid { padding: 12px 22px 14px; }
             .filters-grid .marcas-filtro-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-bottom: 0; }
