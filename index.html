@@ -5596,7 +5596,9 @@
     // A data do dia depende também da "Semana" (1-4) escolhida no filtro: conta-se quantas semanas
     // à frente da semana de referência fica essa semana do ciclo (0 a 3).
     const semSel = parseInt($('semanaSelect').value, 10) || 1;
-    const cicloRef = calcularSemanaCiclo(obterSemanaISO(new Date(seg + 'T12:00:00')));
+    // Referência = semana do ciclo de HOJE (a que o filtro "Semana" mostra por defeito). Ao fim de semana, seg já é a
+    // segunda-feira SEGUINTE; com a referência na semana de seg o desvio dava 3 semanas à frente e as visitas dos dias não apareciam.
+    const cicloRef = calcularSemanaCiclo(obterSemanaISO(new Date()));
     const offSem = (((semSel - cicloRef) % 4) + 4) % 4;
     const dia = diaAtualSelecionado in DIAS ? add(seg, offSem * 7 + DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
