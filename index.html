@@ -668,6 +668,7 @@
            visível); no PC há espaço de sobra, por isso mostra-se o nome
            completo em vez de o espaço ficar por preencher. */
         .filtro-valor-selecionado { display: none; }
+        .filtro-prosp .filtro-valor-selecionado { display: inline-block; color: var(--primary); font-weight: 700; font-size: 0.78rem; white-space: nowrap; }
         @media (min-width: 768px) {
             .filtro-valor-selecionado {
                 display: inline-block; color: var(--muted); font-weight: 600; font-size: 0.86rem;
@@ -709,6 +710,14 @@
         .filters-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
         .filter-control.full-largura { grid-column: 1 / -1; min-width: 0; }
         @media (min-width: 600px) { .filters-grid { padding: 24px; } }
+        /* PC: barra de filtros e cartão das marcas alinhados ao mesmo eixo/largura do resto da página (1400px), compactos e sem vazios. */
+        @media (min-width: 900px) {
+            .filtro-principal-bar, .filters-grid { max-width: 1400px; margin-left: auto; margin-right: auto; box-sizing: border-box; width: 100%; }
+            .filtro-principal-bar { padding: 8px 22px; gap: 22px; }
+            .filtro-avatar { width: 36px; height: 36px; }
+            .filters-grid { padding: 12px 22px 14px; }
+            .filters-grid .marcas-filtro-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-bottom: 0; }
+        }
         .filter-control label { display: block; font-size: 0.75rem; color: var(--primary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .filter-control select {
             width: 100%; padding: 12px 34px 12px 12px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 10px;
@@ -1423,6 +1432,12 @@
             <select id="vendedorSelect" class="filtro-select-oculto" onchange="onVendedorAlterado_()">
                 <option value="">Todos</option>
             </select>
+        </div>
+        <span class="filtro-separador">·</span>
+        <div class="filtro-segmento filtro-prosp" id="filtroProsp" onclick="prospCiclo_()" title="Alternar: Dia · Semana · Ocultar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="1" x2="12" y2="4"/></svg>
+            <span class="filtro-segmento-rotulo">Prospeção</span>
+            <span class="filtro-valor-selecionado" id="valorProspFiltro">Dia</span>
         </div>
     </div>
 
@@ -5516,6 +5531,11 @@
   let modo = 'dia';
   const NOMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   window.prospModo_ = function (m) { modo = m; desenhar(); };
+  window.prospCiclo_ = function () { modo = modo === 'dia' ? 'semana' : modo === 'semana' ? 'off' : 'dia'; desenhar(); };
+  function rotuloFiltro_(ld, sem) {
+    const v = $('valorProspFiltro'); if (!v) return;
+    v.textContent = modo === 'off' ? 'Oculta' : modo === 'semana' ? 'Semana (' + sem + ')' : 'Dia (' + ld + ')';
+  }
   function cartao(r, mostraDia) {
     const tp = r.tipoVisita === 'Execução Barril' ? 'Execução' : r.tipoVisita;
     const dd = mostraDia ? NOMES[Math.round((new Date(r.dataPlaneada + 'T12:00:00') - new Date(segunda() + 'T12:00:00')) / 864e5)] + ' ' + r.dataPlaneada.slice(8) + '/' + r.dataPlaneada.slice(5, 7) + ' · ' : '';
@@ -5533,7 +5553,8 @@
     const sem = rows.filter(r => r.dataPlaneada >= seg && r.dataPlaneada <= fim && r.estado !== 'arquivado' && mg(r.gestor, com)).sort((a, b) => a.dataPlaneada < b.dataPlaneada ? -1 : a.dataPlaneada > b.dataPlaneada ? 1 : 0);
     const dia = diaAtualSelecionado in DIAS ? add(seg, DIAS[diaAtualSelecionado]) : null;
     const ld = dia ? sem.filter(r => r.dataPlaneada === dia) : [];
-    if (!sem.length) { box.innerHTML = ''; return; }
+    rotuloFiltro_(ld.length, sem.length);
+    if (!sem.length || modo === 'off') { box.innerHTML = ''; return; }
     const l = modo === 'semana' ? sem : ld;
     const tg = '<span style="float:right;font-size:12px;font-weight:600"><a href="#" onclick="prospModo_(\'dia\');return false" style="' + (modo === 'dia' ? 'text-decoration:underline' : 'opacity:.6') + '">Dia (' + ld.length + ')</a> · <a href="#" onclick="prospModo_(\'semana\');return false" style="' + (modo === 'semana' ? 'text-decoration:underline' : 'opacity:.6') + '">Semana (' + sem.length + ')</a></span>';
     box.innerHTML = '<h3>' + tg + 'Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + '</h3>' + l.map(r => cartao(r, modo === 'semana')).join('');
