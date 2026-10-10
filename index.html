@@ -5512,21 +5512,30 @@
     if (!d || !d.ok) d = await postComRetry_({ action: 'prospeccao_ler' });
     aCarregar = false; if (d && d.ok) { rows = d.rows || []; ts = Date.now(); desenhar(); }
   }
+  let modo = 'dia';
+  const NOMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  window.prospModo_ = function (m) { modo = m; desenhar(); };
+  function cartao(r, mostraDia) {
+    const tp = r.tipoVisita === 'Execução Barril' ? 'Execução' : r.tipoVisita;
+    const dd = mostraDia ? NOMES[Math.round((new Date(r.dataPlaneada + 'T12:00:00') - new Date(segunda() + 'T12:00:00')) / 864e5)] + ' ' + r.dataPlaneada.slice(8) + '/' + r.dataPlaneada.slice(5, 7) + ' · ' : '';
+    return '<div class="pp-c"><div class="pp-t"><div><button class="pp-n" onclick="prospAbrir_(\'' + r.id + '\')">' + esc(r.nome) + '</button><div class="pp-s">' + dd + esc(r.localidade) +
+      '</div></div><span class="pp-b ' + tp + '">' + tp + '</span></div><div class="pp-r"><button class="ok' + (r.estado === 'conquistado' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'conquistado\')">Conquistado</button>' +
+      '<button class="rc' + (r.estado === 'recusou' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'recusou\')">Recusou</button>' +
+      '<button class="nv' + (r.estado === 'novavisita' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'novavisita\')">Nova visita</button></div></div>';
+  }
   function desenhar() {
     const box = $('prospPicos'); if (!box) return;
     const pesq = $('pesquisaCliente'), vend = $('vendedorSelect');
-    if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length || !(diaAtualSelecionado in DIAS)) { box.innerHTML = ''; return; }
+    if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length) { box.innerHTML = ''; return; }
     if (!ts || Date.now() - ts > 45000) carregar();
-    const dia = add(segunda(), DIAS[diaAtualSelecionado]), com = $('comercialSelect').value;
-    const l = rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com));
-    if (!l.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + '</h3>' + l.map(r => {
-      const tp = r.tipoVisita === 'Execução Barril' ? 'Execução' : r.tipoVisita;
-      return '<div class="pp-c"><div class="pp-t"><div><button class="pp-n" onclick="prospAbrir_(\'' + r.id + '\')">' + esc(r.nome) + '</button><div class="pp-s">' + esc(r.localidade) +
-        '</div></div><span class="pp-b ' + tp + '">' + tp + '</span></div><div class="pp-r"><button class="ok' + (r.estado === 'conquistado' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'conquistado\')">Conquistado</button>' +
-        '<button class="rc' + (r.estado === 'recusou' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'recusou\')">Recusou</button>' +
-        '<button class="nv' + (r.estado === 'novavisita' ? ' on' : '') + '" onclick="prospResp_(\'' + r.id + '\',\'novavisita\')">Nova visita</button></div></div>';
-    }).join('');
+    const seg = segunda(), fim = add(seg, 6), com = $('comercialSelect').value;
+    const sem = rows.filter(r => r.dataPlaneada >= seg && r.dataPlaneada <= fim && r.estado !== 'arquivado' && mg(r.gestor, com)).sort((a, b) => a.dataPlaneada < b.dataPlaneada ? -1 : a.dataPlaneada > b.dataPlaneada ? 1 : 0);
+    const dia = diaAtualSelecionado in DIAS ? add(seg, DIAS[diaAtualSelecionado]) : null;
+    const ld = dia ? sem.filter(r => r.dataPlaneada === dia) : [];
+    if (!sem.length) { box.innerHTML = ''; return; }
+    const l = modo === 'semana' ? sem : ld;
+    const tg = '<span style="float:right;font-size:12px;font-weight:600"><a href="#" onclick="prospModo_(\'dia\');return false" style="' + (modo === 'dia' ? 'text-decoration:underline' : 'opacity:.6') + '">Dia (' + ld.length + ')</a> · <a href="#" onclick="prospModo_(\'semana\');return false" style="' + (modo === 'semana' ? 'text-decoration:underline' : 'opacity:.6') + '">Semana (' + sem.length + ')</a></span>';
+    box.innerHTML = '<h3>' + tg + 'Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + '</h3>' + l.map(r => cartao(r, modo === 'semana')).join('');
   }
   window.prospResp_ = async function (id, estado) {
     const d = await postComRetry_({ action: 'prospeccao_atualizar', id: id, estado: estado });
