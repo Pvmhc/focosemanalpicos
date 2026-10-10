@@ -5495,7 +5495,7 @@
 <div id="prospOverlay"></div>
 <script>
 (function () {
-  const PROSP_URL = 'prospecao.html';   // a app de Prospeção tem de estar na mesma pasta/site que esta
+  const PROSP_URL = 'https://prospe-oalgarve.onrender.com/', PROSP_ORIGIN = 'https://prospe-oalgarve.onrender.com';   // a app de Prospeção tem de estar na mesma pasta/site que esta
   const $ = id => document.getElementById(id);
   let rows = [], ts = 0, aCarregar = false;
   const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -5547,8 +5547,8 @@
     const ov = $('prospOverlay'); ov.innerHTML = '<iframe src="' + PROSP_URL + '?embed=1" title="Prospeção"></iframe>'; ov.style.display = 'block'; ov.dataset.id = id;
   };
   window.addEventListener('message', e => {
-    if (e.origin !== location.origin) return; const m = e.data || {}, ov = $('prospOverlay');
-    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, rows: rows }, location.origin);
+    if (e.origin !== PROSP_ORIGIN) return; const m = e.data || {}, ov = $('prospOverlay');
+    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, rows: rows }, PROSP_ORIGIN);
     if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); }
   });
   const orig = window.atualizarVisualizacao;
