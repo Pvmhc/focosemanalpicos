@@ -314,7 +314,9 @@
                 font-size: 0.8rem; font-weight: 700; color: var(--muted); cursor: pointer;
             }
             .resumo-foco-tab.ativo { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(11,12,16,.12); }
-            .resumo-foco-track.resumo-foco-linha { flex-direction: column; }
+            /* align-items:stretch + width:100% — antes o slide encolhia ao conteúdo e o cartão Picos ficava descentrado */
+            .resumo-foco-track.resumo-foco-linha { flex-direction: column; align-items: stretch; }
+            .resumo-foco-slide { width: 100%; }
         }
         @media (min-width: 768px) {
             .resumo-foco-track.resumo-foco-linha { flex-direction: row; }
@@ -670,7 +672,12 @@
         .filtro-valor-selecionado { display: none; }
         .filtro-prosp.ativo .filtro-segmento-rotulo, .filtro-prosp.ativo .filtro-valor-selecionado { color: var(--primary); }
         body.so-prosp .table-container { display: none !important; }
-        .filtro-prosp .filtro-valor-selecionado { display: inline-block; color: var(--primary); font-weight: 700; font-size: 0.78rem; white-space: nowrap; }
+        /* Gestor: só a foto (toque na foto abre a lista). Prospeção: só um ícone (preenchido quando ativo). */
+        .filtro-gestor .filtro-segmento-rotulo, .filtro-gestor .filtro-valor-selecionado { display: none !important; }
+        .filtro-gestor svg { width: 22px; height: 22px; }
+        .filtro-prosp .filtro-segmento-rotulo, .filtro-prosp .filtro-valor-selecionado { display: none !important; }
+        .filtro-segmento.filtro-prosp svg { width: 18px; height: 18px; padding: 5px; box-sizing: content-box; border-radius: 50%; border: 1.5px solid var(--border); }
+        .filtro-segmento.filtro-prosp.ativo svg { color: #fff; background: var(--primary); border-color: var(--primary); }
         @media (min-width: 768px) {
             .filtro-valor-selecionado {
                 display: inline-block; color: var(--muted); font-weight: 600; font-size: 0.86rem;
@@ -5578,6 +5585,7 @@
     const offSem = (((semSel - cicloRef) % 4) + 4) % 4;
     const dia = diaAtualSelecionado in DIAS ? add(seg, offSem * 7 + DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
+    if (fp) fp.title = modo === 'todas' ? 'Prospeções marcadas: ' + marcadas.length + ' (toca para voltar ao dia)' : 'Mostrar todas as prospeções marcadas';
     const l = modo === 'todas' ? marcadas : (dia ? rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com)) : []);
     if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção · sem visitas marcadas</h3>' : ''; return; }
     box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
