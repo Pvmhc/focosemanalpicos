@@ -669,6 +669,7 @@
            completo em vez de o espaço ficar por preencher. */
         .filtro-valor-selecionado { display: none; }
         .filtro-prosp.ativo .filtro-segmento-rotulo, .filtro-prosp.ativo .filtro-valor-selecionado { color: var(--primary); }
+        body.so-prosp .table-container { display: none !important; }
         .filtro-prosp .filtro-valor-selecionado { display: inline-block; color: var(--primary); font-weight: 700; font-size: 0.78rem; white-space: nowrap; }
         @media (min-width: 768px) {
             .filtro-valor-selecionado {
@@ -5544,8 +5545,10 @@
     const box = $('prospPicos'); if (!box) return;
     const pesq = $('pesquisaCliente'), vend = $('vendedorSelect'), fp = $('filtroProsp');
     if (fp) fp.classList.toggle('ativo', modo === 'todas');
+    document.body.classList.remove('so-prosp');
     if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length) { box.innerHTML = ''; return; }
     if (!ts || Date.now() - ts > 45000) carregar();
+    document.body.classList.toggle('so-prosp', modo === 'todas');   // esconde as visitas normais
     const seg = segunda(), com = $('comercialSelect').value;
     const marcadas = rows.filter(r => r.dataPlaneada && r.dataPlaneada >= seg && (r.estado === 'planeada' || r.estado === 'novavisita') && mg(r.gestor, com))
       .sort((a, b) => a.dataPlaneada < b.dataPlaneada ? -1 : a.dataPlaneada > b.dataPlaneada ? 1 : 0);
