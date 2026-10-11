@@ -927,6 +927,11 @@
         .btn-estado.nao-ok { background-color: var(--nok-bg); color: var(--nok-color); border-color: #fecaca; }
         .btn-estado.ok { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; }
         .btn-estado.negociado { background-color: var(--negociado-bg); color: var(--negociado-color); border-color: #fde3b0; }
+        .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
+        .quebra-vol.neg { color: #f87171; }
+        .quebra-vol.pos { color: #4ade80; }
+        .btn-estado.semresposta { background-color: #eef2ff; color: #4338ca; border: 1px dashed #a5b4fc; }
+        body.dark-mode .btn-estado.semresposta { background-color: #26264a; color: #c7d2fe; border-color: #6366f1; }
         /* Marcas em modo "Implementação": VAZIO → DISPONÍVEL → IMPLEMENTADO */
         .btn-estado.disponivel { background-color: #f3e8ff; color: #6d28d9; border-color: #ddd6fe; font-size: 0.72rem; }
         .btn-estado.implementado { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; font-size: 0.72rem; }
@@ -2289,18 +2294,43 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return cobertura;
     }
 
+    /** Soma, por marca, a diferença de volume do mês (coluna "<marca> dif volume" do Excel) dos clientes ÚNICOS.
+     *  Devolve null para a marca que não tem esse dado (Excel antigo, ainda sem a coluna). */
+    function calcularQuebraPorMarca_() {
+        const unicos = {};
+        baseDadosRotas.forEach(r => {
+            const chave = chaveClienteUnica_(r);
+            if (!unicos[chave]) unicos[chave] = {};
+            marcasLista.forEach(m => {
+                const h = (r.historico && r.historico[m]) || {};
+                if (typeof h.dif === 'number' && isFinite(h.dif) && !(m in unicos[chave])) unicos[chave][m] = h.dif;
+            });
+        });
+        const res = {};
+        marcasLista.forEach(m => {
+            let tem = false, soma = 0;
+            Object.values(unicos).forEach(o => { if (m in o) { tem = true; soma += o[m]; } });
+            res[m] = tem ? soma : null;
+        });
+        return res;
+    }
+
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
         const cobertura = calcularCoberturaPorMarca_();
+        const quebra = calcularQuebraPorMarca_();
         linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
             const pct = cobertura[m];
             const pctHtml = (pct === null || pct === undefined)
                 ? ''
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
+            const dq = quebra[m];
+            const quebraHtml = (dq === null || dq === undefined) ? '' :
+                `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês (soma dos clientes)">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
             const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
-            return `<th>${m}${pctHtml}${implHtml}</th>`;
+            return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>`;
         }).join('');
     }
 
@@ -3272,6 +3302,15 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return !NEGATIVOS.has(n);
     }
 
+    /** Valor da coluna "<marca> dif volume": número (aceita "-1.234,5", "-12%" ou vazio). */
+    function interpretarDifVolume_(v) {
+        if (v === null || v === undefined || String(v).trim() === '') return null;
+        if (typeof v === 'number') return isFinite(v) ? v : null;
+        const t = String(v).trim().replace(/\s/g, '').replace('%', '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+        const n = parseFloat(t);
+        return isFinite(n) ? n : null;
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -3310,6 +3349,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const colunasMarcasDetectadas = todasColunas.filter(c => {
                     const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
                     if (ehCabecalhoComprouMes_(c)) return false;
+                    if (/dif\.?[\s_]*vol/i.test(c)) return false;   // "Barril dif volume": diferença de volume do mês, não é uma marca
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 if (colunasMarcasDetectadas.length > 0) {
@@ -3423,6 +3463,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                                 ano: !!obterValor([chaveComAsterisco + '_yt', chaveSemAsterisco + '_yt']),
                                 promo: ehPromo
                             };
+                            // Coluna "<marca> dif volume" (diferença de volume do mês deste cliente nesta marca)
+                            const normCab_ = t => String(t).toLowerCase().replace(/^\*+/, '').replace(/[\s_.]+/g, ' ').trim();
+                            const chaveDif = Object.keys(linha).find(k => normCab_(k) === normCab_(nomeExibido) + ' dif volume');
+                            const dif = chaveDif ? interpretarDifVolume_(linha[chaveDif]) : null;
+                            if (dif !== null) historicoObj[nomeExibido].dif = dif;
                         });
                     }
 
@@ -3677,6 +3722,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
         if (est === "DISPONIVEL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> DISPONÍVEL`;
         if (est === "IMPLEMENTADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> IMPLEMENTADO`;
+        if (est === "SEMRESPOSTA") return `<span title="Sem resposta (auto) — marcado automaticamente; clica para preencher">SEM RESP.</span>`;
         return `VAZIO`;
     }
 
@@ -4816,6 +4862,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (est === 'NEGOCIADO') return 'negociado';
         if (est === 'DISPONIVEL') return 'disponível';
         if (est === 'IMPLEMENTADO') return 'implementado';
+        if (est === 'SEMRESPOSTA') return 'sem resposta (auto)';
         return '';
     }
 
