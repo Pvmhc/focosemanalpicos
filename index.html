@@ -912,7 +912,7 @@
             tbody tr { width: 100%; max-width: 100%; overflow: hidden; }
             tbody td { min-width: 0; gap: 8px; }
             .cell-container { width: auto; flex: 1 1 auto; min-width: 0; gap: 6px; }
-            .cell-container .btn-estado { width: 104px; flex: 0 1 104px; min-width: 0; padding: 6px 6px; }
+            .cell-container .btn-estado, .cell-container .selo-colocada { width: 104px; flex: 0 1 104px; min-width: 0; padding: 6px 6px; }
             .cell-container .badge-colocou { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
         }
         .cell-container { display: flex; align-items: center; gap: 12px; width: 65%; justify-content: flex-end; }
@@ -937,10 +937,9 @@
         .dif-cli .dif-seta { font-style: normal; font-size: 0.5rem; opacity: .85; }
         .dif-cli b { font-weight: 800; }
         .dif-cli u { text-decoration: none; font-weight: 600; font-size: 0.6rem; opacity: .75; letter-spacing: .02em; }
-        /* Marca já colocada este mês: OK bloqueado, esbatido como uma sombra (a etiqueta dos litros fica legível) */
-        td.marca-colocada .btn-estado { opacity: .5; pointer-events: none; cursor: default; filter: saturate(.75); }
-        td.marca-colocada .icons-row { opacity: .75; }
-        @media (max-width: 767px) { tbody td.marca-colocada:not(:first-child)::before { opacity: .6; } }
+        /* Marca já colocada este mês: selo verde sólido (não é botão, por isso não parece clicável) */
+        .selo-colocada { display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 132px; height: 34px; padding: 6px 10px; border-radius: 20px; background: #e3f3df; color: #1b5e20; border: 1px solid #c5e5bd; font-size: 0.76rem; font-weight: 700; white-space: nowrap; cursor: default; user-select: none; }
+        body.dark-mode .selo-colocada { background: #143d1b; color: #9be3a4; border-color: #1f5a2a; }
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         .dif-cli-card { display: none; }
@@ -1219,7 +1218,7 @@
 #consultaSemana[hidden]{display:none}
 #consultaSemana button{border:0;border-radius:999px;padding:6px 14px;background:#008200;color:#fff;font-weight:700;font-size:.78rem;cursor:pointer}
 body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1d58a}
-#prospPicos{margin:14px 0}#prospPicos .pp-d{display:inline-flex;align-items:center;gap:8px}#prospPicos .pp-pi{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;padding:0;text-decoration:none}#prospPicos .pp-pi.tem{color:var(--primary);border-color:var(--primary);background:var(--ok-bg)}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
+#prospPicos{margin:14px 0}@media(max-width:1023px){#prospPicos .pp-c{scroll-snap-align:center;scroll-snap-stop:always;scroll-margin-top:70px;scroll-margin-bottom:70px}}#prospPicos .pp-d{display:inline-flex;align-items:center;gap:8px}#prospPicos .pp-pi{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;padding:0;text-decoration:none}#prospPicos .pp-pi.tem{color:var(--primary);border-color:var(--primary);background:var(--ok-bg)}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
 .pp-c{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px;margin:8px 0}
 .pp-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .pp-n{border:0;background:none;padding:0;font:700 15px Inter,system-ui,sans-serif;color:var(--foco-color);text-align:left;text-decoration:underline;cursor:pointer}
@@ -4216,12 +4215,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                             <div class="icons-row">
                                 ${ehPromoMensal
                                     ? `<span class="texto-elegibilidade ${hist.mes ? 'implementado' : 'elegivel'}">${hist.mes ? 'Implementado' : 'Elegível'}</span>`
-                                    : `<svg class="${hist.mes?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>
+                                    : `${colocadaMes ? '' : `<svg class="${hist.mes?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>`}
                                        <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
                                 }
                             </div>
                             ${colocadaMes
-                                ? `<button class="btn-estado ok" disabled aria-disabled="true" tabindex="-1" title="Já colocada este mês">${obterInnerHtmlBotao(est)}</button>`
+                                ? `<span class="selo-colocada" title="Já colocada este mês"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Colocada</span>`
                                 : `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>`}
                             ${badgeColocouHtml}
                             ${difTab}
