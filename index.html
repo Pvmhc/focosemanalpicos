@@ -932,6 +932,8 @@
         .dif-cli.pos { color: #16a34a; }
         body.dark-mode .dif-cli.neg { color: #f87171; }
         body.dark-mode .dif-cli.pos { color: #4ade80; }
+        .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
+        .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         .dif-cli-card { display: none; }
         @media (max-width: 767px) { .dif-cli-card { display: inline; } .dif-cli-tab { display: none; } }
         .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
@@ -2301,11 +2303,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return cobertura;
     }
 
-    /** Soma, por marca, a diferença de volume do mês (coluna "<marca> dif volume" do Excel) dos clientes ÚNICOS.
+    /** Soma, por marca, a diferença de volume do mês (coluna "<marca> dif volume" do Excel) dos clientes ÚNICOS
+     *  do GESTOR selecionado no filtro (sem gestor selecionado, soma todos).
      *  Devolve null para a marca que não tem esse dado (Excel antigo, ainda sem a coluna). */
+    let quebraGestorRender_ = null;
     function calcularQuebraPorMarca_() {
+        const com = (document.getElementById('comercialSelect') || {}).value || '';
         const unicos = {};
-        baseDadosRotas.forEach(r => {
+        baseDadosRotas.filter(r => !com || r.comercial === com).forEach(r => {
             const chave = chaveClienteUnica_(r);
             if (!unicos[chave]) unicos[chave] = {};
             marcasLista.forEach(m => {
@@ -2327,6 +2332,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (!linha) return;
         const cobertura = calcularCoberturaPorMarca_();
         const quebra = calcularQuebraPorMarca_();
+        quebraGestorRender_ = (document.getElementById('comercialSelect') || {}).value || '';
         linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
             const pct = cobertura[m];
             const pctHtml = (pct === null || pct === undefined)
@@ -2334,7 +2340,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
             const dq = quebra[m];
             const quebraHtml = (dq === null || dq === undefined) ? '' :
-                `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês (soma dos clientes)">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} vol. mês</div>`;
+                `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
             const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
             return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>`;
@@ -3769,6 +3775,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     }
 
     function atualizarVisualizacao() {
+        if (((document.getElementById('comercialSelect') || {}).value || '') !== quebraGestorRender_) renderCabecalhoTabela();
         const com = document.getElementById('comercialSelect').value;
         const sem = document.getElementById('semanaSelect').value;
         const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
@@ -4034,7 +4041,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const difTxt = difCli === null ? '' : `${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')} ${(difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')}`;
                 const difCls = difCli === null ? '' : (difCli < 0 ? 'neg' : (difCli > 0 ? 'pos' : ''));
                 const difTitulo = 'Diferença de volume do mês deste cliente nesta marca';
-                const difTab = difTxt ? `<span class="dif-cli dif-cli-tab ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
+                const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-rot">vol. mês</span><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
                 const difCard = difTxt ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
 
                 let badgeColocouHtml = '';
@@ -4051,10 +4058,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                                     ? `<span class="texto-elegibilidade ${hist.mes ? 'implementado' : 'elegivel'}">${hist.mes ? 'Implementado' : 'Elegível'}</span>`
                                     : `<svg class="${hist.mes?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>
                                        <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
-                                }${difTab}
+                                }
                             </div>
                             <button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>
                             ${badgeColocouHtml}
+                            ${difTab}
                         </div>
                     </td>`;
             });
