@@ -575,6 +575,8 @@
             font-size: 0.85rem; font-weight: 600; color: var(--muted); text-decoration: underline; padding: 6px 10px;
         }
         .lock-link:disabled { visibility: hidden; }
+        .lock-bio-btn { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 14px auto 0; padding: 11px 18px; border-radius: 999px; border: 1.5px solid var(--primary, #008200); background: transparent; color: var(--primary, #008200); font-weight: 700; font-size: .92rem; cursor: pointer; }
+        .lock-bio-btn[hidden], #lockBioOff[hidden] { display: none; }
         .lock-passo { width: 100%; display: flex; flex-direction: column; align-items: center; }
         .lock-passo[hidden] { display: none; }
         .lock-gestores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 10px; width: 100%; }
@@ -897,7 +899,7 @@
         tbody td { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 0.95rem; }
         tbody td:last-child { border-bottom: none; }
         tbody td:first-child { display: block; font-weight: 800; font-size: 1.1rem; color: var(--accent); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 8px; }
-        tbody td:not(:first-child)::before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 0.85rem; }
+        tbody td:not(:first-child)::before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 1rem; }
         /* Vista em cartões (telemóvel): células sem nada (marca em Implementação com 0 no Excel, 0.0%/PRETA que não se aplicam) não mostram nem o nome da marca */
         @media (max-width: 767px) { tbody td:empty { display: none; } }
         /* Telemóvel: o cartão do cliente saía para fora do ecrã e ficava mais
@@ -935,7 +937,7 @@
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         .dif-cli-card { display: none; }
-        @media (max-width: 767px) { .dif-cli-card { display: inline; } .dif-cli-tab { display: none; } }
+        @media (max-width: 767px) { .dif-cli-card { display: inline; font-size: 0.8rem; margin-left: 6px; } .dif-cli-tab { display: none; } }
         .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
         .quebra-vol.neg { color: #f87171; }
         .quebra-vol.pos { color: #4ade80; }
@@ -1352,6 +1354,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><line x1="12" y1="9" x2="18" y2="15"/><line x1="18" y1="9" x2="12" y2="15"/></svg>
             </button>
         </div>
+        <button type="button" class="lock-bio-btn" id="lockBioBtn" onclick="bioEntrar_()" hidden>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 11c0 3.5-.5 6-2 8"/><path d="M8 8.5A5 5 0 0 1 17 11c0 2-.2 3.6-.6 5"/><path d="M5.2 11A7 7 0 0 1 12 4a7 7 0 0 1 6.5 4.2"/><path d="M12 11c0 2.4-.3 4.6-1 6.5"/><path d="M5 15c.3-1 .5-2.3.5-4"/></svg>
+            <span>Entrar com impressão digital / Face ID</span>
+        </button>
+        <button type="button" class="lock-link" id="lockBioOff" onclick="bioDesativar_()" hidden>Desativar impressão digital / Face ID</button>
         <button type="button" class="lock-link" id="lockLinkAcao" onclick="lockLinkAcao_()">Mudar PIN</button>
         </div>
     </div>
@@ -2340,7 +2347,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
             const dq = quebra[m];
             const quebraHtml = (dq === null || dq === undefined) ? '' :
-                `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} vol. mês</div>`;
+                `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês, em litros: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} lt · vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
             const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
             return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>`;
@@ -2650,6 +2657,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         } else {
             link.textContent = 'Cancelar'; link.disabled = false;
         }
+        if (typeof bioAtualizarBotao_ === 'function') bioAtualizarBotao_();
     }
     function lockLinkAcao_() {
         if (lockOcupado_) return;
@@ -2779,7 +2787,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         }, 400);
     }
 
-    async function lockProcessarPin_() {
+    async function lockProcessarPin_(viaBio) {
+        viaBio = (viaBio === true);
         const pin = pinBuffer_;
         const modo = lockModo_;
         const nome = lockNomeAuth_();
@@ -2811,6 +2820,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const h = await lockHashLocal_(nome, pin);
                 const loc = lockLerLocal_(nome);
                 if (h) lockGuardarLocal_(nome, h, (loc && loc.perfil) || 'utilizador');
+                bioRemover_(nome);
                 lockPinTemp_ = ''; lockPinAtual_ = '';
                 lockDefinirModo_('entrar');
                 lockMensagem_('PIN alterado. Entra com o novo PIN.', true);
@@ -2830,6 +2840,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (lockOffline_) {
             const loc = await tentarLocal();
             if (loc) await lockConcluirEntrada_(nome, pin, loc.perfil, false);
+            else if (viaBio) bioPinMudou_(nome);
             else lockErroPin_('PIN incorreto.');
             return;
         }
@@ -2844,6 +2855,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             return;
         }
         if (r && r.semPin) { lockTemPin_ = false; lockErroPin_(r.erro, 'criar1'); return; }
+        if (viaBio && r && !r.ok && !r.bloqueado) { bioPinMudou_(nome); return; }
         lockErroPin_((r && r.erro) || 'PIN incorreto.');
     }
 
@@ -2871,9 +2883,138 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             }
         }
         pinBuffer_ = ''; pinAtualizarPontos_();
+        if (doServidor && !MODO_VENDEDOR_ATIVO_) bioOferecer_(nome, pin);
         if (typeof window.mostrarInstallPromptRB === 'function') {
             setTimeout(window.mostrarInstallPromptRB, 700);
         }
+    }
+
+    // ===== ENTRADA COM IMPRESSÃO DIGITAL / FACE ID =====
+    // Usa a autenticação do próprio telemóvel (WebAuthn). O PIN é guardado CIFRADO neste dispositivo com uma chave que
+    // só o telemóvel liberta depois da impressão digital / Face ID (extensão PRF): sem a biometria, o PIN guardado é ilegível.
+    // Depois de desbloquear, entra pelo mesmo caminho do PIN (validação no servidor, registo de entrada, etc.).
+    // O PIN continua sempre a funcionar. Se o PIN mudar, a biometria guardada é apagada e pede-se para ativar outra vez.
+    const BIO_PREFIXO_ = 'bio_';
+    function bioSuportado_() {
+        return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext && window.crypto && crypto.subtle);
+    }
+    function bioB64_(buf) { return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+    function bioDeB64_(str) {
+        const s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+        return Uint8Array.from(atob(s + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+    }
+    function bioLer_(nome) { try { return JSON.parse(localStorage.getItem(BIO_PREFIXO_ + nome) || 'null'); } catch (e) { return null; } }
+    function bioRemover_(nome) { try { localStorage.removeItem(BIO_PREFIXO_ + nome); } catch (e) {} }
+    async function bioChave_(prfBytes) {
+        const base = await crypto.subtle.importKey('raw', prfBytes, 'HKDF', false, ['deriveKey']);
+        return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('picos-pin') },
+            base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    }
+    async function bioAtivar_(nome, pin) {
+        const salt = crypto.getRandomValues(new Uint8Array(32));
+        const cred = await navigator.credentials.create({ publicKey: {
+            rp: { name: 'Picos', id: location.hostname },
+            user: { id: crypto.getRandomValues(new Uint8Array(16)), name: nome, displayName: nome },
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+            authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
+            extensions: { prf: { eval: { first: salt } } },
+            attestation: 'none', timeout: 60000
+        } });
+        const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
+        let prf = ext.prf && ext.prf.results && ext.prf.results.first;
+        if (!prf) {   // alguns telemóveis só entregam o PRF numa leitura a seguir à criação
+            if (!(ext.prf && ext.prf.enabled)) throw new Error('prf-nao-suportado');
+            const a = await navigator.credentials.get({ publicKey: {
+                challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: 'public-key', id: cred.rawId }],
+                userVerification: 'required', extensions: { prf: { eval: { first: salt } } }, timeout: 60000
+            } });
+            const e2 = a.getClientExtensionResults();
+            prf = e2.prf && e2.prf.results && e2.prf.results.first;
+            if (!prf) throw new Error('prf-nao-suportado');
+        }
+        const chave = await bioChave_(prf);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const cifra = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, chave, new TextEncoder().encode(pin));
+        localStorage.setItem(BIO_PREFIXO_ + nome, JSON.stringify({ id: bioB64_(cred.rawId), salt: bioB64_(salt), iv: bioB64_(iv), c: bioB64_(cifra) }));
+    }
+    async function bioEntrar_() {
+        if (lockOcupado_) return;
+        const nome = lockNomeAuth_(), reg = bioLer_(nome);
+        if (!reg || lockModo_ !== 'entrar') return;
+        let pin = '';
+        try {
+            lockMensagem_('');
+            const a = await navigator.credentials.get({ publicKey: {
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                allowCredentials: [{ type: 'public-key', id: bioDeB64_(reg.id) }],
+                userVerification: 'required', extensions: { prf: { eval: { first: bioDeB64_(reg.salt) } } }, timeout: 60000
+            } });
+            const ext = a.getClientExtensionResults();
+            const prf = ext.prf && ext.prf.results && ext.prf.results.first;
+            if (!prf) throw new Error('sem-prf');
+            const chave = await bioChave_(prf);
+            pin = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bioDeB64_(reg.iv) }, chave, bioDeB64_(reg.c)));
+        } catch (e) {
+            lockMensagem_('Não foi possível usar a impressão digital / Face ID. Usa o PIN.');
+            return;
+        }
+        pinBuffer_ = pin; pinAtualizarPontos_();
+        await lockProcessarPin_(true);
+    }
+    function bioPinMudou_(nome) {
+        bioRemover_(nome);
+        bioAtualizarBotao_();
+        lockErroPin_('O PIN foi alterado. Entra com o PIN e ativa outra vez a impressão digital / Face ID.');
+    }
+    function bioDesativar_() {
+        const nome = lockNomeAuth_();
+        if (!confirm('Desativar a entrada com impressão digital / Face ID neste dispositivo?')) return;
+        bioRemover_(nome);
+        bioAtualizarBotao_();
+    }
+    function bioAtualizarBotao_() {
+        const btn = document.getElementById('lockBioBtn'), off = document.getElementById('lockBioOff');
+        if (!btn || !off) return;
+        const mostrar = lockModo_ === 'entrar' && !MODO_VENDEDOR_ATIVO_ && bioSuportado_() && !!bioLer_(lockNomeAuth_());
+        btn.hidden = !mostrar; off.hidden = !mostrar;
+    }
+    async function bioOferecer_(nome, pin) {
+        try {
+            if (!bioSuportado_() || bioLer_(nome)) return;
+            const recusou = parseInt(localStorage.getItem('bioRecusou_' + nome) || '0', 10);
+            if (recusou && Date.now() - recusou < 7 * 24 * 3600 * 1000) return;     // não insiste durante 7 dias
+            if (!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return;
+            setTimeout(() => bioMostrarConvite_(nome, pin), 1200);
+        } catch (e) { /* sem biometria disponível: segue só com o PIN */ }
+    }
+    function bioMostrarConvite_(nome, pin) {
+        if (document.getElementById('bioConvite')) return;
+        const d = document.createElement('div');
+        d.id = 'bioConvite';
+        d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:100000;max-width:520px;margin:0 auto;background:#111827;color:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:10px;';
+        const btnCss = 'border:0;border-radius:999px;padding:9px 16px;font-weight:700;cursor:pointer;';
+        d.innerHTML = '<div style="font-weight:700">Entrar mais depressa?</div>' +
+            '<div id="bioConviteTxt" style="font-size:.9rem;opacity:.9">Ativa a entrada com a impressão digital ou o Face ID neste dispositivo. O PIN continua a funcionar.</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end"><button id="bioNao" type="button" style="' + btnCss + 'background:#374151;color:#fff">Agora não</button>' +
+            '<button id="bioSim" type="button" style="' + btnCss + 'background:#008200;color:#fff">Ativar</button></div>';
+        document.body.appendChild(d);
+        const recusar = () => { try { localStorage.setItem('bioRecusou_' + nome, String(Date.now())); } catch (e) {} };
+        document.getElementById('bioNao').onclick = () => { recusar(); d.remove(); };
+        document.getElementById('bioSim').onclick = async () => {
+            const txt = document.getElementById('bioConviteTxt');
+            try {
+                await bioAtivar_(nome, pin);
+                txt.textContent = 'Ativado. Da próxima vez podes entrar com a impressão digital ou o Face ID.';
+                setTimeout(() => d.remove(), 2600);
+            } catch (e) {
+                recusar();
+                txt.textContent = (e && e.message === 'prf-nao-suportado')
+                    ? 'Este telemóvel ou browser ainda não permite guardar o PIN com impressão digital. Continua a entrar com o PIN.'
+                    : 'Não foi possível ativar agora. Continua a entrar com o PIN.';
+                setTimeout(() => d.remove(), 4500);
+            }
+        };
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -4038,9 +4179,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const ehPromoMensal = !!hist.promo;
                 // Diferença de volume do mês deste cliente nesta marca (coluna "<marca> dif volume" do Excel)
                 const difCli = (typeof hist.dif === 'number' && isFinite(hist.dif)) ? hist.dif : null;
-                const difTxt = difCli === null ? '' : `${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')} ${(difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')}`;
+                const difTxt = difCli === null ? '' : `${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')} ${(difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')} lt`;
                 const difCls = difCli === null ? '' : (difCli < 0 ? 'neg' : (difCli > 0 ? 'pos' : ''));
-                const difTitulo = 'Diferença de volume do mês deste cliente nesta marca';
+                const difTitulo = 'Diferença de volume do mês deste cliente nesta marca (litros)';
                 const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-rot">vol. mês</span><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
                 const difCard = difTxt ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
 
