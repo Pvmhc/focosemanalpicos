@@ -1192,6 +1192,10 @@
            usa var(--bg)/var(--card)), por isso não precisa de ajustes. */
 </style>
 <style>
+#consultaSemana{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:10px auto;padding:8px 14px;max-width:760px;border-radius:14px;background:#fff7e0;border:1px solid #f1d58a;color:#7a5200;font-size:.84rem;font-weight:700}
+#consultaSemana[hidden]{display:none}
+#consultaSemana button{border:0;border-radius:999px;padding:6px 14px;background:#008200;color:#fff;font-weight:700;font-size:.78rem;cursor:pointer}
+body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1d58a}
 #prospPicos{margin:14px 0}#prospPicos .pp-d{display:inline-flex;align-items:center;gap:8px}#prospPicos .pp-pi{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;padding:0;text-decoration:none}#prospPicos .pp-pi.tem{color:var(--primary);border-color:var(--primary);background:var(--ok-bg)}#prospPicos h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}#prospPicos .pp-prop{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--primary);border:1px solid var(--primary);font-size:12px;font-weight:700;text-decoration:none}
 .pp-c{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px;margin:8px 0}
 .pp-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
@@ -1464,6 +1468,7 @@
             <span class="filtro-valor-selecionado" id="valorProspFiltro">Todas</span>
         </div>
     </div>
+    <div id="consultaSemana" hidden></div>
 
     <div class="filters-grid">
         <div class="filter-control full-largura">
@@ -5546,6 +5551,35 @@
   const nz = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[.,]/g, '').trim();
   const esc = t => escapeHtml_(String(t == null ? '' : t));
   const DIAS = { 'Segunda': 0, 'Terça': 1, 'Quarta': 2, 'Quinta': 3, 'Sexta': 4 };
+
+  // "Semana N" escolhida = a semana de calendário (a contar da atual, 📍) que tem esse número no ciclo de 4 semanas.
+  function semanaConsultada_() {
+    const semSel = parseInt($('semanaSelect').value, 10) || 1, hoje = new Date();
+    const offSem = (((semSel - calcularSemanaCiclo(obterSemanaISO(hoje))) % 4) + 4) % 4;
+    const seg = add(iso(hoje), -((hoje.getDay() + 6) % 7) + offSem * 7);
+    return { offSem: offSem, seg: seg, fim: add(seg, 6), semIso: obterSemanaISO(new Date(seg + 'T12:00:00')) };
+  }
+  function intervaloSemana_(seg) {
+    const fim = add(seg, 4), d = x => parseInt(x.slice(8), 10), m = x => parseInt(x.slice(5, 7), 10);
+    return m(seg) === m(fim) ? d(seg) + '–' + d(fim) + '/' + m(fim) : d(seg) + '/' + m(seg) + '–' + d(fim) + '/' + m(fim);
+  }
+  // Quando se escolhe uma semana diferente da atual: o número da semana passa a ser o da semana consultada
+  // e aparece uma faixa a indicar que é uma consulta (com botão para voltar à semana atual).
+  function atualizarConsulta_() {
+    try {
+      const c = semanaConsultada_(), bar = $('consultaSemana'), num = $('numeroSemanaAtual');
+      if (num) num.textContent = String(c.offSem ? c.semIso : obterSemanaISO(new Date()));
+      if (!bar) return;
+      if (!c.offSem) { bar.hidden = true; bar.innerHTML = ''; return; }
+      bar.hidden = false;
+      bar.innerHTML = '<span>🔎 A consultar a semana ' + c.semIso + ' · ' + intervaloSemana_(c.seg) + '</span>' +
+        '<button type="button" onclick="voltarSemanaAtual_()">Voltar à semana atual</button>';
+    } catch (e) { console.error(e); }
+  }
+  window.voltarSemanaAtual_ = function () {
+    $('semanaSelect').value = String(calcularSemanaCiclo(obterSemanaISO(new Date())));
+    window.atualizarVisualizacao();
+  };
   function mg(a,b){
     // Compara nomes de pessoas tolerando abreviaturas ("V. Catarino", "Vitor C.", "Vitor M. H. Catarino"),
     // nomes do meio em falta, ordem trocada ("Catarino, Vitor"), partículas (de/da/do) e pequenas gralhas.
@@ -5602,22 +5636,16 @@
     if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length) { box.innerHTML = ''; return; }
     if (!ts || Date.now() - ts > 45000) carregar();
     document.body.classList.toggle('so-prosp', modo === 'todas');   // esconde as visitas normais
-    const seg = segunda(), com = $('comercialSelect').value;
-    const marcadas = rows.filter(r => r.dataPlaneada && r.dataPlaneada >= seg && (r.estado === 'planeada' || r.estado === 'novavisita') && mg(r.gestor, com))
+    const c = semanaConsultada_(), com = $('comercialSelect').value;
+    // 🎯 "Todas" = só as prospeções marcadas na semana que se está a consultar
+    const marcadas = rows.filter(r => r.dataPlaneada && r.dataPlaneada >= c.seg && r.dataPlaneada <= c.fim && (r.estado === 'planeada' || r.estado === 'novavisita') && mg(r.gestor, com))
       .sort((a, b) => a.dataPlaneada < b.dataPlaneada ? -1 : a.dataPlaneada > b.dataPlaneada ? 1 : 0);
-    // A data do dia depende também da "Semana" (1-4) escolhida no filtro: conta-se quantas semanas
-    // à frente da semana de referência fica essa semana do ciclo (0 a 3).
-    const semSel = parseInt($('semanaSelect').value, 10) || 1;
-    // Referência = semana do ciclo de HOJE (a que o filtro "Semana" mostra por defeito). Ao fim de semana, seg já é a
-    // segunda-feira SEGUINTE; com a referência na semana de seg o desvio dava 3 semanas à frente e as visitas dos dias não apareciam.
-    const cicloRef = calcularSemanaCiclo(obterSemanaISO(new Date()));
-    const offSem = (((semSel - cicloRef) % 4) + 4) % 4;
-    const dia = diaAtualSelecionado in DIAS ? add(seg, offSem * 7 + DIAS[diaAtualSelecionado]) : null;
+    const dia = diaAtualSelecionado in DIAS ? add(c.seg, DIAS[diaAtualSelecionado]) : null;
     const v = $('valorProspFiltro'); if (v) v.textContent = modo === 'todas' ? 'Todas (' + marcadas.length + ')' : 'Todas';
-    if (fp) fp.title = modo === 'todas' ? 'Prospeções marcadas: ' + marcadas.length + ' (toca para voltar ao dia)' : 'Mostrar todas as prospeções marcadas';
+    if (fp) fp.title = modo === 'todas' ? 'Prospeções marcadas nesta semana: ' + marcadas.length + ' (toca para voltar ao dia)' : 'Mostrar as prospeções marcadas na semana';
     const l = modo === 'todas' ? marcadas : (dia ? rows.filter(r => r.dataPlaneada === dia && mg(r.gestor, com)) : []);
-    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção · sem visitas marcadas</h3>' : ''; return; }
-    box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
+    if (!l.length) { box.innerHTML = modo === 'todas' ? '<h3>Prospeção · sem visitas marcadas na semana ' + c.semIso + ' (' + intervaloSemana_(c.seg) + ')</h3>' : ''; return; }
+    box.innerHTML = '<h3>Prospeção · ' + l.length + (l.length === 1 ? ' visita' : ' visitas') + (modo === 'todas' ? ' marcadas · semana ' + c.semIso + ' (' + intervaloSemana_(c.seg) + ')' : '') + '</h3>' + l.map(r => cartao(r, modo === 'todas')).join('');
   }
   window.prospResp_ = async function (id, estado) {
     const d = await postComRetry_({ action: 'prospeccao_atualizar', id: id, estado: estado });
@@ -5635,7 +5663,7 @@
   });
   carregarPropostas_();
   const orig = window.atualizarVisualizacao;
-  window.atualizarVisualizacao = function () { const r = orig.apply(this, arguments); try { desenhar(); } catch (e) { console.error(e); } return r; };
+  window.atualizarVisualizacao = function () { const r = orig.apply(this, arguments); atualizarConsulta_(); try { desenhar(); } catch (e) { console.error(e); } return r; };
   mudarDiaOrig_ = window.mudarDia; window.mudarDia = function () { const r = mudarDiaOrig_.apply(this, arguments); try { desenhar(); } catch (e) {} return r; };
 })();
 var mudarDiaOrig_;
