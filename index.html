@@ -929,15 +929,18 @@
         .btn-estado.nao-ok { background-color: var(--nok-bg); color: var(--nok-color); border-color: #fecaca; }
         .btn-estado.ok { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; }
         .btn-estado.negociado { background-color: var(--negociado-bg); color: var(--negociado-color); border-color: #fde3b0; }
-        .dif-cli { font-size: 0.7rem; font-weight: 800; white-space: nowrap; color: var(--muted); }
-        .dif-cli.neg { color: #dc2626; }
-        .dif-cli.pos { color: #16a34a; }
-        body.dark-mode .dif-cli.neg { color: #f87171; }
-        body.dark-mode .dif-cli.pos { color: #4ade80; }
+        .dif-cli { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 0.7rem; line-height: 1.55; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgba(100,116,139,.12); color: var(--muted); }
+        .dif-cli.neg { background: rgba(220,38,38,.10); color: #b91c1c; }
+        .dif-cli.pos { background: rgba(22,163,74,.12); color: #15803d; }
+        body.dark-mode .dif-cli.neg { background: rgba(248,113,113,.16); color: #fca5a5; }
+        body.dark-mode .dif-cli.pos { background: rgba(74,222,128,.16); color: #86efac; }
+        .dif-cli .dif-seta { font-style: normal; font-size: 0.5rem; opacity: .85; }
+        .dif-cli b { font-weight: 800; }
+        .dif-cli u { text-decoration: none; font-weight: 600; font-size: 0.6rem; opacity: .75; letter-spacing: .02em; }
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         .dif-cli-card { display: none; }
-        @media (max-width: 767px) { .dif-cli-card { display: inline; font-size: 0.8rem; margin-left: 6px; } .dif-cli-tab { display: none; } }
+        @media (max-width: 767px) { .dif-cli-card { display: inline-flex; margin-left: 8px; } .dif-cli-tab { display: none; } }
         .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
         .quebra-vol.neg { color: #f87171; }
         .quebra-vol.pos { color: #4ade80; }
@@ -4179,7 +4182,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const ehPromoMensal = !!hist.promo;
                 // Diferença de volume do mês deste cliente nesta marca (coluna "<marca> dif volume" do Excel)
                 const difCli = (typeof hist.dif === 'number' && isFinite(hist.dif)) ? hist.dif : null;
-                const difTxt = difCli === null ? '' : `${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')} ${(difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')} lt`;
+                const difNum = difCli === null ? '' : ((difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')).replace('-', '\u2212');
+                const difTxt = difCli === null ? '' : `<i class="dif-seta">${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')}</i><b>${difNum}</b><u>lt</u>`;
                 const difCls = difCli === null ? '' : (difCli < 0 ? 'neg' : (difCli > 0 ? 'pos' : ''));
                 const difTitulo = 'Diferença de volume do mês deste cliente nesta marca (litros)';
                 const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-rot">vol. mês</span><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
