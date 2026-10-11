@@ -937,6 +937,10 @@
         .dif-cli .dif-seta { font-style: normal; font-size: 0.5rem; opacity: .85; }
         .dif-cli b { font-weight: 800; }
         .dif-cli u { text-decoration: none; font-weight: 600; font-size: 0.6rem; opacity: .75; letter-spacing: .02em; }
+        /* Marca já colocada este mês: OK bloqueado, esbatido como uma sombra (a etiqueta dos litros fica legível) */
+        td.marca-colocada .btn-estado { opacity: .5; pointer-events: none; cursor: default; filter: saturate(.75); }
+        td.marca-colocada .icons-row { opacity: .75; }
+        @media (max-width: 767px) { tbody td.marca-colocada:not(:first-child)::before { opacity: .6; } }
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         .dif-cli-card { display: none; }
@@ -3762,9 +3766,17 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         });
     }
 
+    /** Marca já colocada este mês (Excel): aparece sempre como OK e fica bloqueada.
+     *  Não se aplica às marcas em modo Implementação nem às promocionais, que têm outro fluxo. */
+    function marcaColocadaMes_(item, m) {
+        const h = (item && item.historico && item.historico[m]) || {};
+        return !!h.mes && !h.promo && !ehMarcaImplementacao_(m);
+    }
+
     function alternarEstado(idRegisto, marca) {
         if (MODO_VENDEDOR_ATIVO_) return; // link do vendedor é só de leitura
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
+        if (registo && marcaColocadaMes_(registo, marca)) return;   // já colocada este mês: bloqueada
         if (registo) {
             // Usa SEMPRE a semana do próprio registo (registo.semana), nunca o valor
             // do dropdown "Semana". Em modo de pesquisa a tabela mostra clientes de
@@ -4136,7 +4148,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 ? `<span class="cliente-meta">${diaParaEtiqueta || 'sem dia'} · Semana ${item.semana || '—'}</span>`
                 : '';
             
-            const temNegociado = Object.values(item.estados || {}).includes("NEGOCIADO");
+            const temNegociado = Object.keys(item.estados || {}).some(mk => item.estados[mk] === "NEGOCIADO" && !marcaColocadaMes_(item, mk));
             const botaoEncomendarHtml = temNegociado ? `
                 <div>
                     <button class="btn-cart" onclick="abrirModalEncomenda(${item.id})">
@@ -4180,13 +4192,16 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 let est = item.estados[m] || "";
                 if (emImplementacao && est !== "IMPLEMENTADO") est = "DISPONIVEL";
                 const ehPromoMensal = !!hist.promo;
+                // Marca já colocada este mês (inclui as que estavam Negociado, Não OK, Foco...): passa a OK e fica bloqueada
+                const colocadaMes = marcaColocadaMes_(item, m);
+                if (colocadaMes) est = "OK";
                 // Diferença de volume do mês deste cliente nesta marca (coluna "<marca> dif volume" do Excel)
                 const difCli = (typeof hist.dif === 'number' && isFinite(hist.dif)) ? hist.dif : null;
                 const difNum = difCli === null ? '' : ((difCli > 0 ? '+' : '') + Math.round(difCli).toLocaleString('pt-PT')).replace('-', '\u2212');
                 const difTxt = difCli === null ? '' : `<i class="dif-seta">${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')}</i><b>${difNum}</b><u>lt</u>`;
                 const difCls = difCli === null ? '' : (difCli < 0 ? 'neg' : (difCli > 0 ? 'pos' : ''));
                 const difTitulo = 'Diferença de volume do mês deste cliente nesta marca (litros)';
-                const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-rot">vol. mês</span><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
+                const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
                 const difCard = difTxt ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
 
                 let badgeColocouHtml = '';
@@ -4196,7 +4211,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 }
 
                 html += `
-                    <td data-label="${m}">${difCard}
+                    <td data-label="${m}"${colocadaMes ? ' class="marca-colocada"' : ''}>${difCard}
                         <div class="cell-container">
                             <div class="icons-row">
                                 ${ehPromoMensal
@@ -4205,7 +4220,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                                        <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
                                 }
                             </div>
-                            <button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>
+                            ${colocadaMes
+                                ? `<button class="btn-estado ok" disabled aria-disabled="true" tabindex="-1" title="Já colocada este mês">${obterInnerHtmlBotao(est)}</button>`
+                                : `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>`}
                             ${badgeColocouHtml}
                             ${difTab}
                         </div>
