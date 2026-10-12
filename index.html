@@ -952,14 +952,16 @@
         /* Marcas em modo "Implementação": VAZIO → DISPONÍVEL → IMPLEMENTADO */
         .btn-estado.disponivel { background-color: #f3e8ff; color: #6d28d9; border-color: #ddd6fe; font-size: 0.72rem; }
         .btn-estado.implementado { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; font-size: 0.72rem; }
-        .btn-impl-toggle { display: block; margin: 6px auto 0; padding: 2px 9px; font-size: 0.6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 10px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: rgba(255,255,255,.7); cursor: pointer; }
-        .btn-impl-toggle:hover { border-color: rgba(255,255,255,.7); color: #fff; }
-        .btn-impl-toggle.ativo { background: #6d28d9; border-color: #6d28d9; color: #fff; }
-        /* Só as marcas em Implementação mostram a pílula; as restantes só em "Editar implementação" (Definições) */
-        .btn-impl-toggle:not(.ativo) { display: none; }
-        body.editar-implementacao .btn-impl-toggle:not(.ativo) { display: block; }
-        body.modo-vendedor-view .btn-impl-toggle,
-        body.acesso-utilizador .btn-impl-toggle { display: none !important; }
+        /* Seletor por marca: Foco | Execução (Execução = modo Implementação: Disponível / Implementado) */
+        .modo-marca-toggle { display: none; margin: 6px auto 0; border: 1px solid rgba(255,255,255,.35); border-radius: 12px; overflow: hidden; }
+        .modo-marca-toggle button { padding: 3px 9px; font-size: 0.6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 0; background: transparent; color: rgba(255,255,255,.65); cursor: pointer; font-family: inherit; }
+        .modo-marca-toggle button:hover:not(.ativo) { color: #fff; background: rgba(255,255,255,.12); }
+        .modo-marca-toggle button.ativo { color: #fff; cursor: default; }
+        .modo-marca-toggle button[data-modo="foco"].ativo { background: #1d4ed8; }
+        .modo-marca-toggle button[data-modo="execucao"].ativo { background: #6d28d9; }
+        body.editar-implementacao th .modo-marca-toggle { display: flex; width: max-content; max-width: 100%; }
+        body.modo-vendedor-view .modo-marca-toggle,
+        body.acesso-utilizador .modo-marca-toggle { display: none !important; }
 
         .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
         .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
@@ -1455,7 +1457,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     </button>
                     <button class="settings-menu-item item-portfolio" onclick="fecharMenuDefinicoes_(); alternarEditarImplementacao_()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                        <span id="rotuloEditarImpl">Editar implementação</span>
+                        <span id="rotuloEditarImpl">Foco / Execução por marca</span>
                     </button>
                     <button class="settings-menu-item" id="itemBioDef" onclick="alternarDefBio_()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a2 2 0 00-2 2c0 3-1 5-2 6"/><path d="M14 13c0 4-1 6-2 8"/><path d="M8 10a4 4 0 018 0c0 1 .1 2 .3 3"/><path d="M5 10a7 7 0 0114 0"/><path d="M12 2a10 10 0 00-10 10"/></svg>
@@ -2448,7 +2450,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             const quebraHtml = (!litragemPreferidaAtiva_() || dq === null || dq === undefined) ? '' :
                 `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês, em litros: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} lt · vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
-            const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
+            const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<div class="modo-marca-toggle" title="Modo da marca: Foco ou Execução"><button type="button" data-modo="foco" class="${implAtiva ? '' : 'ativo'}" data-marca="${escapeHtml_(m)}" onclick="if (${implAtiva ? 'true' : 'false'}) alternarMarcaImplementacao_(this.dataset.marca)">Foco</button><button type="button" data-modo="execucao" class="${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="if (${implAtiva ? 'false' : 'true'}) alternarMarcaImplementacao_(this.dataset.marca)">Execução</button></div>`;
             return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>`;
         }).join('');
     }
@@ -3266,7 +3268,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     function alternarEditarImplementacao_() {
         const ativo = document.body.classList.toggle('editar-implementacao');
         const r = document.getElementById('rotuloEditarImpl');
-        if (r) r.textContent = ativo ? 'Concluir edição' : 'Editar implementação';
+        if (r) r.textContent = ativo ? 'Ocultar Foco / Execução' : 'Foco / Execução por marca';
     }
     function fecharMenuDefinicoes_() {
         document.getElementById('settingsMenu').classList.remove('aberto');
@@ -3749,12 +3751,23 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                             const chaveSemAsterisco = nomeExibido.toLowerCase();
                             historicoObj[nomeExibido] = {
                                 mes: !!obterValor([chaveComAsterisco, chaveSemAsterisco]),
+                                valor: (() => {
+                                    const bruto = obterValor([chaveComAsterisco, chaveSemAsterisco]);
+                                    if (bruto === null || bruto === undefined) return 0;
+                                    const n = parseFloat(String(bruto).trim().replace(',', '.'));
+                                    return isFinite(n) ? n : (String(bruto).trim() ? 1 : 0);
+                                })(),
                                 ano: !!obterValor([chaveComAsterisco + '_yt', chaveSemAsterisco + '_yt']),
                                 promo: ehPromo
                             };
                             // Coluna "<marca> dif volume" (diferença de volume do mês deste cliente nesta marca)
-                            const normCab_ = t => String(t).toLowerCase().replace(/^\*+/, '').replace(/[\s_.]+/g, ' ').trim();
-                            const chaveDif = Object.keys(linha).find(k => normCab_(k) === normCab_(nomeExibido) + ' dif volume');
+                            // Comparação tolerante: ignora maiúsculas, acentos, pontuação e símbolos
+                            // (assim "0.0%", "0,0%" ou "0.0" dão o mesmo nome) e aceita
+                            // "dif volume", "dif. vol", "dif_volume", etc.
+                            const normCab_ = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
+                            const chaveDif = Object.keys(linha).find(k =>
+                                /dif\.?[\s_]*vol/i.test(k) &&
+                                normCab_(k.replace(/dif\.?[\s_]*vol\w*/i, '')) === normCab_(nomeExibido));
                             const dif = chaveDif ? interpretarDifVolume_(linha[chaveDif]) : null;
                             if (dif !== null) historicoObj[nomeExibido].dif = dif;
                         });
@@ -3871,6 +3884,13 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const alvo = String(marca || '').trim().toLowerCase();
         return listaMarcasImplementacao_().some(m => String(m).trim().toLowerCase() === alvo);
     }
+    /** Valor da coluna da marca no Excel para o modo Execução:
+     *  0/vazio = sem botão, 1 = Disponível, 2 (ou mais) = Executado. */
+    function valorExecucao_(hist) {
+        if (!hist) return 0;
+        if (typeof hist.valor === 'number' && isFinite(hist.valor)) return hist.valor;
+        return hist.mes ? 1 : 0; // dados antigos sem o valor guardado
+    }
     function alternarMarcaImplementacao_(marca) {
         // Só o acesso de editor (PIN de entrada 2011) pode alterar isto.
         if (MODO_VENDEDOR_ATIVO_ || document.body.classList.contains('acesso-utilizador')) return;
@@ -3929,7 +3949,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 // Em Implementação só há DISPONÍVEL <-> IMPLEMENTADO, e só nos
                 // clientes com 1 na coluna do Excel (os restantes não têm botão).
                 const h = registo.historico && registo.historico[marca];
-                if (!(h && h.mes)) return;
+                const valExec = valorExecucao_(h);
+                if (valExec <= 0 || valExec >= 2) return; // 2 vem do Excel como Executado: não se altera
                 proximo = registo.estados[marca] === "IMPLEMENTADO" ? "DISPONIVEL" : "IMPLEMENTADO";
             }
             registo.estados[marca] = proximo;
@@ -4018,7 +4039,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (est === "OK") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> OK`;
         if (est === "NEGOCIADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 3v2H4v14h16V5h-5V3H9zm2 4h2v2h-2V7zm-4 4h8v2H7v-2zm0 4h8v2H7v-2z"/></svg> NEGOCIADO`;
         if (est === "DISPONIVEL") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-4z"/></svg> DISPONÍVEL`;
-        if (est === "IMPLEMENTADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> IMPLEMENTADO`;
+        if (est === "IMPLEMENTADO") return `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> EXECUTADO`;
         if (est === "SEMRESPOSTA") return `<span title="Sem resposta (auto) — marcado automaticamente; clica para preencher">SEM RESP.</span>`;
         return `VAZIO`;
     }
@@ -4154,9 +4175,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         r.comercial === com &&
                         chaveClienteUnica_(r) === chaveClienteUnica_(i)
                     );
-                    return registosCliente.some(r =>
-                        (r.estados && r.estados[m]) === 'DISPONIVEL'
-                    );
+                    return registosCliente.some(r => {
+                        const v = valorExecucao_(r.historico && r.historico[m]);
+                        return v === 1 && (r.estados && r.estados[m]) !== 'IMPLEMENTADO';
+                    });
                 }
 
                 // Nas restantes marcas mantém-se a regra mensal existente.
@@ -4317,9 +4339,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 // clicar); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
                 // não se aplicam à tipologia do cliente.
                 const emImplementacao = ehMarcaImplementacao_(m);
-                if (emImplementacao && !hist.mes) { html += `<td data-label="${m}"></td>`; return; }
+                const valExecCel = emImplementacao ? valorExecucao_(hist) : 0;
+                if (emImplementacao && valExecCel <= 0) { html += `<td data-label="${m}"></td>`; return; }
                 let est = item.estados[m] || "";
-                if (emImplementacao && est !== "IMPLEMENTADO") est = "DISPONIVEL";
+                if (emImplementacao) {
+                    // Excel: 1 = Disponível; 2 = Executado
+                    if (valExecCel >= 2) est = "IMPLEMENTADO";
+                    else if (est !== "IMPLEMENTADO") est = "DISPONIVEL";
+                }
                 const ehPromoMensal = !!hist.promo;
                 // Marca já colocada este mês (inclui as que estavam Negociado, Não OK, Foco...): passa a OK e fica bloqueada
                 const colocadaMes = marcaColocadaMes_(item, m);
