@@ -949,7 +949,7 @@
         .quebra-vol.pos { color: #4ade80; }
         .btn-estado.semresposta { background-color: #eef2ff; color: #4338ca; border: 1px dashed #a5b4fc; }
         body.dark-mode .btn-estado.semresposta { background-color: #26264a; color: #c7d2fe; border-color: #6366f1; }
-        /* Marcas em modo "Implementação": VAZIO → DISPONÍVEL → IMPLEMENTADO */
+        /* Marcas em modo "Execução": DISPONÍVEL → NEGOCIADO → EXECUTADO */
         .btn-estado.disponivel { background-color: #f3e8ff; color: #6d28d9; border-color: #ddd6fe; font-size: 0.72rem; }
         .btn-estado.implementado { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; font-size: 0.72rem; }
         /* Seletor por marca: Foco | Execução (Execução = modo Implementação: Disponível / Implementado) */
@@ -3701,6 +3701,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     let comercialVal = normalizarComercial(String(obterValor(['comercial', 'gestor']) || "Sem Gestor").trim());
                     let vendedorVal = String(obterValor(['vendedor', 'nome vendedor', 'nome do vendedor']) || '').trim();
                     let tipologiaVal = String(obterValor(['tipologia']) || '').trim();
+                    // Localidade do estabelecimento: só é lida e enviada para a nuvem (para a Prospeção
+                    // agendar visitas na mesma localidade). Não é mostrada nos Picos.
+                    let localidadeVal = String(obterValor(['localidade', 'localidades', 'cidade', 'freguesia', 'local']) || '').trim();
                     const chaveColunaComprouMes = Object.keys(linha).find(k => ehCabecalhoComprouMes_(k));
                     let comprouMesRaw = chaveColunaComprouMes ? linha[chaveColunaComprouMes] : null;
                     let comprouMesVal = interpretarComprouMes_(comprouMesRaw);
@@ -3826,6 +3829,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         comercial: comercialVal,
                         vendedor: vendedorVal,
                         tipologia: tipologiaVal,
+                        localidade: localidadeVal,
                         comprouMes: comprouMesVal,
                         dia: diaVal,
                         diaVendedor: diaVendedorVal,
@@ -3953,7 +3957,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
             const ciclo = ehMarcaImplementacao_(marca)
-                ? ["", "DISPONIVEL", "IMPLEMENTADO"]
+                ? ["", "DISPONIVEL", "NEGOCIADO", "IMPLEMENTADO"]
                 : (ehMarcaFoco 
                     ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
                     : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"]);
@@ -3964,12 +3968,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
             let proximo = ciclo[(idxAtual + 1) % ciclo.length];
             if (ehMarcaImplementacao_(marca)) {
-                // Em Implementação só há DISPONÍVEL <-> IMPLEMENTADO, e só nos
-                // clientes com 1 na coluna do Excel (os restantes não têm botão).
+                // Em Execução a sequência é DISPONÍVEL -> NEGOCIADO -> EXECUTADO -> DISPONÍVEL,
+                // e só nos clientes com 1 na coluna do Excel (os restantes não têm botão).
                 const h = registo.historico && registo.historico[marca];
                 const valExec = valorExecucao_(h);
                 if (valExec <= 0 || valExec >= 2) return; // 2 vem do Excel como Executado: não se altera
-                proximo = registo.estados[marca] === "IMPLEMENTADO" ? "DISPONIVEL" : "IMPLEMENTADO";
+                const estAtualExec = registo.estados[marca];
+                proximo = estAtualExec === "IMPLEMENTADO" ? "DISPONIVEL"
+                    : (estAtualExec === "NEGOCIADO" ? "IMPLEMENTADO" : "NEGOCIADO");
             }
             registo.estados[marca] = proximo;
             marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
@@ -4353,8 +4359,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
                 const hist = item.historico[m] || { mes: false, ano: false, promo: false };
                 // Marca em modo "Implementação": o valor da coluna no Excel manda.
-                // 1 -> o cliente aparece como DISPONÍVEL (passa a IMPLEMENTADO ao
-                // clicar); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
+                // 1 -> o cliente aparece como DISPONÍVEL (ao clicar: NEGOCIADO e depois EXECUTADO); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
                 // não se aplicam à tipologia do cliente.
                 const emImplementacao = ehMarcaImplementacao_(m);
                 const valExecCel = emImplementacao ? valorExecucao_(hist) : 0;
@@ -4363,7 +4368,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 if (emImplementacao) {
                     // Excel: 1 = Disponível; 2 = Executado
                     if (valExecCel >= 2) est = "IMPLEMENTADO";
-                    else if (est !== "IMPLEMENTADO") est = "DISPONIVEL";
+                    else if (est !== "IMPLEMENTADO" && est !== "NEGOCIADO") est = "DISPONIVEL";
                 }
                 const ehPromoMensal = !!hist.promo;
                 // Marca já colocada este mês (inclui as que estavam Negociado, Não OK, Foco...): passa a OK e fica bloqueada
