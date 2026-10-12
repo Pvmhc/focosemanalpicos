@@ -1465,6 +1465,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1 18H8L7 3z"/><path d="M8 8h8M8 13h8"/></svg>
                         <span id="rotuloLitragemDef">Perda de litragem</span>
                     </button>
+                    <button class="settings-menu-item" id="itemSalesforceLinkDef" onclick="editarLinkSalesforce_()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l3-3A5 5 0 0013 2.93l-1.72 1.72"/><path d="M14 11a5 5 0 00-7.07 0l-3 3A5 5 0 0011 21.07l1.72-1.72"/></svg>
+                        <span id="rotuloSalesforceLinkDef">Link do Salesforce</span>
+                    </button>
                     <button class="settings-menu-item item-modoescuro" id="itemModoEscuro" onclick="fecharMenuDefinicoes_(); alternarModoEscuro()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                         <span id="rotuloModoEscuro">Modo escuro</span>
@@ -2368,6 +2372,36 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return res;
     }
 
+    const PREF_LINK_SALESFORCE_ = 'picos_salesforce_link';
+    function lerLinkSalesforce_() {
+        try { return (localStorage.getItem(PREF_LINK_SALESFORCE_) || '').trim(); } catch (e) { return ''; }
+    }
+    function editarLinkSalesforce_() {
+        fecharMenuDefinicoes_();
+        const atual = lerLinkSalesforce_();
+        const novo = prompt('Introduz o link para abrir o Salesforce neste dispositivo.\n\nPodes colar um link da aplicação ou deixar vazio para usar a tentativa padrão (salesforce1://).', atual);
+        if (novo === null) return;
+        const link = novo.trim();
+        if (link && !/^(https?:\/\/|salesforce1:\/\/|com\.salesforce\.fieldservice:\/\/)/i.test(link)) {
+            alert('O link deve começar por https://, http:// ou salesforce1://.');
+            return;
+        }
+        try {
+            if (link) localStorage.setItem(PREF_LINK_SALESFORCE_, link);
+            else localStorage.removeItem(PREF_LINK_SALESFORCE_);
+        } catch (e) {
+            alert('Não foi possível guardar o link neste dispositivo.');
+            return;
+        }
+        const rotulo = document.getElementById('rotuloSalesforceLinkDef');
+        if (rotulo) rotulo.textContent = 'Link do Salesforce: ' + (link ? 'Configurado' : 'Padrão');
+        alert(link ? 'Link do Salesforce guardado neste dispositivo.' : 'Foi reposto o link padrão do Salesforce.');
+    }
+    function atualizarRotuloLinkSalesforce_() {
+        const rotulo = document.getElementById('rotuloSalesforceLinkDef');
+        if (rotulo) rotulo.textContent = 'Link do Salesforce: ' + (lerLinkSalesforce_() ? 'Configurado' : 'Padrão');
+    }
+
     async function copiarNumeroEAbrirSalesforce_(numero) {
         const n = String(numero || '').trim();
         if (!n) {
@@ -2395,7 +2429,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             } catch (e) {}
         }
         // Tenta abrir a app Salesforce instalada. O número fica copiado para colar na pesquisa global.
-        try { window.location.href = 'salesforce1://'; } catch (e) {}
+        try { window.location.href = lerLinkSalesforce_() || 'salesforce1://'; } catch (e) {}
         if (!copiado) alert('Número do cliente: ' + n + '\nSe não foi copiado automaticamente, copia-o e cola-o na pesquisa do Salesforce.');
     }
 
@@ -2968,6 +3002,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const rl = document.getElementById('rotuloLitragemDef');
         if (rb) rb.textContent = 'Impressão digital / Face ID: ' + (bioPreferidaAtiva_() ? 'Ativa' : 'Desativada');
         if (rl) rl.textContent = 'Perda de litragem: ' + (litragemPreferidaAtiva_() ? 'Ativa' : 'Desativada');
+        atualizarRotuloLinkSalesforce_();
     }
     function alternarDefBio_() {
         const ativa = !bioPreferidaAtiva_();
@@ -3116,6 +3151,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        atualizarDefinicoesFuncionalidades_();
         if (MODO_VENDEDOR_ATIVO_) {          // link só de leitura: não pede identificação, só o código partilhado
             UTILIZADOR_ID_ = 'Link vendedor' + (VENDEDOR_URL_ ? ': ' + VENDEDOR_URL_ : '');
             document.getElementById('lockQuemFoto').parentElement.style.display = 'none';
