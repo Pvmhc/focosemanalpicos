@@ -1230,6 +1230,8 @@
             /* O dock fixo ocupa o fundo do ecrã; o botão fica sempre por cima dele. */
             #btnVoltarTopo { right: 12px; bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 40px; height: 40px; }
         }
+    .nome-cliente-salesforce { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; touch-action: manipulation; }
+    .nome-cliente-salesforce:focus-visible { outline: 2px solid var(--accent, #16803c); outline-offset: 2px; border-radius: 3px; }
 </style>
 <style>
 #consultaSemana{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:10px auto;padding:8px 14px;max-width:760px;border-radius:14px;background:#fff7e0;border:1px solid #f1d58a;color:#7a5200;font-size:.84rem;font-weight:700}
@@ -1454,6 +1456,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     <button class="settings-menu-item item-portfolio" onclick="fecharMenuDefinicoes_(); alternarEditarImplementacao_()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         <span id="rotuloEditarImpl">Editar implementação</span>
+                    </button>
+                    <button class="settings-menu-item" id="itemBioDef" onclick="alternarDefBio_()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a2 2 0 00-2 2c0 3-1 5-2 6"/><path d="M14 13c0 4-1 6-2 8"/><path d="M8 10a4 4 0 018 0c0 1 .1 2 .3 3"/><path d="M5 10a7 7 0 0114 0"/><path d="M12 2a10 10 0 00-10 10"/></svg>
+                        <span id="rotuloBioDef">Impressão digital / Face ID</span>
+                    </button>
+                    <button class="settings-menu-item" id="itemLitragemDef" onclick="alternarDefLitragem_()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1 18H8L7 3z"/><path d="M8 8h8M8 13h8"/></svg>
+                        <span id="rotuloLitragemDef">Perda de litragem</span>
                     </button>
                     <button class="settings-menu-item item-modoescuro" id="itemModoEscuro" onclick="fecharMenuDefinicoes_(); alternarModoEscuro()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -2358,6 +2368,37 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return res;
     }
 
+    async function copiarNumeroEAbrirSalesforce_(numero) {
+        const n = String(numero || '').trim();
+        if (!n) {
+            alert('Este estabelecimento não tem número de cliente registado.');
+            return;
+        }
+        let copiado = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(n);
+                copiado = true;
+            }
+        } catch (e) {}
+        if (!copiado) {
+            try {
+                const campo = document.createElement('textarea');
+                campo.value = n;
+                campo.setAttribute('readonly', '');
+                campo.style.position = 'fixed';
+                campo.style.opacity = '0';
+                document.body.appendChild(campo);
+                campo.select();
+                copiado = document.execCommand('copy');
+                campo.remove();
+            } catch (e) {}
+        }
+        // Tenta abrir a app Salesforce instalada. O número fica copiado para colar na pesquisa global.
+        try { window.location.href = 'salesforce1://'; } catch (e) {}
+        if (!copiado) alert('Número do cliente: ' + n + '\nSe não foi copiado automaticamente, copia-o e cola-o na pesquisa do Salesforce.');
+    }
+
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
@@ -2370,7 +2411,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 ? ''
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
             const dq = quebra[m];
-            const quebraHtml = (dq === null || dq === undefined) ? '' :
+            const quebraHtml = (!litragemPreferidaAtiva_() || dq === null || dq === undefined) ? '' :
                 `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês, em litros: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} lt · vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
             const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<button type="button" class="btn-impl-toggle ${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="alternarMarcaImplementacao_(this.dataset.marca)" title="Marca em modo Implementação: Disponível / Implementado">${implAtiva ? '✓ ' : ''}Implementação</button>`;
@@ -2918,6 +2959,39 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // só o telemóvel liberta depois da impressão digital / Face ID (extensão PRF): sem a biometria, o PIN guardado é ilegível.
     // Depois de desbloquear, entra pelo mesmo caminho do PIN (validação no servidor, registo de entrada, etc.).
     // O PIN continua sempre a funcionar. Se o PIN mudar, a biometria guardada é apagada e pede-se para ativar outra vez.
+    const PREF_BIO_ATIVA_ = 'picos_bio_ativa';
+    const PREF_LITRAGEM_ATIVA_ = 'picos_litragem_ativa';
+    function bioPreferidaAtiva_() { try { return localStorage.getItem(PREF_BIO_ATIVA_) !== '0'; } catch (e) { return true; } }
+    function litragemPreferidaAtiva_() { try { return localStorage.getItem(PREF_LITRAGEM_ATIVA_) !== '0'; } catch (e) { return true; } }
+    function atualizarDefinicoesFuncionalidades_() {
+        const rb = document.getElementById('rotuloBioDef');
+        const rl = document.getElementById('rotuloLitragemDef');
+        if (rb) rb.textContent = 'Impressão digital / Face ID: ' + (bioPreferidaAtiva_() ? 'Ativa' : 'Desativada');
+        if (rl) rl.textContent = 'Perda de litragem: ' + (litragemPreferidaAtiva_() ? 'Ativa' : 'Desativada');
+    }
+    function alternarDefBio_() {
+        const ativa = !bioPreferidaAtiva_();
+        try { localStorage.setItem(PREF_BIO_ATIVA_, ativa ? '1' : '0'); } catch (e) {}
+        if (!ativa) {
+            const nome = lockNomeAuth_();
+            if (nome) bioRemover_(nome);
+            bioAtualizarBotao_();
+            alert('A entrada por impressão digital / Face ID foi desativada neste dispositivo. O PIN continua disponível.');
+        } else {
+            alert('A opção foi ativada. Para configurar a impressão digital / Face ID, termina a sessão e volta a entrar com o PIN; se o dispositivo suportar, será apresentado o convite de ativação.');
+        }
+        atualizarDefinicoesFuncionalidades_();
+        fecharMenuDefinicoes_();
+    }
+    function alternarDefLitragem_() {
+        const ativa = !litragemPreferidaAtiva_();
+        try { localStorage.setItem(PREF_LITRAGEM_ATIVA_, ativa ? '1' : '0'); } catch (e) {}
+        atualizarDefinicoesFuncionalidades_();
+        fecharMenuDefinicoes_();
+        if (typeof renderCabecalhoTabela === 'function') renderCabecalhoTabela();
+        if (typeof atualizarVisualizacao === 'function') atualizarVisualizacao();
+    }
+
     const BIO_PREFIXO_ = 'bio_';
     function bioSuportado_() {
         return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext && window.crypto && crypto.subtle);
@@ -2965,7 +3039,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     async function bioEntrar_() {
         if (lockOcupado_) return;
         const nome = lockNomeAuth_(), reg = bioLer_(nome);
-        if (!reg || lockModo_ !== 'entrar') return;
+        if (!bioPreferidaAtiva_() || !reg || lockModo_ !== 'entrar') return;
         let pin = '';
         try {
             lockMensagem_('');
@@ -3000,12 +3074,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     function bioAtualizarBotao_() {
         const btn = document.getElementById('lockBioBtn'), off = document.getElementById('lockBioOff');
         if (!btn || !off) return;
-        const mostrar = lockModo_ === 'entrar' && !MODO_VENDEDOR_ATIVO_ && bioSuportado_() && !!bioLer_(lockNomeAuth_());
+        const mostrar = bioPreferidaAtiva_() && lockModo_ === 'entrar' && !MODO_VENDEDOR_ATIVO_ && bioSuportado_() && !!bioLer_(lockNomeAuth_());
         btn.hidden = !mostrar; off.hidden = !mostrar;
     }
     async function bioOferecer_(nome, pin) {
         try {
-            if (!bioSuportado_() || bioLer_(nome)) return;
+            if (!bioPreferidaAtiva_() || !bioSuportado_() || bioLer_(nome)) return;
             const recusou = parseInt(localStorage.getItem('bioRecusou_' + nome) || '0', 10);
             if (recusou && Date.now() - recusou < 7 * 24 * 3600 * 1000) return;     // não insiste durante 7 dias
             if (!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return;
@@ -3185,6 +3259,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // Preferência pessoal de visualização — fica guardada no dispositivo
     // (ao contrário da semana/dia, que passaram a ser sempre os atuais).
     function atualizarRotuloModoEscuro_() {
+            atualizarDefinicoesFuncionalidades_();
         const rotulo = document.getElementById('rotuloModoEscuro');
         if (rotulo) rotulo.textContent = document.body.classList.contains('dark-mode') ? 'Modo claro' : 'Modo escuro';
     }
@@ -4174,9 +4249,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     </button>
                 </div>` : '';
 
+            const nomeClienteAcao = `<span class="nome-cliente-salesforce" role="button" tabindex="0" title="Copiar número de cliente e abrir Salesforce" onclick="event.stopPropagation(); copiarNumeroEAbrirSalesforce_(${JSON.stringify(String(item.numero || ''))})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();copiarNumeroEAbrirSalesforce_(${JSON.stringify(String(item.numero || ''))})}">${item.cliente}</span>`;
             let html = `<td>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div>${item.cliente}${numeroMeta}${diaMeta}</div>
+                    <div>${nomeClienteAcao}${numeroMeta}${diaMeta}</div>
                     ${botaoEncomendarHtml}
                 </div>
             </td>`;
@@ -4218,8 +4294,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const difTxt = difCli === null ? '' : `<i class="dif-seta">${difCli < 0 ? '▼' : (difCli > 0 ? '▲' : '■')}</i><b>${difNum}</b><u>lt</u>`;
                 const difCls = difCli === null ? '' : (difCli < 0 ? 'neg' : (difCli > 0 ? 'pos' : ''));
                 const difTitulo = 'Diferença de volume do mês deste cliente nesta marca (litros)';
-                const difTab = difTxt ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
-                const difCard = difTxt ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
+                const difTab = (litragemPreferidaAtiva_() && difTxt) ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
+                const difCard = (litragemPreferidaAtiva_() && difTxt) ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
 
                 let badgeColocouHtml = '';
                 if (est === "NEGOCIADO") {
