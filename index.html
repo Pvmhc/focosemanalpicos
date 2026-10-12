@@ -2443,7 +2443,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         quebraGestorRender_ = (document.getElementById('comercialSelect') || {}).value || '';
         linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
             const pct = cobertura[m];
-            const pctHtml = (pct === null || pct === undefined)
+            const pctHtml = (pct === null || pct === undefined || ehMarcaImplementacao_(m))
                 ? ''
                 : `<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">${pct}% Cobertura Anual</div>`;
             const dq = quebra[m];
@@ -3602,6 +3602,19 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return isFinite(n) ? n : null;
     }
 
+    /** Nome "limpo" para comparar cabeçalhos: sem maiúsculas, acentos, pontuação ou símbolos. */
+    function normNomeCab_(t) {
+        return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
+    }
+    /** A coluna "<marca> dif volume" pertence a esta marca? (tolerante; a 0.0% aceita também "Heineken 0.0", "Zero", etc.) */
+    function colunaDifPertenceAMarca_(colunaDif, marca) {
+        if (!/dif\.?[\s_]*vol/i.test(colunaDif)) return false;
+        const base = normNomeCab_(String(colunaDif).replace(/dif\.?[\s_]*vol\w*/i, ''));
+        if (base === normNomeCab_(marca)) return true;
+        if (ehColunaZeroZero_(marca)) return /^(heineken)?(00|zero|zerozero|0zero)$/.test(base);
+        return false;
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -3643,6 +3656,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     if (/dif\.?[\s_]*vol/i.test(c)) return false;   // "Barril dif volume": diferença de volume do mês, não é uma marca
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
+                {
+                    const nomesMarcasExcel_ = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim());
+                    const difSemMarca_ = todasColunas.filter(c => /dif\.?[\s_]*vol/i.test(c) && !nomesMarcasExcel_.some(m => colunaDifPertenceAMarca_(c, m)));
+                    if (difSemMarca_.length) {
+                        console.warn('Colunas "dif volume" sem marca correspondente:', difSemMarca_);
+                        setTimeout(() => alert('Estas colunas de volume não correspondem a nenhuma marca e foram ignoradas:\n\n• ' + difSemMarca_.join('\n• ') + '\n\nO nome tem de ser "<marca> dif volume" (ex.: "0.0% dif volume").'), 300);
+                    }
+                }
                 if (colunasMarcasDetectadas.length > 0) {
                     // Segue exatamente a ordem do cabeçalho do Excel — nada de reordenar
                     // por lista fixa ou alfabeticamente. Se acrescentares uma coluna,
@@ -3764,10 +3785,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                             // Comparação tolerante: ignora maiúsculas, acentos, pontuação e símbolos
                             // (assim "0.0%", "0,0%" ou "0.0" dão o mesmo nome) e aceita
                             // "dif volume", "dif. vol", "dif_volume", etc.
-                            const normCab_ = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
-                            const chaveDif = Object.keys(linha).find(k =>
-                                /dif\.?[\s_]*vol/i.test(k) &&
-                                normCab_(k.replace(/dif\.?[\s_]*vol\w*/i, '')) === normCab_(nomeExibido));
+                            const chaveDif = Object.keys(linha).find(k => colunaDifPertenceAMarca_(k, nomeExibido));
                             const dif = chaveDif ? interpretarDifVolume_(linha[chaveDif]) : null;
                             if (dif !== null) historicoObj[nomeExibido].dif = dif;
                         });
