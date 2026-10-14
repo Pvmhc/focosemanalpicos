@@ -3892,7 +3892,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR })
                         .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
                 }
-                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)");
+                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
+                    const nl = resultadoImport.novosLista || [];
+                    if (!nl.length) return "";
+                    const linhas = nl.slice(0, 25).map(x => "• " + x.cliente + " — " + x.comercial + " (" + x.dia + ", sem. " + x.semana + (x.localidade ? ", " + x.localidade : "") + ")");
+                    return "\n\nEstabelecimentos NOVOS (" + resultadoImport.novos + "):\n" + linhas.join("\n") + (nl.length > 25 || resultadoImport.novos > 25 ? "\n… e mais (ver aba log)" : "");
+                })());
                 mostrarResumoClientesPorGestor_(listaNovosDados);
                 await puxarDadosDaNuvem();
             } catch (erro) {
