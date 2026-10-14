@@ -825,6 +825,12 @@
         .btn-logotipo-carregar:hover { border-color: var(--primary); color: var(--primary); }
         .btn-logotipo-remover { color: #dc2626; }
         .btn-logotipo-remover:hover { background: #fef2f2; border-color: #fecaca; }
+
+        /* Modal "Mostrar / ocultar marcas" */
+        .marca-vis-item { cursor: pointer; }
+        .marca-vis-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); flex: 0 0 auto; cursor: pointer; }
+        .marca-vis-item.oculta .lista-logotipos-nome, .marca-vis-item.oculta .lista-logotipos-preview { opacity: .4; }
+        .marca-vis-rodape-info { padding: 12px 20px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
         .lista-logotipos-seccao {
             padding: 10px 20px 6px; font-size: 0.72rem; font-weight: 800; color: var(--primary);
             text-transform: uppercase; background: var(--bg); border-bottom: 1px solid var(--border);
@@ -1459,6 +1465,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         <span id="rotuloEditarImpl">Foco / Execução por marca</span>
                     </button>
+                    <button class="settings-menu-item item-portfolio" onclick="fecharMenuDefinicoes_(); abrirModalMarcasVisiveis_()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span id="rotuloMarcasVisiveis">Mostrar / ocultar marcas</span>
+                    </button>
                     <button class="settings-menu-item" id="itemBioDef" onclick="alternarDefBio_()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a2 2 0 00-2 2c0 3-1 5-2 6"/><path d="M14 13c0 4-1 6-2 8"/><path d="M8 10a4 4 0 018 0c0 1 .1 2 .3 3"/><path d="M5 10a7 7 0 0114 0"/><path d="M12 2a10 10 0 00-10 10"/></svg>
                         <span id="rotuloBioDef">Impressão digital / Face ID</span>
@@ -1538,6 +1548,25 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
             </div>
             <div class="marcas-filtro-chips" id="marcasFiltroChips"></div>
+        </div>
+    </div>
+
+    <div class="modal-foco-overlay" id="modalMarcasVisiveisOverlay">
+        <div class="modal-foco-box" style="max-width: 440px;">
+            <div class="modal-foco-header">
+                <h2>Mostrar / ocultar marcas</h2>
+                <button class="modal-foco-close" onclick="fecharModalMarcasVisiveis_()" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-foco-body" style="padding: 0;">
+                <div class="marca-vis-rodape-info">
+                    Escolhe as marcas que queres ver. As escondidas deixam de ser desenhadas e calculadas neste dispositivo (não afeta a equipa).
+                </div>
+                <div class="lista-logotipos" id="listaMarcasVisiveis"></div>
+            </div>
+            <div class="modal-foco-footer">
+                <button class="btn-logotipo-carregar" onclick="mostrarTodasMarcas_()">Mostrar todas</button>
+                <button class="btn-submit" onclick="fecharModalMarcasVisiveis_()">Fechar</button>
+            </div>
         </div>
     </div>
 
@@ -1795,6 +1824,42 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let quantidadesEncomenda = {};
 
     let marcasLista = ["0.0%", "Bandida", "Heineken", "PRETA"];
+    // --- MARCAS VISÍVEIS (por dispositivo) --------------------------------
+    // Marcas escondidas pelo utilizador neste telemóvel/PC (guardado só em
+    // localStorage — não afeta a equipa). As escondidas deixam de ser
+    // desenhadas (cabeçalho, células, resumo, chips, PDF) e de entrar nos
+    // cálculos de cobertura/quebra, por isso não gastam processamento. Os
+    // dados continuam todos em baseDadosRotas, por isso voltar a mostrar é imediato.
+    const CHAVE_MARCAS_OCULTAS_ = 'marcasOcultasLocal';
+    let MARCAS_OCULTAS_ = (function () {
+        try {
+            const v = JSON.parse(localStorage.getItem(CHAVE_MARCAS_OCULTAS_) || '[]');
+            return Array.isArray(v) ? v : [];
+        } catch (e) { return []; }
+    })();
+    // Marcas acabadas de voltar a mostrar mas ainda sem dados (o servidor não as
+    // enviou enquanto estavam ocultas): ficam escondidas até a recarga terminar,
+    // para nunca mostrar botões vazios que poderiam sobrescrever estados reais.
+    let MARCAS_PENDENTES_ = [];
+    function marcaOculta_(m) {
+        const alvo = String(m || '').trim().toLowerCase();
+        return MARCAS_OCULTAS_.some(x => String(x).trim().toLowerCase() === alvo)
+            || MARCAS_PENDENTES_.some(x => String(x).trim().toLowerCase() === alvo);
+    }
+    // Todas as marcas conhecidas (inclui as ocultas, cujo detalhe o servidor pode não enviar).
+    let MARCAS_TODAS_ = (function () {
+        try { const v = JSON.parse(localStorage.getItem('marcasTodasCache') || '[]'); return Array.isArray(v) ? v : []; }
+        catch (e) { return []; }
+    })();
+    let ultimoPullOk_ = false;
+    /** Parâmetro para o servidor não enviar o detalhe das marcas ocultas. */
+    function paramOcultas_() {
+        return MARCAS_OCULTAS_.length ? '&ocultas=' + encodeURIComponent(JSON.stringify(MARCAS_OCULTAS_)) : '';
+    }
+    function marcasVisiveis_() {
+        const v = marcasLista.filter(m => !marcaOculta_(m));
+        return v.length ? v : marcasLista;   // nunca deixa a tabela sem colunas
+    }
     const ordemMarcasFixa = ["Sagres", "Heineken", "Bandida", "0.0%", "PRETA"];
 
     // --- REGRA "PICOS" (contagem automática de DN Total / Efetuadas) -------
@@ -2338,14 +2403,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         baseDadosRotas.forEach(r => {
             const chave = chaveClienteUnica_(r);
             if (!clientesUnicos[chave]) clientesUnicos[chave] = {};
-            marcasLista.forEach(m => {
+            marcasVisiveis_().forEach(m => {
                 const hist = (r.historico && r.historico[m]) || {};
                 if (hist.ano) clientesUnicos[chave][m] = true;
             });
         });
         const totalClientes = Object.keys(clientesUnicos).length;
         const cobertura = {};
-        marcasLista.forEach(m => {
+        marcasVisiveis_().forEach(m => {
             if (totalClientes === 0) { cobertura[m] = null; return; }
             let comMarca = 0;
             Object.values(clientesUnicos).forEach(obj => { if (obj[m]) comMarca++; });
@@ -2364,13 +2429,13 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         baseDadosRotas.filter(r => !com || r.comercial === com).forEach(r => {
             const chave = chaveClienteUnica_(r);
             if (!unicos[chave]) unicos[chave] = {};
-            marcasLista.forEach(m => {
+            marcasVisiveis_().forEach(m => {
                 const h = (r.historico && r.historico[m]) || {};
                 if (typeof h.dif === 'number' && isFinite(h.dif) && !(m in unicos[chave])) unicos[chave][m] = h.dif;
             });
         });
         const res = {};
-        marcasLista.forEach(m => {
+        marcasVisiveis_().forEach(m => {
             let tem = false, soma = 0;
             Object.values(unicos).forEach(o => { if (m in o) { tem = true; soma += o[m]; } });
             res[m] = tem ? soma : null;
@@ -2445,7 +2510,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const cobertura = calcularCoberturaPorMarca_();
         const quebra = calcularQuebraPorMarca_();
         quebraGestorRender_ = (document.getElementById('comercialSelect') || {}).value || '';
-        linha.innerHTML = `<th>Estabelecimento</th>` + marcasLista.map(m => {
+        linha.innerHTML = `<th>Estabelecimento</th>` + marcasVisiveis_().map(m => {
             const pct = cobertura[m];
             const pctHtml = (pct === null || pct === undefined || ehMarcaImplementacao_(m))
                 ? ''
@@ -2465,6 +2530,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             if (r.estados) Object.keys(r.estados).forEach(m => setMarcas.add(m));
             if (r.historico) Object.keys(r.historico).forEach(m => setMarcas.add(m));
         });
+        (MARCAS_TODAS_ || []).forEach(m => setMarcas.add(m));   // inclui marcas ocultas sem detalhe
         // A coluna "Comprou Este Mês" nunca deve aparecer como se fosse uma marca
         // (nem na tabela nem nos cartões de Picos/Resumo) — mesmo que já tenha
         // ficado gravada como tal em dados antigos vindos do servidor.
@@ -3454,11 +3520,27 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     async function puxarDadosDaNuvem(silencioso) {
         if (!silencioso) mostrarLoading(true);
         try {
-            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            ultimoPullOk_ = false;
+            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now() + paramOcultas_(), { cache: 'no-store' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
             const novosDados = Array.isArray(dados) ? dados : (dados.registos || []);
             baseDadosRotas = fundirComPendentes_(novosDados);
+            // Lista completa de marcas: vem do servidor quando este aligeirou as ocultas;
+            // senão calcula-se a partir dos registos (que vieram completos).
+            try {
+                if (!Array.isArray(dados) && Array.isArray(dados.marcasTodas)) {
+                    MARCAS_TODAS_ = dados.marcasTodas;
+                } else {
+                    const st = new Set();
+                    baseDadosRotas.forEach(r => {
+                        Object.keys(r.estados || {}).forEach(m => st.add(m));
+                        Object.keys(r.historico || {}).forEach(m => st.add(m));
+                    });
+                    MARCAS_TODAS_ = Array.from(st);
+                }
+                localStorage.setItem('marcasTodasCache', JSON.stringify(MARCAS_TODAS_));
+            } catch (e) { /* ignora */ }
             if (!Array.isArray(dados) && dados.marcaFocoPorSemana && Object.keys(dados.marcaFocoPorSemana).length > 0 && !focoSemanalASalvar) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
@@ -3488,6 +3570,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             sincronizarMarcasVariaveis();
             atualizarVisualizacao();
             aplicarModoVendedorSeNecessario_();
+            ultimoPullOk_ = true;
             try { localStorage.setItem('baseDadosRotasCache', JSON.stringify(baseDadosRotas)); } catch (e) { /* quota cheia ou indisponível — ignora, não é crítico */ }
         } catch(e) {
             console.error("Erro ao ler nuvem: ", e);
@@ -4249,7 +4332,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             const mensagem = emModoPesquisa
                 ? `Sem estabelecimentos para "${termoPesquisa}" neste gestor.`
                 : (emModoMarcasColocadas ? 'Todos os clientes já têm essas marcas colocadas este mês.' : 'Sem rota agendada.');
-            corpo.innerHTML = `<tr><td colspan="${1 + marcasLista.length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
+            corpo.innerHTML = `<tr><td colspan="${1 + marcasVisiveis_().length}" style="text-align:center;padding:30px;">${mensagem}</td></tr>`;
             return;
         }
 
@@ -4271,7 +4354,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     : `<span class="marca-badge sem-marcas">Sem marcas negociadas</span>`;
 
                 tr.innerHTML = `
-                    <td colspan="${1 + marcasLista.length}">
+                    <td colspan="${1 + marcasVisiveis_().length}">
                         <div class="linha-marcas-falta" style="flex-direction:column;align-items:stretch;">
                             <div class="linha-marcas-falta-nome">${item.cliente}</div>
                             <div>
@@ -4307,7 +4390,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     return `<button type="button" class="marca-badge marca-badge-falta ${estaNegociado ? 'negociado' : ''}" onclick="alternarNegociadoRapido_(${item.id}, '${mEscapado}')" title="Marcar como Negociado">${estaNegociado ? '✓ Negociado' : m}</button>`;
                 }).join('');
                 tr.innerHTML = `
-                    <td colspan="${1 + marcasLista.length}">
+                    <td colspan="${1 + marcasVisiveis_().length}">
                         <div class="linha-marcas-falta">
                             <div class="linha-marcas-falta-nome">${item.cliente}</div>
                             <div class="marcas-badges">
@@ -4366,7 +4449,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
             const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
 
-            marcasLista.forEach(m => {
+            marcasVisiveis_().forEach(m => {
                 // Colunas "0.0%" e "Preta" são mutuamente exclusivas consoante a
                 // Tipologia do cliente: Bar -> só Preta; qualquer outra -> só 0.0%.
                 // Quando não há Tipologia definida, mostra ambas normalmente.
@@ -4484,7 +4567,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const marcasReqTipologiaLinha_ = obterRegraTipologia_(item.tipologia);
         const ehBar = !!(marcasReqTipologiaLinha_ && marcasReqTipologiaLinha_.includes('preta'));
         let total = 0;
-        marcasLista.forEach(m => {
+        marcasVisiveis_().forEach(m => {
             if (tipologiaNorm) {
                 if (ehColunaZeroZero_(m) && ehBar) return;
                 if (ehColunaPreta_(m) && !ehBar) return;
@@ -4503,9 +4586,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (!cont) return;
 
         // Remove da seleção marcas que já não existem nos dados atuais.
-        MARCAS_FILTRO_SELECIONADAS_ = MARCAS_FILTRO_SELECIONADAS_.filter(m => marcasLista.includes(m));
+        MARCAS_FILTRO_SELECIONADAS_ = MARCAS_FILTRO_SELECIONADAS_.filter(m => marcasVisiveis_().includes(m));
 
-        cont.innerHTML = marcasLista.map(m => {
+        cont.innerHTML = marcasVisiveis_().map(m => {
             const ativa = MARCAS_FILTRO_SELECIONADAS_.includes(m);
             const logo = LOGOTIPOS_MARCAS_[m];
             const conteudoLogo = logo
@@ -4535,6 +4618,96 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         else MARCAS_FILTRO_SELECIONADAS_.splice(idx, 1);
         renderMarcasFiltroChips_();
         atualizarVisualizacao();
+    }
+
+    // --- Modal "Mostrar / ocultar marcas" (por dispositivo, sem PIN) ---
+    function abrirModalMarcasVisiveis_() {
+        renderListaMarcasVisiveis_();
+        document.getElementById('modalMarcasVisiveisOverlay').classList.add('aberto');
+    }
+    function fecharModalMarcasVisiveis_() {
+        document.getElementById('modalMarcasVisiveisOverlay').classList.remove('aberto');
+    }
+    function renderListaMarcasVisiveis_() {
+        const cont = document.getElementById('listaMarcasVisiveis');
+        if (!cont) return;
+        cont.innerHTML = marcasLista.map((m, i) => {
+            const logo = LOGOTIPOS_MARCAS_[m];
+            const preview = logo
+                ? `<img src="${logo}" alt="${escapeHtml_(m)}">`
+                : `<span class="marca-chip-fallback">${(m || '').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}</span>`;
+            const oculta = marcaOculta_(m);
+            return `
+                <label class="lista-logotipos-item marca-vis-item${oculta ? ' oculta' : ''}">
+                    <div class="lista-logotipos-preview">${preview}</div>
+                    <div class="lista-logotipos-nome">${escapeHtml_(m)}</div>
+                    <input type="checkbox" ${oculta ? '' : 'checked'} data-idx="${i}" onchange="alternarMarcaVisivel_(this)">
+                </label>`;
+        }).join('');
+    }
+    function guardarMarcasOcultas_() {
+        try { localStorage.setItem(CHAVE_MARCAS_OCULTAS_, JSON.stringify(MARCAS_OCULTAS_)); } catch (e) { /* ignora */ }
+        const r = document.getElementById('rotuloMarcasVisiveis');
+        if (r) {
+            const n = marcasLista.filter(m => marcaOculta_(m)).length;
+            r.textContent = n ? `Mostrar / ocultar marcas (${n} ocultas)` : 'Mostrar / ocultar marcas';
+        }
+    }
+    function aplicarMarcasVisiveis_() {
+        guardarMarcasOcultas_();
+        renderCabecalhoTabela();
+        renderMarcasFiltroChips_();
+        atualizarVisualizacao();
+    }
+    function alternarMarcaVisivel_(input) {
+        const m = marcasLista[Number(input.dataset.idx)];
+        if (m === undefined) return;
+        const alvo = String(m).trim().toLowerCase();
+        if (input.checked) {
+            MARCAS_OCULTAS_ = MARCAS_OCULTAS_.filter(x => String(x).trim().toLowerCase() !== alvo);
+            MARCAS_PENDENTES_ = [...MARCAS_PENDENTES_, m];   // só aparece quando o detalhe chegar
+            agendarRecargaMarcas_();
+        } else {
+            MARCAS_PENDENTES_ = MARCAS_PENDENTES_.filter(x => String(x).trim().toLowerCase() !== alvo);
+            // tem de ficar pelo menos uma marca visível
+            const restantes = marcasLista.filter(x => !marcaOculta_(x) && String(x).trim().toLowerCase() !== alvo);
+            if (restantes.length === 0) { input.checked = true; return; }
+            if (!marcaOculta_(m)) MARCAS_OCULTAS_ = [...MARCAS_OCULTAS_, m];
+        }
+        input.closest('.marca-vis-item').classList.toggle('oculta', !input.checked);
+        aplicarMarcasVisiveis_();
+    }
+    let timerRecargaMarcas_ = null;
+    /** Pede ao servidor o detalhe das marcas que acabaram de voltar a ser mostradas. */
+    function agendarRecargaMarcas_() {
+        clearTimeout(timerRecargaMarcas_);
+        timerRecargaMarcas_ = setTimeout(async () => {
+            const pend = MARCAS_PENDENTES_.slice();
+            if (!pend.length) return;
+            // espera por uma sincronização em curso (poderia ter sido pedida com a marca ainda oculta)
+            for (let i = 0; i < 20 && typeof syncEmCurso_ !== 'undefined' && syncEmCurso_; i++) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+            await puxarDadosDaNuvem(true);
+            if (ultimoPullOk_) {
+                MARCAS_PENDENTES_ = MARCAS_PENDENTES_.filter(x => !pend.includes(x));
+            } else {
+                // falhou: volta a esconder, para não mostrar colunas sem dados
+                MARCAS_PENDENTES_ = MARCAS_PENDENTES_.filter(x => !pend.includes(x));
+                MARCAS_OCULTAS_ = [...MARCAS_OCULTAS_, ...pend.filter(x => !marcaOculta_(x))];
+                alert('Não foi possível carregar os dados das marcas. Verifica a ligação e tenta outra vez.');
+            }
+            const ov = document.getElementById('modalMarcasVisiveisOverlay');
+            if (ov && ov.classList.contains('aberto')) renderListaMarcasVisiveis_();
+            aplicarMarcasVisiveis_();
+        }, 800);
+    }
+    function mostrarTodasMarcas_() {
+        MARCAS_PENDENTES_ = [...MARCAS_PENDENTES_, ...MARCAS_OCULTAS_.filter(x => !MARCAS_PENDENTES_.includes(x))];
+        agendarRecargaMarcas_();
+        MARCAS_OCULTAS_ = [];
+        renderListaMarcasVisiveis_();
+        aplicarMarcasVisiveis_();
     }
 
     // --- Modal "Gerir logotipos das marcas" (upload .jpeg por marca, PIN) ---
@@ -4887,7 +5060,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         // visitado em mais do que um dia) — conta-se só 1 vez.
         const registos = deduplicarClientesUnicos_(baseDadosRotas.filter(i => i.comercial === com && i.semana === sem));
 
-        const colunas = marcasLista.map(m => {
+        const colunas = marcasVisiveis_().map(m => {
             // Só conta clientes cuja Tipologia exige esta marca (ver tabela
             // Tipo→Marcas) — evita inflacionar/desinflacionar Foco/Atingido
             // com marcas que nem sequer se aplicam ao tipo de estabelecimento.
@@ -5296,19 +5469,19 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
         const larguraPaginaUtil = 595.28 - (margem * 2);
         const larguraNome = 180;
-        const larguraMarca = (larguraPaginaUtil - larguraNome) / marcasLista.length;
+        const larguraMarca = (larguraPaginaUtil - larguraNome) / marcasVisiveis_().length;
         const columnStylesDia = { 0: { halign: 'center', cellWidth: larguraNome } };
-        marcasLista.forEach((_, idx) => { columnStylesDia[idx + 1] = { cellWidth: larguraMarca }; });
+        marcasVisiveis_().forEach((_, idx) => { columnStylesDia[idx + 1] = { cellWidth: larguraMarca }; });
 
         doc.autoTable(Object.assign({}, estiloTabela, {
             startY: y,
-            head: [['', ...marcasLista]],
+            head: [['', ...marcasVisiveis_()]],
             body: [
-                ['Total Foco', ...marcasLista.map(m => String(registos.filter(r => {
+                ['Total Foco', ...marcasVisiveis_().map(m => String(registos.filter(r => {
                     const est = r.estados && r.estados[m];
                     return est === 'FOCO' || est === 'FOCOSEMANAL' || !!(r.focoJaMarcado && r.focoJaMarcado[m]);
                 }).length))],
-                ['Total Atingido', ...marcasLista.map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
+                ['Total Atingido', ...marcasVisiveis_().map(m => String(registos.filter(r => (r.estados && r.estados[m]) === 'OK').length))]
             ],
             columnStyles: columnStylesDia
         }));
@@ -5322,8 +5495,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             y += 8;
             doc.autoTable(Object.assign({}, estiloTabela, {
                 startY: y,
-                head: [['Estabelecimento', ...marcasLista]],
-                body: lista.map(item => [item.cliente, ...marcasLista.map(m => rotuloEstado((item.estados && item.estados[m]) || ''))]),
+                head: [['Estabelecimento', ...marcasVisiveis_()]],
+                body: lista.map(item => [item.cliente, ...marcasVisiveis_().map(m => rotuloEstado((item.estados && item.estados[m]) || ''))]),
                 columnStyles: columnStylesDia
             }));
             y = doc.lastAutoTable.finalY + 20;
