@@ -949,7 +949,7 @@
         .quebra-vol.pos { color: #4ade80; }
         .btn-estado.semresposta { background-color: #eef2ff; color: #4338ca; border: 1px dashed #a5b4fc; }
         body.dark-mode .btn-estado.semresposta { background-color: #26264a; color: #c7d2fe; border-color: #6366f1; }
-        /* Marcas em modo "Execução": DISPONÍVEL → NEGOCIADO → EXECUTADO */
+        /* Marcas em modo "Implementação": VAZIO → DISPONÍVEL → IMPLEMENTADO */
         .btn-estado.disponivel { background-color: #f3e8ff; color: #6d28d9; border-color: #ddd6fe; font-size: 0.72rem; }
         .btn-estado.implementado { background-color: var(--ok-bg); color: var(--ok-color); border-color: #a7f3d0; font-size: 0.72rem; }
         /* Seletor por marca: Foco | Execução (Execução = modo Implementação: Disponível / Implementado) */
@@ -2075,6 +2075,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // ativa — é o que evita que uma gravação falhada "volte atrás" sozinha.
     let focoSemanalPendenteMapa_ = null;
     let focoSemanalRetryTimer_ = null;
+    let focoSemanalTentativas_ = 0;
 
     async function guardarFocoSemanal() {
         const semanas = ['1', '2', '3', '4'];
@@ -2121,15 +2122,18 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
         if (!resultado || resultado.ok === false) {
             mostrarAvisoSync_();
+            focoSemanalTentativas_ = (focoSemanalTentativas_ || 0) + 1;
+            if (focoSemanalTentativas_ > 6) return; // aviso mantém-se visível
             focoSemanalRetryTimer_ = setTimeout(() => {
                 if (focoSemanalPendenteMapa_ === novoMapa) {
                     enviarFocoSemanalParaServidor_(novoMapa, true);
                 }
-            }, 6000);
+            }, Math.min(60000, 6000 * Math.pow(2, focoSemanalTentativas_ - 1)) + Math.random() * 2000);
             return;
         }
 
         // Sucesso confirmado pelo servidor — só agora a proteção pode cair.
+        focoSemanalTentativas_ = 0;
         focoSemanalASalvar = false;
         focoSemanalPendenteMapa_ = null;
     }
@@ -3515,14 +3519,20 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
-            setTimeout(() => enviarAlteracaoNuvem(id, marca, novoEstado, true), 6000);
+            const kE_ = 'estado|' + id + '|' + marca;
+            tentativasFundo_[kE_] = (tentativasFundo_[kE_] || 0) + 1;
+            if (tentativasFundo_[kE_] > 6) return; // aviso mantém-se visível
+            setTimeout(() => enviarAlteracaoNuvem(id, marca, novoEstado, true),
+                Math.min(60000, 6000 * Math.pow(2, tentativasFundo_[kE_] - 1)) + Math.random() * 2000);
             return;
         }
 
+        delete tentativasFundo_['estado|' + id + '|' + marca];
         limparAlteracaoPendente_('estado', id, marca);
         limparAlteracaoPendente_('foco', id, marca);
     }
 
+    var tentativasFundo_ = tentativasFundo_ || {};
     async function enviarColocouNuvem(id, marca, colocado, tentativaFundo) {
         mostrarIndicadorSync_(true);
         let resultado;
@@ -3538,10 +3548,15 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
-            setTimeout(() => enviarColocouNuvem(id, marca, colocado, true), 6000);
+            const kC_ = 'colocou|' + id + '|' + marca;
+            tentativasFundo_[kC_] = (tentativasFundo_[kC_] || 0) + 1;
+            if (tentativasFundo_[kC_] > 6) return; // aviso mantém-se visível
+            setTimeout(() => enviarColocouNuvem(id, marca, colocado, true),
+                Math.min(60000, 6000 * Math.pow(2, tentativasFundo_[kC_] - 1)) + Math.random() * 2000);
             return;
         }
 
+        delete tentativasFundo_['colocou|' + id + '|' + marca];
         limparAlteracaoPendente_('colocou', id, marca);
     }
 
@@ -3957,7 +3972,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             const ehMarcaFoco = marca.trim().toLowerCase() === (marcaFocoSemana || "").trim().toLowerCase();
             
             const ciclo = ehMarcaImplementacao_(marca)
-                ? ["", "DISPONIVEL", "NEGOCIADO", "IMPLEMENTADO"]
+                ? ["", "DISPONIVEL", "IMPLEMENTADO"]
                 : (ehMarcaFoco 
                     ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
                     : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"]);
@@ -3968,14 +3983,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
             let proximo = ciclo[(idxAtual + 1) % ciclo.length];
             if (ehMarcaImplementacao_(marca)) {
-                // Em Execução a sequência é DISPONÍVEL -> NEGOCIADO -> EXECUTADO -> DISPONÍVEL,
-                // e só nos clientes com 1 na coluna do Excel (os restantes não têm botão).
+                // Em Implementação só há DISPONÍVEL <-> IMPLEMENTADO, e só nos
+                // clientes com 1 na coluna do Excel (os restantes não têm botão).
                 const h = registo.historico && registo.historico[marca];
                 const valExec = valorExecucao_(h);
                 if (valExec <= 0 || valExec >= 2) return; // 2 vem do Excel como Executado: não se altera
-                const estAtualExec = registo.estados[marca];
-                proximo = estAtualExec === "IMPLEMENTADO" ? "DISPONIVEL"
-                    : (estAtualExec === "NEGOCIADO" ? "IMPLEMENTADO" : "NEGOCIADO");
+                proximo = registo.estados[marca] === "IMPLEMENTADO" ? "DISPONIVEL" : "IMPLEMENTADO";
             }
             registo.estados[marca] = proximo;
             marcarAlteracaoPendente_('estado', idRegisto, marca, proximo);
@@ -4359,7 +4372,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
                 const hist = item.historico[m] || { mes: false, ano: false, promo: false };
                 // Marca em modo "Implementação": o valor da coluna no Excel manda.
-                // 1 -> o cliente aparece como DISPONÍVEL (ao clicar: NEGOCIADO e depois EXECUTADO); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
+                // 1 -> o cliente aparece como DISPONÍVEL (passa a IMPLEMENTADO ao
+                // clicar); 0 -> a célula fica vazia, tal como 0.0% / PRETA quando
                 // não se aplicam à tipologia do cliente.
                 const emImplementacao = ehMarcaImplementacao_(m);
                 const valExecCel = emImplementacao ? valorExecucao_(hist) : 0;
@@ -4368,7 +4382,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 if (emImplementacao) {
                     // Excel: 1 = Disponível; 2 = Executado
                     if (valExecCel >= 2) est = "IMPLEMENTADO";
-                    else if (est !== "IMPLEMENTADO" && est !== "NEGOCIADO") est = "DISPONIVEL";
+                    else if (est !== "IMPLEMENTADO") est = "DISPONIVEL";
                 }
                 const ehPromoMensal = !!hist.promo;
                 // Marca já colocada este mês (inclui as que estavam Negociado, Não OK, Foco...): passa a OK e fica bloqueada
@@ -5741,17 +5755,32 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         puxarDadosDaNuvem(temCache).then(fechar, fechar);
     })();
 
-    const INTERVALO_AUTO_SYNC_MS = 15 * 1000;
-    setInterval(() => {
-        if (document.visibilityState === 'visible') {
-            puxarDadosDaNuvem(true);
-        }
-    }, INTERVALO_AUTO_SYNC_MS);
-
+    // ---- Sync otimizado: verifica só a versão (leve) e puxa dados completos apenas se mudou ----
+    let syncEmCurso_ = false, ultimoSync_ = 0;
+    const _puxarOrig_ = puxarDadosDaNuvem;
+    puxarDadosDaNuvem = async function (sil) {
+        if (sil && syncEmCurso_) return;
+        syncEmCurso_ = true;
+        try { return await _puxarOrig_(sil); }
+        finally { syncEmCurso_ = false; ultimoSync_ = Date.now(); }
+    };
+    let versaoLocal_ = null;
+    async function verificarVersao_() {
+        if (syncEmCurso_) return;
+        try {
+            const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=versao&t=' + Date.now(), { cache: 'no-store' });
+            const d = await r.json();
+            if (d && d.ok && d.v !== versaoLocal_) { versaoLocal_ = d.v; await puxarDadosDaNuvem(true); }
+        } catch (e) {}
+    }
+    (function agendar() {
+        setTimeout(async () => {
+            if (document.visibilityState === 'visible' && alteracoesPendentes_.size === 0 && timersEnvioEstado_.size === 0) await verificarVersao_();
+            agendar();
+        }, 60000 + Math.random() * 20000);
+    })();
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            puxarDadosDaNuvem(true);
-        }
+        if (document.visibilityState === 'visible' && Date.now() - ultimoSync_ > 30000) verificarVersao_();
     });
 </script>
 
@@ -6007,7 +6036,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
   async function carregar() {
     if (aCarregar || !UTILIZADOR_ID_) return; aCarregar = true;
     let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&t=' + Date.now())).json(); } catch (e) {}
-    if (!d || !d.ok) d = await postComRetry_({ action: 'prospeccao_ler' });
     aCarregar = false; if (d && d.ok) { rows = (d.rows || []).map(normRow_); ts = Date.now(); desenhar(); }
   }
   // O Google Sheets pode devolver a data como "2026-10-12T00:00:00.000Z" (ou com o fuso deslocado)
@@ -6044,7 +6072,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     if (fp) fp.classList.toggle('ativo', modo === 'todas');
     document.body.classList.remove('so-prosp');
     if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_ || !UTILIZADOR_ID_ || (pesq && pesq.value.trim()) || (vend && vend.value) || MARCAS_FILTRO_SELECIONADAS_.length) { box.innerHTML = ''; return; }
-    if (!ts || Date.now() - ts > 45000) carregar();
+    if (!ts || Date.now() - ts > 240000) carregar();
     document.body.classList.toggle('so-prosp', modo === 'todas');   // esconde as visitas normais
     const c = semanaConsultada_(), com = $('comercialSelect').value;
     // 🎯 "Todas" = só as prospeções marcadas na semana que se está a consultar
