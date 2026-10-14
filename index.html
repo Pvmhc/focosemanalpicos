@@ -3878,7 +3878,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: "limpar_e_importar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ })
+                    body: JSON.stringify({ action: "importar_atualizar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ })
                 });
                 if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
                 const resultadoImport = await respostaImport.json();
@@ -3892,7 +3892,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR })
                         .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
                 }
-                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " registos)");
+                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)");
                 mostrarResumoClientesPorGestor_(listaNovosDados);
                 await puxarDadosDaNuvem();
             } catch (erro) {
