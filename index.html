@@ -826,6 +826,8 @@
         .btn-logotipo-remover { color: #dc2626; }
         .btn-logotipo-remover:hover { background: #fef2f2; border-color: #fecaca; }
 
+        body.acesso-utilizador .btn-marcas-visiveis,
+        body.modo-vendedor-view .btn-marcas-visiveis { display: none !important; }
         /* Modal "Mostrar / ocultar marcas" */
         .marca-vis-item { cursor: pointer; }
         .marca-vis-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); flex: 0 0 auto; cursor: pointer; }
@@ -1546,6 +1548,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             <div class="marcas-filtro-header">
                 <span class="marcas-filtro-titulo">Marcas não colocadas (mês)</span>
                 <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
+                <button type="button" class="marcas-filtro-editar btn-marcas-visiveis" onclick="abrirModalMarcasVisiveis_()" title="Mostrar / ocultar marcas" aria-label="Mostrar / ocultar marcas">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
             </div>
             <div class="marcas-filtro-chips" id="marcasFiltroChips"></div>
         </div>
