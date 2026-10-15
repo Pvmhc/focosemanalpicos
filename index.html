@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
@@ -76,6 +75,37 @@
         }
         @media (min-width: 768px) {
             .actions-card { padding: 14px 18px; }
+        }
+
+        /* Limpar / Definições + filtros (Gestor, Semana, Vendedor, Prospeção) na mesma linha no PC — poupa altura */
+        .barra-topo { display: block; }
+        @media (min-width: 1100px) {
+            .barra-topo { display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+            .barra-topo .actions-card { flex: 0 0 auto; margin-bottom: 0; padding: 8px 12px; display: flex; align-items: center; }
+            .barra-topo .actions-bar { width: auto; }
+            .barra-topo .actions-bar > .btn-action,
+            .barra-topo .actions-bar > .settings-menu-wrapper { flex: 0 0 auto; width: 150px; }
+            .barra-topo .settings-menu { min-width: 260px; }
+            .barra-topo .filtro-principal-bar { flex: 1 1 auto; min-width: 0; margin-bottom: 0; gap: 18px; padding: 6px 16px; }
+        }
+
+        /* Topo no PC: o título + botões (sincronizar, modo escuro, jogo) saem de ao lado dos cartões para a linha dos
+           filtros (≥1400px) ou para cima (768–1399px), e Resumo/Picos/Quadro passam a ocupar a largura toda.
+           No telemóvel (<768px) fica tudo como estava. */
+        .topo-wrap { display: block; }
+        @media (min-width: 768px) {
+            .topo-wrap { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "titulo" "cards" "barra";
+                gap: 8px; align-items: center; margin-bottom: 8px; scroll-snap-align: start; scroll-margin-top: 12px; }
+            .topo-wrap > header { display: contents; }
+            .topo-wrap header h1 { grid-area: titulo; justify-self: start; padding: 0 6px; }
+            .topo-wrap header .resumo-foco { grid-area: cards; width: 100%; min-width: 0; scroll-snap-align: none;
+                background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px;
+                box-shadow: 0 1px 3px rgba(11,12,16,.05), 0 8px 20px -14px rgba(11,12,16,.12); }
+            .topo-wrap > .barra-topo { grid-area: barra; margin-bottom: 0; min-width: 0; }
+        }
+        @media (min-width: 1400px) {
+            .topo-wrap { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "titulo barra" "cards cards"; column-gap: 12px; }
+            .topo-wrap header h1 { font-size: 0.95rem; }
         }
 
         .resumo-foco .resumo-card { padding: 0; }
@@ -296,6 +326,50 @@
         }
         .picos-guardar-btn:hover { filter: brightness(1.1); }
 
+
+        /* --- Os 3 cartões (Resumo, Picos, Quadro) partilham o mesmo desenho escuro dos Picos --- */
+        .resumo-foco .resumo-card.picos-card { padding: 12px 14px; }
+        .resumo-card.picos-card .resumo-marca { color: #9eacbd; }
+        .resumo-card.picos-card .resumo-pill.foco { background: rgba(96,165,250,.16); color: #60a5fa; }
+        .resumo-card.picos-card .resumo-pill.atingido { background: rgba(22,214,107,.14); color: #16d66b; }
+        .resumo-card.picos-card .resumo-legenda { color: #9eacbd; }
+        .resumo-card.picos-card .resumo-legenda .dot.foco { background: #60a5fa; }
+        .resumo-card.picos-card .resumo-legenda .dot.atingido { background: #16d66b; }
+        .resumo-card.picos-card .picos-card-titulo { min-width: 0; flex: 1 1 auto; white-space: nowrap; }
+        .resumo-card.picos-card .picos-card-titulo > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .picos-icon-badge svg.ico-traco { fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+        @media (min-width: 768px) {
+            .resumo-foco-track.resumo-foco-linha { align-items: stretch; }
+            .resumo-foco-track.resumo-foco-linha .picos-body-linha { gap: 8px; }
+            .resumo-foco-track.resumo-foco-linha .picos-stat { padding: 4px 3px; }
+            .resumo-foco-track.resumo-foco-linha .picos-stat-valor { font-size: 1.1rem; }
+            .resumo-foco-track.resumo-foco-linha .picos-stat-label { font-size: .58rem; }
+            .resumo-foco-track.resumo-foco-linha .picos-execucao-box { width: 70px; min-height: 62px; }
+            .resumo-foco-track.resumo-foco-linha .picos-execucao-percent { font-size: 1.05rem; }
+            .resumo-foco-track.resumo-foco-linha .picos-clientes-hint { display: none; }
+            .resumo-foco-track.resumo-foco-linha .picos-card-header { gap: 6px; }
+        }
+        @media (max-width: 400px) { .resumo-foco .resumo-card.picos-card { padding: 10px 11px; } }
+
+        /* Quadro por gestor: 3 separadores internos (Total / Marcas / Formatos), editável só por administradores */
+        .quadro-tabs { display: flex; width: 100%; gap: 2px; background: #090f15; border: 1px solid #334252; border-radius: 999px; padding: 2px; }
+        .quadro-tab { flex: 1; border: none; background: none; color: #9eacbd; font-size: .62rem; font-weight: 800; padding: 4px 9px; border-radius: 999px; cursor: pointer; }
+        .quadro-tab.ativo { background: #1f2c39; color: #f3f6fa; }
+        .quadro-stat { padding: 5px 4px; }
+        .quadro-stat .picos-stat-label { white-space: normal; line-height: 1.15; }
+        .picos-stat-valor.q-neg { color: #ff6b6b; }
+        .picos-stat-valor.q-pos { color: #16d66b; }
+        .picos-stat-valor.q-zero { color: #f3f6fa; }
+        .picos-stat-valor.q-vazio { color: #64748b; }
+        .quadro-input { width: 100%; max-width: 64px; box-sizing: border-box; margin: 0 auto; text-align: center; font-size: 1rem; font-weight: 800;
+            padding: 5px 2px; border: 1px solid #334252; border-radius: 8px; background: #090f15; color: #f3f6fa; }
+        .quadro-input:focus { outline: none; border-color: #16d66b; }
+        .quadro-acoes { display: flex; gap: 8px; margin-top: 10px; }
+        .quadro-acoes button { flex: 1; }
+        .quadro-cancelar-btn { border: 1px solid #334252; background: none; color: #cbd5e1; border-radius: 10px; padding: 9px; font-weight: 700; cursor: pointer; }
+        body.acesso-utilizador .quadro-editar-btn,
+        body.modo-vendedor-view .quadro-editar-btn { display: none !important; }
+
         /* --- Alternância "Resumo ↔ Picos" (telemóvel): em vez de empilhar os
            dois cartões (o que ocupa o dobro da altura), mostra-se 1 de cada
            vez (o outro fica display:none, controlado por JS) — evita
@@ -339,9 +413,10 @@
                espaço para os dois lado a lado, empilham (flex-wrap: wrap,
                herdado de .resumo-foco-linha).
             */
-            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide { flex: 1 1 360px; min-width: 340px; }
-            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide:first-child { flex: 1.15 1 400px; min-width: 400px; }
-            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide:last-child { flex: 1 1 340px; min-width: 320px; }
+            /* 3 cartões (Resumo, Picos, Quadro) na mesma linha: larguras mínimas pequenas para caberem
+               no espaço ao lado do título (~900px); em ecrãs mais estreitos empilham. */
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide { flex: 1 1 240px; min-width: 270px; }
+            .resumo-foco-track.resumo-foco-linha .resumo-foco-slide:first-child { flex: 1.1 1 250px; min-width: 280px; }
             .resumo-foco-slide > .picos-card { max-width: none; }
         }
         @media (max-width: 767px) {
@@ -1409,6 +1484,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         <button type="button" id="btnFecharJogo" class="btn-saltar-loading btn-fechar-jogo" onclick="botaoFecharJogo_()">Fechar jogo</button>
     </div>
 
+    <div id="impressaoSemanal"></div>
+
+    <div class="topo-wrap">
     <header>
         <h1>
             <svg class="star-icon" viewBox="0 0 576 549" fill="#ff2b2b"><polygon points="288,0 353,209 576,209 396,338 462,549 288,419 114,549 180,338 0,209 223,209"/></svg>
@@ -1427,6 +1505,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         <div id="resumoFoco" class="resumo-foco"></div>
     </header>
 
+    <div class="barra-topo">
     <div class="actions-card">
         <div class="actions-bar">
             <button class="btn-action btn-limpar" onclick="limparFocoGestor()">
@@ -1495,8 +1574,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         </div>
     </div>
 
-    <div id="impressaoSemanal"></div>
-
     <div class="filtro-principal-bar">
         <div class="filtro-segmento filtro-gestor">
             <span class="filtro-avatar" id="avatarGestor"></span>
@@ -1542,6 +1619,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             <span class="filtro-segmento-rotulo">Prospeção</span>
             <span class="filtro-valor-selecionado" id="valorProspFiltro">Todas</span>
         </div>
+    </div>
+    </div>
     </div>
     <div id="consultaSemana" hidden></div>
 
@@ -5099,12 +5178,20 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             <div class="resumo-foco-tabs">
                 <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(0)">Resumo</button>
                 <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(1)">Picos</button>
+                <button type="button" class="resumo-foco-tab" onclick="irParaSlideResumoPicos_(2)">Quadro</button>
             </div>
             <div class="resumo-foco-slider" id="resumoFocoSlider">
                 <div class="resumo-foco-linha resumo-foco-track" id="resumoFocoTrack">
                     <div class="resumo-foco-slide">
-                        <div class="resumo-card">
-                            <div class="resumo-titulo">Resumo · <span>${com || 'sem gestor'}</span></div>
+                        <div class="resumo-card picos-card">
+                            <div class="picos-card-header">
+                                <span class="picos-card-titulo">
+                                    <span class="picos-icon-badge">
+                                        <svg class="ico-traco" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>
+                                    </span>
+                                    Resumo · <span style="font-weight:700; color:#9eacbd;">${com || 'sem gestor'}</span>
+                                </span>
+                            </div>
                             <div class="resumo-grid">${colunas}</div>
                             <div class="resumo-legenda">
                                 <span><span class="dot foco"></span>Foco</span>
@@ -5113,6 +5200,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         </div>
                     </div>
                     <div class="resumo-foco-slide">${renderPicosCardHtml_(com, sem)}</div>
+                    <div class="resumo-foco-slide">${renderQuadroCardHtml_(com)}</div>
                 </div>
             </div>
             <div id="picosStickySentinel" style="height:1px;"></div>
@@ -5144,7 +5232,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // --- Carrossel "Resumo ↔ Picos" (ver CSS .resumo-foco-slider), só ativo
     // no telemóvel — poupa espaço vertical ao mostrar 1 cartão de cada vez,
     // trocando por separadores "Resumo/Picos" ou por arrastar (swipe).
-    let resumoPicosSlideAtivo_ = 0; // 0 = Resumo, 1 = Picos — mantém-se entre re-renders (polling/sync)
+    let resumoPicosSlideAtivo_ = 0; // 0 = Resumo, 1 = Picos, 2 = Quadro — mantém-se entre re-renders (polling/sync)
 
     function aplicarSlideResumoPicos_() {
         const track = document.getElementById('resumoFocoTrack');
@@ -5158,7 +5246,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     }
 
     function irParaSlideResumoPicos_(indice) {
-        resumoPicosSlideAtivo_ = Math.max(0, Math.min(1, indice));
+        resumoPicosSlideAtivo_ = Math.max(0, Math.min(2, indice));
         aplicarSlideResumoPicos_();
     }
 
@@ -5188,6 +5276,116 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             }
         }, { passive: true });
     })();
+
+    // --- Quadro por gestor (3.º cartão junto aos Picos) ---------------------
+    // Valores individuais de cada gestor, editáveis só pelos administradores
+    // (lápis escondido para os restantes perfis). Mostra uma fila de cada vez
+    // (Total / Marcas / Formatos) para ter a mesma altura dos outros cartões.
+    // Guardado em DADOS_PICOS_ com chave própria ("quadro||<gestor>").
+    const QUADRO_GRUPOS_ = [
+        { id: 'total', nome: 'Total', itens: [['cervejas', 'Cervejas'], ['aguas', 'Águas'], ['sidras', 'Sidras']] },
+        { id: 'marcas', nome: 'Marcas', itens: [['sagres', 'Sagres'], ['solemar', 'Sol & Mar'], ['heineken', 'Heineken'], ['castello', 'Castello'], ['bandida', 'Bandida']] },
+        { id: 'formatos', nome: 'Formatos', itens: [['barril', 'Barril'], ['sagresret', 'Sagres Ret'], ['sagresow', 'Sagres Ow'], ['lusoret', 'Luso Ret'], ['verano', 'Verano']] }
+    ];
+    let quadroSepAtivo_ = 'total';
+    let quadroEmEdicao_ = null;
+    function chaveQuadro_(com) { return 'quadro||' + String(com || '').trim(); }
+    function rerenderQuadro_(com) {
+        const sel = document.getElementById('semanaSelect');
+        renderResumoFoco(com, sel ? sel.value : undefined);
+    }
+    function mudarSeparadorQuadro_(id, com) {
+        quadroSepAtivo_ = id;
+        quadroEmEdicao_ = null;
+        resumoPicosSlideAtivo_ = 2;
+        rerenderQuadro_(com);
+    }
+
+    function renderQuadroCardHtml_(com) {
+        const chave = chaveQuadro_(com);
+        const valores = (DADOS_PICOS_[chave] && DADOS_PICOS_[chave].valores) || {};
+        const editar = quadroEmEdicao_ === chave;
+        const comEsc = String(com || '').replace(/'/g, "\\'");
+        const grupo = QUADRO_GRUPOS_.find(g => g.id === quadroSepAtivo_) || QUADRO_GRUPOS_[0];
+
+        const tabs = QUADRO_GRUPOS_.map(g =>
+            `<button type="button" class="quadro-tab${g.id === grupo.id ? ' ativo' : ''}" onclick="mudarSeparadorQuadro_('${g.id}', '${comEsc}')">${g.nome}</button>`
+        ).join('');
+
+        const stats = grupo.itens.map(([id, rotulo]) => {
+            const v = valores[id];
+            const tem = v !== undefined && v !== null && v !== '' && !isNaN(Number(v));
+            const n = tem ? Number(v) : null;
+            let corpo;
+            if (editar) {
+                corpo = `<input type="number" step="any" class="quadro-input" data-quadro="${id}" value="${tem ? n : ''}" placeholder="—">`;
+            } else {
+                const cls = n === null ? 'q-vazio' : (n < 0 ? 'q-neg' : (n > 0 ? 'q-pos' : 'q-zero'));
+                corpo = `<div class="picos-stat-valor ${cls}">${n === null ? '—' : n}</div>`;
+            }
+            return `<div class="picos-stat quadro-stat">${corpo}<div class="picos-stat-label">${rotulo}</div></div>`;
+        }).join('');
+
+        const botaoEditar = editar ? '' : `
+            <button type="button" class="picos-editar-btn quadro-editar-btn" title="Editar"
+                onclick="pedirCodigoAcesso_(() => editarQuadro_('${comEsc}'))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>`;
+        const acoes = editar ? `
+            <div class="quadro-acoes">
+                <button type="button" class="quadro-cancelar-btn" onclick="cancelarQuadro_('${comEsc}')">Cancelar</button>
+                <button type="button" class="picos-guardar-btn" onclick="guardarQuadro_('${comEsc}')">Guardar</button>
+            </div>` : '';
+
+        return `
+            <div class="picos-card">
+                <div class="picos-card-header" style="margin-bottom:10px;">
+                    <span class="picos-card-titulo">
+                        <span class="picos-icon-badge">
+                            <svg class="ico-traco" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+                        </span>
+                        Quadro
+                    </span>
+                    <div class="picos-header-actions">${botaoEditar}</div>
+                </div>
+                <div class="quadro-tabs">${tabs}</div>
+                <div class="picos-stats" style="margin-top:8px;">${stats}</div>
+                ${acoes}
+            </div>`;
+    }
+
+    function editarQuadro_(com) {
+        quadroEmEdicao_ = chaveQuadro_(com);
+        resumoPicosSlideAtivo_ = 2;
+        rerenderQuadro_(com);
+    }
+    function cancelarQuadro_(com) {
+        quadroEmEdicao_ = null;
+        rerenderQuadro_(com);
+    }
+    async function guardarQuadro_(com) {
+        const chave = chaveQuadro_(com);
+        // junta aos valores já guardados: só os campos da fila visível são alterados
+        const valores = Object.assign({}, (DADOS_PICOS_[chave] && DADOS_PICOS_[chave].valores) || {});
+        document.querySelectorAll('#resumoFoco .quadro-input').forEach(inp => {
+            const id = inp.dataset.quadro;
+            const txt = String(inp.value).trim().replace(',', '.');
+            const n = parseFloat(txt);
+            if (txt !== '' && !isNaN(n)) valores[id] = n; else delete valores[id];
+        });
+        DADOS_PICOS_[chave] = { valores: valores };
+        quadroEmEdicao_ = null;
+        rerenderQuadro_(com);
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+
+        mostrarIndicadorSync_(true);
+        const resultado = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+        if (!resultado || resultado.ok === false) {
+            console.error('Erro ao guardar Quadro na nuvem:', resultado && resultado.erro);
+            mostrarAvisoSync_();
+        }
+        mostrarIndicadorSync_(false);
+    }
 
     /** Constrói o HTML da barra compacta (1 linha) do "PICOS" que fica fixa
      *  no topo ao fazer scroll — ver .picos-sticky-bar. Reutiliza o mesmo
