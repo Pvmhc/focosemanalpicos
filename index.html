@@ -2846,6 +2846,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let UTILIZADOR_ID_ = '';          // gestor que se identificou (vai para o log)
     let PERFIL_ACESSO_ = '';          // 'editor' ou 'utilizador' (definido pelo servidor)
     let PIN_EDITOR_SESSAO_ = '';      // PIN do editor, só em memória e só nesta sessão (para confirmar ações de gestão no servidor)
+    let SESSAO_TOKEN_ = '';           // token de sessão devolvido pelo servidor no login (só em memória, nunca guardado no telemóvel)
     let lockModo_ = 'entrar';         // entrar | criar1 | criar2 | mudar0 | mudar1 | mudar2 | bloqueado
     let lockTemPin_ = false;
     let lockOffline_ = false;
@@ -2854,6 +2855,26 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let lockPinAtual_ = '';
     let lockReq_ = 0;
     let lockListaGestores_ = [];
+
+    // Quando o servidor diz que a sessão acabou (24 h, PIN mudado, etc.), volta ao ecrã de entrada sem perder alterações por enviar.
+    const SESSAO_ESPERA_ = [];
+    function esperarNovaSessao_() { return new Promise(res => SESSAO_ESPERA_.push(res)); }
+    function sessaoExpirada_() {
+        const ov = document.getElementById('lockOverlay');
+        if (!ov || !ov.classList.contains('desbloqueado')) return;   // já está no ecrã de entrada
+        const nome = UTILIZADOR_ID_;
+        SESSAO_TOKEN_ = ''; PIN_EDITOR_SESSAO_ = '';
+        const po = document.getElementById('prospOverlay'); if (po) { po.style.display = 'none'; po.innerHTML = ''; }
+        ov.classList.remove('desbloqueado');
+        if (MODO_VENDEDOR_ATIVO_) {
+            lockMostrarPasso_(true); lockTemPin_ = true; lockDefinirModo_('entrar');
+        } else {
+            lockVoltarGestor_();
+            const idx = lockListaGestores_.indexOf(nome);
+            if (idx !== -1) lockEscolherGestor_(idx);
+        }
+        lockMensagem_('Sessão expirada. Introduz o PIN para continuar.');
+    }
 
     const LOCK_TITULOS_ = {
         entrar: 'Introduza o PIN para entrar',
@@ -2941,7 +2962,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
     // Pedido ao servidor (com tempo limite). Devolve { ok:false, offline:true } se não houver ligação.
     async function lockPedido_(payload) {
-        payload = Object.assign({ utilizador: UTILIZADOR_ID_ }, payload);
+        payload = Object.assign({ utilizador: UTILIZADOR_ID_, token: SESSAO_TOKEN_ }, payload);
         for (let t = 0; t < 2; t++) {
             const ctrl = new AbortController();
             const to = setTimeout(() => ctrl.abort(), 12000);
@@ -3057,7 +3078,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             lockOcupado_ = true; lockTitulo_('A guardar…');
             const r = await lockPedido_({ action: 'criar_pin', nome: nome, pin: pin });
             lockOcupado_ = false;
-            if (r && r.ok) { lockPinTemp_ = ''; await lockConcluirEntrada_(nome, pin, r.perfil, true); return; }
+            if (r && r.ok) { lockPinTemp_ = ''; await lockConcluirEntrada_(nome, pin, r.perfil, true, r.token); return; }
             lockPinTemp_ = '';
             if (r && r.jaTemPin) { lockTemPin_ = true; lockErroPin_(r.erro, 'entrar'); return; }
             lockErroPin_((r && r.offline) ? 'Sem ligação ao servidor.' : ((r && r.erro) || 'Não foi possível criar o PIN.'), 'criar1');
@@ -3104,7 +3125,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         lockOcupado_ = true; lockTitulo_('A verificar…');
         const r = await lockPedido_({ action: 'login', nome: nome, pin: pin });
         lockOcupado_ = false;
-        if (r && r.ok) { await lockConcluirEntrada_(nome, pin, r.perfil, true); return; }
+        if (r && r.ok) { await lockConcluirEntrada_(nome, pin, r.perfil, true, r.token); return; }
         if (r && r.offline) {
             const loc = await tentarLocal();
             if (loc) { lockOffline_ = true; await lockConcluirEntrada_(nome, pin, loc.perfil, false); }
@@ -3116,8 +3137,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         lockErroPin_((r && r.erro) || 'PIN incorreto.');
     }
 
-    async function lockConcluirEntrada_(nome, pin, perfil, doServidor) {
+    async function lockConcluirEntrada_(nome, pin, perfil, doServidor, token) {
         PERFIL_ACESSO_ = (perfil === 'editor') ? 'editor' : 'utilizador';
+        SESSAO_TOKEN_ = (doServidor && token) ? token : '';
         PIN_EDITOR_SESSAO_ = (PERFIL_ACESSO_ === 'editor' && doServidor) ? pin : '';
         if (doServidor) {
             const h = await lockHashLocal_(nome, pin);
@@ -3141,6 +3163,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         }
         pinBuffer_ = ''; pinAtualizarPontos_();
         if (doServidor && !MODO_VENDEDOR_ATIVO_) bioOferecer_(nome, pin);
+        if (SESSAO_TOKEN_) {
+            SESSAO_ESPERA_.splice(0).forEach(res => res());          // retoma envios que ficaram à espera de nova sessão
+            puxarDadosDaNuvem(!!localStorage.getItem('baseDadosRotasCache'));   // só agora, com sessão, é que se carregam os dados
+        }
         if (typeof window.mostrarInstallPromptRB === 'function') {
             setTimeout(window.mostrarInstallPromptRB, 700);
         }
@@ -3519,10 +3545,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const resposta = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(Object.assign({ utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ }, payload))
+                    body: JSON.stringify(Object.assign({ utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: SESSAO_TOKEN_ }, payload))
                 });
                 if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
                 const dados = await resposta.json();
+                if (dados && dados.sessaoInvalida) { sessaoExpirada_(); return dados; }
                 if (dados && dados.ok === false && /ocupado/i.test(dados.erro || '') && i < tentativas - 1) {
                     await new Promise(r => setTimeout(r, 800 * (i + 1)));
                     continue;
@@ -3609,13 +3636,30 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     });
     window.addEventListener('pagehide', forcarEnvioEstadosPendentes_);
 
+    // Antes do login só se pede o que é público: nomes e fotos dos gestores para o ecrã de entrada.
+    async function puxarListaPublica_(silencioso) {
+        try {
+            const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=gestores&t=' + Date.now(), { cache: 'no-store' });
+            const d = await r.json();
+            if (d && d.fotosPessoas && typeof d.fotosPessoas === 'object') {
+                FOTOS_PESSOAS_ = d.fotosPessoas;
+                try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
+                atualizarAvataresFiltro_();
+            }
+            if (d && Array.isArray(d.listaGestores)) aplicarListaGestores_(d.listaGestores);
+        } catch (e) { console.error('Erro ao ler a lista de gestores: ', e); }
+        if (!silencioso) mostrarLoading(false);
+    }
+
     async function puxarDadosDaNuvem(silencioso) {
+        if (!SESSAO_TOKEN_) return puxarListaPublica_(silencioso);
         if (!silencioso) mostrarLoading(true);
         try {
             ultimoPullOk_ = false;
-            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now() + paramOcultas_(), { cache: 'no-store' });
+            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now() + '&token=' + encodeURIComponent(SESSAO_TOKEN_) + paramOcultas_(), { cache: 'no-store' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
+            if (dados && dados.sessaoInvalida) { sessaoExpirada_(); if (!silencioso) mostrarLoading(false); return; }
             const novosDados = Array.isArray(dados) ? dados : (dados.registos || []);
             baseDadosRotas = fundirComPendentes_(novosDados);
             // Lista completa de marcas: vem do servidor quando este aligeirou as ocultas;
@@ -3691,6 +3735,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         // escolhido, dando a sensação de que mudava sozinho. Agora, se
         // falhar, mantém a proteção e tenta outra vez sozinho em segundo
         // plano, sem bloquear o ecrã.
+        if (resultado && resultado.sessaoInvalida) { await esperarNovaSessao_(); return enviarAlteracaoNuvem(id, marca, novoEstado, tentativaFundo); }
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
@@ -3720,6 +3765,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
         // Mesma proteção que em enviarAlteracaoNuvem: só larga o pendente
         // com sucesso confirmado, senão tenta outra vez em segundo plano.
+        if (resultado && resultado.sessaoInvalida) { await esperarNovaSessao_(); return enviarColocouNuvem(id, marca, colocado, tentativaFundo); }
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
@@ -4053,10 +4099,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: "importar_atualizar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_ })
+                    body: JSON.stringify({ action: "importar_atualizar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: SESSAO_TOKEN_ })
                 });
                 if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
                 const resultadoImport = await respostaImport.json();
+                if (resultadoImport && resultadoImport.sessaoInvalida) { sessaoExpirada_(); throw new Error('Sessão expirada. Entra de novo com o PIN e repete a importação.'); }
                 if (!resultadoImport || resultadoImport.ok !== true) {
                     throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
                 }
@@ -6155,7 +6202,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     };
     let versaoLocal_ = null;
     async function verificarVersao_() {
-        if (syncEmCurso_) return;
+        if (syncEmCurso_ || !SESSAO_TOKEN_) return;
         try {
             const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=versao&t=' + Date.now(), { cache: 'no-store' });
             const d = await r.json();
@@ -6423,9 +6470,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
   }
 
   async function carregar() {
-    if (aCarregar || !UTILIZADOR_ID_) return; aCarregar = true;
-    let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&t=' + Date.now())).json(); } catch (e) {}
-    aCarregar = false; if (d && d.ok) { rows = (d.rows || []).map(normRow_); ts = Date.now(); desenhar(); }
+    if (aCarregar || !UTILIZADOR_ID_ || !SESSAO_TOKEN_) return; aCarregar = true;
+    let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&token=' + encodeURIComponent(SESSAO_TOKEN_) + '&t=' + Date.now())).json(); } catch (e) {}
+    aCarregar = false; if (d && d.sessaoInvalida) { sessaoExpirada_(); return; } if (d && d.ok) { rows = (d.rows || []).map(normRow_); ts = Date.now(); desenhar(); }
   }
   // O Google Sheets pode devolver a data como "2026-10-12T00:00:00.000Z" (ou com o fuso deslocado)
   // em vez de "2026-10-12". Normaliza sempre para AAAA-MM-DD (hora local) para o filtro por dia funcionar.
@@ -6485,7 +6532,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
   window.addEventListener('message', e => {
     if (e.origin !== PROSP_ORIGIN) return; const m = e.data || {}, ov = $('prospOverlay');
     if (m.tipo === 'propostas') { propIds = new Set(m.ids || []); desenhar(); return; }
-    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, id: ov.dataset.id, prop: !!ov.dataset.prop, rows: rows }, PROSP_ORIGIN);
+    if (m.tipo === 'sessaoExpirada') { sessaoExpirada_(); return; }
+    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, token: SESSAO_TOKEN_, id: ov.dataset.id, prop: !!ov.dataset.prop, rows: rows }, PROSP_ORIGIN);
     if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); carregarPropostas_(); }
   });
   carregarPropostas_();
