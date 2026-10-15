@@ -3339,6 +3339,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let acaoPendentePin_ = null;
 
     function pedirCodigoAcesso_(acaoSeguinte) {
+        // Quem entrou com o PIN de administrador (perfil "editor") já está autenticado:
+        // não pede o código de acesso outra vez. Os restantes perfis continuam a ter de o introduzir.
+        if (PERFIL_ACESSO_ === 'editor' && typeof acaoSeguinte === 'function') {
+            acaoSeguinte();
+            return;
+        }
         acaoPendentePin_ = acaoSeguinte;
         const overlay = document.getElementById('modalPinOverlay');
         const input = document.getElementById('modalPinInput');
