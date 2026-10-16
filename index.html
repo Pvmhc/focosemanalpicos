@@ -835,6 +835,15 @@
            não tem TODAS essas marcas colocadas este mês. */
         .marcas-filtro-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap; }
         .marcas-filtro-titulo { font-size: 0.72rem; color: var(--primary); font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        @media (max-width: 480px) { .marcas-filtro-header { flex-wrap: wrap; row-gap: 6px; } .marcas-filtro-titulo { flex: 1 1 100%; white-space: normal; } }
+        .marcas-filtro-exportar { display: flex; gap: 4px; flex: 0 0 auto; }
+        .marcas-filtro-exportar button { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--card); color: var(--text);
+            font-size: 0.68rem; font-weight: 800; padding: 4px 9px; border-radius: 999px; cursor: pointer; text-transform: uppercase; }
+        .marcas-filtro-exportar button svg { width: 12px; height: 12px; }
+        .marcas-filtro-exportar button:disabled { opacity: .4; cursor: not-allowed; }
+        .marcas-filtro-periodo { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 2px; flex: 0 0 auto; }
+        .marcas-filtro-periodo button { border: none; background: none; color: var(--muted); font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; cursor: pointer; text-transform: uppercase; }
+        .marcas-filtro-periodo button.ativo { background: var(--primary); color: #fff; }
         .marcas-filtro-contagem { font-size: 0.78rem; font-weight: 700; color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
         .marcas-filtro-editar {
             margin-left: auto; background: none; border: none; padding: 4px; cursor: pointer;
@@ -1627,8 +1636,20 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     <div class="filters-grid">
         <div class="filter-control full-largura">
             <div class="marcas-filtro-header">
-                <span class="marcas-filtro-titulo">Marcas não colocadas (mês)</span>
+                <span class="marcas-filtro-titulo">Marcas não colocadas <span id="marcasFiltroPeriodoRotulo">(mês)</span></span>
                 <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
+                <div class="marcas-filtro-periodo" role="group" aria-label="Período">
+                    <button type="button" data-periodo="mes" onclick="definirPeriodoMarcasFiltro_('mes')">Mês</button>
+                    <button type="button" data-periodo="ano" onclick="definirPeriodoMarcasFiltro_('ano')">Ano</button>
+                </div>
+                <div class="marcas-filtro-exportar" role="group" aria-label="Exportar lista">
+                    <button type="button" id="btnExportarMarcasExcel" onclick="exportarMarcasFaltaExcel_()" title="Exportar a lista para Excel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Excel
+                    </button>
+                    <button type="button" id="btnExportarMarcasPdf" onclick="exportarMarcasFaltaPDF_()" title="Exportar a lista para PDF">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>PDF
+                    </button>
+                </div>
                 <button type="button" class="marcas-filtro-editar btn-marcas-visiveis" onclick="abrirModalMarcasVisiveis_()" title="Mostrar / ocultar marcas" aria-label="Mostrar / ocultar marcas">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -2157,11 +2178,21 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // selecionar 1+ marcas, a lista de clientes passa a mostrar só quem ainda
     // não tem TODAS essas marcas colocadas este mês (oportunidade de venda).
     let MARCAS_FILTRO_SELECIONADAS_ = [];
+    // Período do filtro "Marcas não colocadas": 'mes' (comprou este mês) ou 'ano' (comprou este ano).
+    let MARCAS_FILTRO_PERIODO_ = (function () {
+        try { return localStorage.getItem('marcasFiltroPeriodo') === 'ano' ? 'ano' : 'mes'; } catch (e) { return 'mes'; }
+    })();
+    /** A marca conta como colocada no período do filtro? No modo anual, uma compra do mês também conta. */
+    function marcaColocadaNoPeriodo_(hist) {
+        if (!hist) return false;
+        return MARCAS_FILTRO_PERIODO_ === 'ano' ? !!(hist.ano || hist.mes) : !!hist.mes;
+    }
     // Lista de {cliente, marcasNegociadas} capturada durante a última
     // renderização do filtro "Marcas não colocadas (mês)" — usada pelo
     // botão de WhatsApp para enviar exatamente os clientes/marcas visíveis
     // no ecrã nesse momento (respeitando marcas, dia, semana e vendedor).
     let ultimaListaNegociadosFiltrada_ = null;
+    let ultimaListaMarcasFalta_ = null;   // [{cliente, numero, marcas:[...]}] do filtro "Marcas não colocadas" (para exportar)
 
     function chaveMesPicos_() {
         const agora = new Date();
@@ -2845,8 +2876,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let pinBuffer_ = '';
     let UTILIZADOR_ID_ = '';          // gestor que se identificou (vai para o log)
     let PERFIL_ACESSO_ = '';          // 'editor' ou 'utilizador' (definido pelo servidor)
-    let PIN_EDITOR_SESSAO_ = '';      // PIN do editor, só em memória e só nesta sessão (para confirmar ações de gestão no servidor)
-    let SESSAO_TOKEN_ = '';           // token de sessão devolvido pelo servidor no login (só em memória, nunca guardado no telemóvel)
+    let TOKEN_SESSAO_ = '';           // sessão emitida pelo servidor no login (só em memória). Sem ela o servidor não devolve dados.
+    let CODIGO_ACESSO_SESSAO_ = '';   // código de acesso já validado pelo servidor nesta sessão (só em memória)
+    let reautenticando_ = false;
     let lockModo_ = 'entrar';         // entrar | criar1 | criar2 | mudar0 | mudar1 | mudar2 | bloqueado
     let lockTemPin_ = false;
     let lockOffline_ = false;
@@ -2855,26 +2887,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     let lockPinAtual_ = '';
     let lockReq_ = 0;
     let lockListaGestores_ = [];
-
-    // Quando o servidor diz que a sessão acabou (24 h, PIN mudado, etc.), volta ao ecrã de entrada sem perder alterações por enviar.
-    const SESSAO_ESPERA_ = [];
-    function esperarNovaSessao_() { return new Promise(res => SESSAO_ESPERA_.push(res)); }
-    function sessaoExpirada_() {
-        const ov = document.getElementById('lockOverlay');
-        if (!ov || !ov.classList.contains('desbloqueado')) return;   // já está no ecrã de entrada
-        const nome = UTILIZADOR_ID_;
-        SESSAO_TOKEN_ = ''; PIN_EDITOR_SESSAO_ = '';
-        const po = document.getElementById('prospOverlay'); if (po) { po.style.display = 'none'; po.innerHTML = ''; }
-        ov.classList.remove('desbloqueado');
-        if (MODO_VENDEDOR_ATIVO_) {
-            lockMostrarPasso_(true); lockTemPin_ = true; lockDefinirModo_('entrar');
-        } else {
-            lockVoltarGestor_();
-            const idx = lockListaGestores_.indexOf(nome);
-            if (idx !== -1) lockEscolherGestor_(idx);
-        }
-        lockMensagem_('Sessão expirada. Introduz o PIN para continuar.');
-    }
 
     const LOCK_TITULOS_ = {
         entrar: 'Introduza o PIN para entrar',
@@ -2885,6 +2897,33 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         mudar2: 'Repete o novo PIN',
         bloqueado: ''
     };
+
+    function tokenQS_() { return TOKEN_SESSAO_ ? '&token=' + encodeURIComponent(TOKEN_SESSAO_) : ''; }
+
+    // O servidor recusou a sessão (expirou, ou o PIN mudou): volta ao ecrã do PIN, sem perder o que está pendente.
+    function sessaoExpirada_() {
+        TOKEN_SESSAO_ = ''; CODIGO_ACESSO_SESSAO_ = '';
+        if (reautenticando_) return;
+        reautenticando_ = true;
+        const ov = document.getElementById('lockOverlay');
+        if (ov) ov.classList.remove('desbloqueado');
+        lockOffline_ = false; lockOcupado_ = false; lockTemPin_ = true;
+        if (MODO_VENDEDOR_ATIVO_) { lockMostrarPasso_(true); lockDefinirModo_('entrar'); }
+        else {
+            const i = lockListaGestores_.indexOf(UTILIZADOR_ID_);
+            if (i !== -1) lockEscolherGestor_(i); else lockVoltarGestor_();
+        }
+        setTimeout(() => lockMensagem_('A sessão expirou. Entra de novo com o PIN.'), 700);
+    }
+
+    // Antes do PIN só se pede o nome dos gestores (sem fotos nem dados), para mostrar quem pode entrar.
+    async function lockCarregarNomes_() {
+        try {
+            const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=gestores&t=' + Date.now(), { cache: 'no-store' });
+            const d = await r.json();
+            if (d && d.ok && Array.isArray(d.listaGestores) && d.listaGestores.length) { aplicarListaGestores_(d.listaGestores); lockRenderGestores_(); }
+        } catch (e) { /* sem rede: fica a lista guardada neste dispositivo */ }
+    }
 
     function lockNomeAuth_() { return MODO_VENDEDOR_ATIVO_ ? NOME_AUTH_LINK_VENDEDOR_ : UTILIZADOR_ID_; }
     function lockNomeCurto_(nome) {
@@ -2962,7 +3001,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
     // Pedido ao servidor (com tempo limite). Devolve { ok:false, offline:true } se não houver ligação.
     async function lockPedido_(payload) {
-        payload = Object.assign({ utilizador: UTILIZADOR_ID_, token: SESSAO_TOKEN_ }, payload);
+        payload = Object.assign({ utilizador: UTILIZADOR_ID_ }, payload);
         for (let t = 0; t < 2; t++) {
             const ctrl = new AbortController();
             const to = setTimeout(() => ctrl.abort(), 12000);
@@ -3139,8 +3178,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
     async function lockConcluirEntrada_(nome, pin, perfil, doServidor, token) {
         PERFIL_ACESSO_ = (perfil === 'editor') ? 'editor' : 'utilizador';
-        SESSAO_TOKEN_ = (doServidor && token) ? token : '';
-        PIN_EDITOR_SESSAO_ = (PERFIL_ACESSO_ === 'editor' && doServidor) ? pin : '';
+        TOKEN_SESSAO_ = doServidor ? String(token || '') : '';
+        reautenticando_ = false;
         if (doServidor) {
             const h = await lockHashLocal_(nome, pin);
             lockGuardarLocal_(nome, h, PERFIL_ACESSO_);
@@ -3162,11 +3201,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             }
         }
         pinBuffer_ = ''; pinAtualizarPontos_();
+        arrancarDadosPosLogin_();   // só agora (com sessão) é que se pedem os dados ao servidor
         if (doServidor && !MODO_VENDEDOR_ATIVO_) bioOferecer_(nome, pin);
-        if (SESSAO_TOKEN_) {
-            SESSAO_ESPERA_.splice(0).forEach(res => res());          // retoma envios que ficaram à espera de nova sessão
-            puxarDadosDaNuvem(!!localStorage.getItem('baseDadosRotasCache'));   // só agora, com sessão, é que se carregam os dados
-        }
         if (typeof window.mostrarInstallPromptRB === 'function') {
             setTimeout(window.mostrarInstallPromptRB, 700);
         }
@@ -3344,6 +3380,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
             lockDefinirModo_('entrar');
         } else {
             lockRenderGestores_();
+            lockCarregarNomes_();
             // Lembra o último gestor que entrou neste dispositivo: salta a escolha da foto e pede só o PIN
             let lembrado = '';
             try { lembrado = localStorage.getItem('gestorLembrado') || ''; } catch (e) {}
@@ -3361,7 +3398,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     });
 
     // --- CÓDIGO DE ACESSO (PIN) para Excel e Marca Foco ---
-    const CODIGO_ACESSO_ = '2363';
     let acaoPendentePin_ = null;
 
     function pedirCodigoAcesso_(acaoSeguinte) {
@@ -3386,15 +3422,24 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         acaoPendentePin_ = null;
     }
 
-    function confirmarPin_() {
+    let confirmandoCodigo_ = false;
+    async function confirmarPin_() {
+        if (confirmandoCodigo_) return;
         const input = document.getElementById('modalPinInput');
-        if (input.value === CODIGO_ACESSO_) {
+        const valor = input.value;
+        if (!valor) return;
+        confirmandoCodigo_ = true;
+        let r;
+        try { r = await postComRetry_({ action: 'validar_codigo', codigo: valor }); } finally { confirmandoCodigo_ = false; }
+        if (r && r.ok) {
+            CODIGO_ACESSO_SESSAO_ = valor;   // só em memória; o servidor volta a conferi-lo em cada gravação
             const acao = acaoPendentePin_;
             fecharModalPin_();
             if (typeof acao === 'function') acao();
         } else {
+            if (r && r.sessaoInvalida) { fecharModalPin_(); return; }
             input.classList.add('erro');
-            document.getElementById('modalPinErro').textContent = 'Código incorreto.';
+            document.getElementById('modalPinErro').textContent = (r && r.erro) || 'Código incorreto.';
             input.value = '';
             input.focus();
             setTimeout(() => input.classList.remove('erro'), 350);
@@ -3545,7 +3590,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const resposta = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(Object.assign({ utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: SESSAO_TOKEN_ }, payload))
+                    body: JSON.stringify(Object.assign({ utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, codigoAcesso: CODIGO_ACESSO_SESSAO_ }, payload))
                 });
                 if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
                 const dados = await resposta.json();
@@ -3636,27 +3681,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     });
     window.addEventListener('pagehide', forcarEnvioEstadosPendentes_);
 
-    // Antes do login só se pede o que é público: nomes e fotos dos gestores para o ecrã de entrada.
-    async function puxarListaPublica_(silencioso) {
-        try {
-            const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=gestores&t=' + Date.now(), { cache: 'no-store' });
-            const d = await r.json();
-            if (d && d.fotosPessoas && typeof d.fotosPessoas === 'object') {
-                FOTOS_PESSOAS_ = d.fotosPessoas;
-                try { localStorage.setItem('fotosPessoasCache', JSON.stringify(FOTOS_PESSOAS_)); } catch (e) { /* ignora */ }
-                atualizarAvataresFiltro_();
-            }
-            if (d && Array.isArray(d.listaGestores)) aplicarListaGestores_(d.listaGestores);
-        } catch (e) { console.error('Erro ao ler a lista de gestores: ', e); }
-        if (!silencioso) mostrarLoading(false);
-    }
-
     async function puxarDadosDaNuvem(silencioso) {
-        if (!SESSAO_TOKEN_) return puxarListaPublica_(silencioso);
         if (!silencioso) mostrarLoading(true);
         try {
             ultimoPullOk_ = false;
-            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now() + '&token=' + encodeURIComponent(SESSAO_TOKEN_) + paramOcultas_(), { cache: 'no-store' });
+            let response = await fetch(GOOGLE_SCRIPT_URL + '?t=' + Date.now() + tokenQS_() + paramOcultas_(), { cache: 'no-store' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const dados = await response.json();
             if (dados && dados.sessaoInvalida) { sessaoExpirada_(); if (!silencioso) mostrarLoading(false); return; }
@@ -3735,7 +3764,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         // escolhido, dando a sensação de que mudava sozinho. Agora, se
         // falhar, mantém a proteção e tenta outra vez sozinho em segundo
         // plano, sem bloquear o ecrã.
-        if (resultado && resultado.sessaoInvalida) { await esperarNovaSessao_(); return enviarAlteracaoNuvem(id, marca, novoEstado, tentativaFundo); }
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar estado na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
@@ -3765,7 +3793,6 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 
         // Mesma proteção que em enviarAlteracaoNuvem: só larga o pendente
         // com sucesso confirmado, senão tenta outra vez em segundo plano.
-        if (resultado && resultado.sessaoInvalida) { await esperarNovaSessao_(); return enviarColocouNuvem(id, marca, colocado, tentativaFundo); }
         if (!resultado || resultado.ok === false) {
             console.error("Erro ao atualizar colocou na nuvem: ", resultado && resultado.erro);
             if (!tentativaFundo) mostrarAvisoSync_();
@@ -4099,11 +4126,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const respostaImport = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: "importar_atualizar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: SESSAO_TOKEN_ })
+                    body: JSON.stringify({ action: "importar_atualizar", rows: listaNovosDados, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, codigoAcesso: CODIGO_ACESSO_SESSAO_ })
                 });
                 if (!respostaImport.ok) throw new Error('HTTP ' + respostaImport.status);
                 const resultadoImport = await respostaImport.json();
-                if (resultadoImport && resultadoImport.sessaoInvalida) { sessaoExpirada_(); throw new Error('Sessão expirada. Entra de novo com o PIN e repete a importação.'); }
+                if (resultadoImport && resultadoImport.sessaoInvalida) sessaoExpirada_();
                 if (!resultadoImport || resultadoImport.ok !== true) {
                     throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
                 }
@@ -4156,7 +4183,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return hist.mes ? 1 : 0; // dados antigos sem o valor guardado
     }
     function alternarMarcaImplementacao_(marca) {
-        // Só o acesso de editor (PIN de entrada 2011) pode alterar isto.
+        // Só o acesso de editor pode alterar isto.
         if (MODO_VENDEDOR_ATIVO_ || document.body.classList.contains('acesso-utilizador')) return;
         pedirCodigoAcesso_(async () => {
             const alvo = String(marca || '').trim().toLowerCase();
@@ -4287,7 +4314,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const registo = baseDadosRotas.find(item => item.id === idRegisto);
         if (!registo) return;
         const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(registo)]) || registo.historico || {};
-        const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !(historicoCliente[m] && historicoCliente[m].mes));
+        const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !marcaColocadaNoPeriodo_(historicoCliente[m]));
         const numeroCliente = registo.numero ? ` (Nº ${registo.numero})` : '';
         const bodyLines = [
             `*Cliente:* ${registo.cliente}${numeroCliente}`,
@@ -4445,9 +4472,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     });
                 }
 
-                // Nas restantes marcas mantém-se a regra mensal existente.
+                // Nas restantes marcas aplica-se o período escolhido (mês ou ano).
                 const hist = historicoCliente[m] || {};
-                return !hist.mes;
+                return !marcaColocadaNoPeriodo_(hist);
             });
         };
 
@@ -4512,13 +4539,15 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         // reduzida ao essencial: nome do cliente + só as marcas selecionadas
         // que lhe faltam — em vez da tabela completa com todas as marcas e
         // estados (Foco/OK/Negociado/etc.), que aqui não é relevante.
-        if (!emModoMarcasColocadas) ultimaListaNegociadosFiltrada_ = null;
+        if (!emModoMarcasColocadas) { ultimaListaNegociadosFiltrada_ = null; ultimaListaMarcasFalta_ = null; }
         if (emModoMarcasColocadas) {
             ultimaListaNegociadosFiltrada_ = [];
+            ultimaListaMarcasFalta_ = [];
             filtrados.forEach(item => {
                 const tr = document.createElement('tr');
                 const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(item)]) || {};
-                const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !(historicoCliente[m] && historicoCliente[m].mes));
+                const marcasEmFalta = MARCAS_FILTRO_SELECIONADAS_.filter(m => !marcaColocadaNoPeriodo_(historicoCliente[m]));
+                ultimaListaMarcasFalta_.push({ cliente: item.cliente, numero: item.numero || '', marcas: marcasEmFalta.slice() });
                 const marcasNegociadasCliente = marcasEmFalta.filter(m => item.estados[m] === 'NEGOCIADO');
                 if (marcasNegociadasCliente.length > 0) {
                     ultimaListaNegociadosFiltrada_.push({ cliente: item.cliente, marcasNegociadas: marcasNegociadasCliente });
@@ -4742,6 +4771,23 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         }).join('');
 
         atualizarContagemMarcasFiltro_();
+        atualizarUiPeriodoMarcasFiltro_();
+    }
+
+    function atualizarUiPeriodoMarcasFiltro_() {
+        document.querySelectorAll('.marcas-filtro-periodo button').forEach(b => {
+            b.classList.toggle('ativo', b.dataset.periodo === MARCAS_FILTRO_PERIODO_);
+        });
+        const r = document.getElementById('marcasFiltroPeriodoRotulo');
+        if (r) r.textContent = MARCAS_FILTRO_PERIODO_ === 'ano' ? '(ano)' : '(mês)';
+    }
+
+    /** Alterna o filtro de marcas entre "este mês" e "este ano". */
+    function definirPeriodoMarcasFiltro_(periodo) {
+        MARCAS_FILTRO_PERIODO_ = periodo === 'ano' ? 'ano' : 'mes';
+        try { localStorage.setItem('marcasFiltroPeriodo', MARCAS_FILTRO_PERIODO_); } catch (e) { /* ignora */ }
+        atualizarUiPeriodoMarcasFiltro_();
+        atualizarVisualizacao();
     }
 
     function atualizarContagemMarcasFiltro_() {
@@ -4749,6 +4795,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         if (!el) return;
         const n = MARCAS_FILTRO_SELECIONADAS_.length;
         el.textContent = n === 0 ? 'Todas' : `${n} selecionada${n === 1 ? '' : 's'}`;
+        ['btnExportarMarcasExcel', 'btnExportarMarcasPdf'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = n === 0; });
     }
 
     function alternarMarcaFiltro_(marca) {
@@ -5029,14 +5076,14 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         cont.innerHTML = html;
     }
 
-    // --- Gerir gestores e vendedores (só o editor; o servidor volta a confirmar o PIN do editor) ---
+    // --- Gerir gestores e vendedores (só o editor; o servidor confirma a sessão do editor) ---
     let listaGestoresModal_ = [];
     let listaVendedoresModal_ = [];
 
     function pessoaNomeValido_(n) { return !!n && n.length <= 80 && /^[^<>"'&\\`]+$/.test(n); }
 
     function sessaoEditorOk_() {
-        if (PERFIL_ACESSO_ !== 'editor' || !PIN_EDITOR_SESSAO_) {
+        if (PERFIL_ACESSO_ !== 'editor' || !TOKEN_SESSAO_) {
             alert('Para gerir gestores e vendedores entra com o PIN do editor, com ligação à internet.');
             return false;
         }
@@ -5056,7 +5103,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     }
 
     async function gravarListaGestores_(nova) {
-        const r = await postComRetry_({ action: 'guardar_gestores', gestores: nova, pinEditor: PIN_EDITOR_SESSAO_ });
+        const r = await postComRetry_({ action: 'guardar_gestores', gestores: nova });
         if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível guardar. Tenta novamente.'); return false; }
         aplicarListaGestores_(r.gestores);
         popularFiltroVendedor_();
@@ -5087,7 +5134,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const nome = listaVendedoresModal_[i];
         if (!nome) return;
         if (!confirm('Apagar o vendedor "' + nome + '"?\n\nOs clientes dele ficam sem vendedor e a foto é apagada. Se o Excel ainda tiver este nome, volta a aparecer na próxima importação.')) return;
-        const r = await postComRetry_({ action: 'remover_vendedor', nome: nome, pinEditor: PIN_EDITOR_SESSAO_ });
+        const r = await postComRetry_({ action: 'remover_vendedor', nome: nome });
         if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível apagar. Tenta novamente.'); return; }
         baseDadosRotas.forEach(reg => { if (String(reg.vendedor || '').trim() === nome) reg.vendedor = ''; });
         delete FOTOS_PESSOAS_[nome];
@@ -5106,7 +5153,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const para = resp.trim().replace(/\s+/g, ' ');
         if (para === de) return;
         if (!pessoaNomeValido_(para)) { alert('Nome inválido (sem aspas nem símbolos como < > & \\).'); return; }
-        const r = await postComRetry_({ action: 'renomear_vendedor', de: de, para: para, pinEditor: PIN_EDITOR_SESSAO_ });
+        const r = await postComRetry_({ action: 'renomear_vendedor', de: de, para: para });
         if (!r || r.ok === false) { alert((r && r.erro) || 'Não foi possível renomear. Tenta novamente.'); return; }
         baseDadosRotas.forEach(reg => { if (String(reg.vendedor || '').trim() === de) reg.vendedor = para; });
         if (FOTOS_PESSOAS_[de]) {
@@ -5782,6 +5829,66 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         resultado.doc.save(resultado.nomeFicheiro);
     }
 
+    // --- Exportar a lista do filtro "Marcas não colocadas" (Estabelecimento + marcas em falta) ---
+    function dadosExportMarcasFalta_() {
+        const dados = ultimaListaMarcasFalta_;
+        if (!MARCAS_FILTRO_SELECIONADAS_.length || !dados || dados.length === 0) {
+            alert('Seleciona pelo menos uma marca e confirma que há clientes na lista para exportar.');
+            return null;
+        }
+        const com = document.getElementById('comercialSelect').value;
+        const periodo = MARCAS_FILTRO_PERIODO_ === 'ano' ? 'ano' : 'mês';
+        const nomeBase = `${obterPrimeiroEUltimoNome(com)} marcas em falta (${periodo})`.replace(/[\\/:*?"<>|]/g, '');
+        return { dados, com, periodo, nomeBase };
+    }
+
+    function exportarMarcasFaltaExcel_() {
+        const d = dadosExportMarcasFalta_();
+        if (!d) return;
+        if (typeof XLSX === 'undefined') {
+            alert('A biblioteca de Excel ainda não carregou. Verifica a ligação à internet e tenta novamente.');
+            return;
+        }
+        const linhas = [['Estabelecimento', 'Marcas em falta']];
+        d.dados.forEach(x => linhas.push([x.cliente, x.marcas.join(', ')]));
+        const folha = XLSX.utils.aoa_to_sheet(linhas);
+        folha['!cols'] = [{ wch: 42 }, { wch: 50 }];
+        const livro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(livro, folha, 'Marcas em falta');
+        XLSX.writeFile(livro, d.nomeBase + '.xlsx');
+    }
+
+    function exportarMarcasFaltaPDF_() {
+        const d = dadosExportMarcasFalta_();
+        if (!d) return;
+        if (!window.jspdf) {
+            alert('A biblioteca de geração de PDF ainda não carregou. Verifica a ligação à internet e tenta novamente.');
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+        const margem = 40;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('Marcas não colocadas (' + d.periodo + ') — ' + d.com, margem, margem);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(120);
+        doc.text(d.dados.length + ' estabelecimentos · Marcas: ' + MARCAS_FILTRO_SELECIONADAS_.join(', ') + ' · Gerado em ' + new Date().toLocaleDateString('pt-PT'), margem, margem + 16, { maxWidth: 595.28 - margem * 2 });
+        doc.setTextColor(0);
+        doc.autoTable({
+            startY: margem + 32,
+            theme: 'grid',
+            head: [['Estabelecimento', 'Marcas em falta']],
+            body: d.dados.map(x => [x.cliente, x.marcas.join(', ')]),
+            styles: { fontSize: 9, halign: 'left', lineColor: [0, 0, 0], lineWidth: 0.5, textColor: [0, 0, 0], cellPadding: 4 },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+            columnStyles: { 0: { cellWidth: 250 } },
+            margin: { left: margem, right: margem }
+        });
+        doc.save(d.nomeBase + '.pdf');
+    }
+
     async function sincronizarManualmente() {
         const btn = document.getElementById('btnSyncTitulo');
         if (btn) {
@@ -6151,25 +6258,32 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     aplicarDiaAtual();
     atualizarRotuloModoEscuro_();
 
+    // Os dados só são pedidos depois do PIN (chamada em lockConcluirEntrada_). Antes disso o servidor não os entrega
+    // e esta página não mostra nada guardado.
     // Mostra imediatamente os últimos dados conhecidos (cache local) enquanto
     // o pedido real à nuvem ainda vai a caminho — evita o ecrã de "a carregar"
     // demorado sempre que o Apps Script demora a responder (arranque a frio,
     // muitos GCs em simultâneo, etc.). Os dados são substituídos assim que a
     // resposta da nuvem chegar.
-    try {
-        const cache = localStorage.getItem('baseDadosRotasCache');
-        if (cache) {
-            baseDadosRotas = JSON.parse(cache);
-            atualizarVisualizacao();
-            aplicarModoVendedorSeNecessario_();
+    let cacheMostrada_ = false, ultimoTokenArrancado_ = null;
+    function arrancarDadosPosLogin_() {
+        if (!cacheMostrada_) {
+            cacheMostrada_ = true;
+            try {
+                const cache = localStorage.getItem('baseDadosRotasCache');
+                if (cache) {
+                    baseDadosRotas = JSON.parse(cache);
+                    atualizarVisualizacao();
+                    aplicarModoVendedorSeNecessario_();
+                }
+            } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
         }
-    } catch (e) { /* cache inválida — ignora e segue para o fetch normal */ }
-
-    // Mesmo havendo cache (dados já visíveis), o copo a encher fica por cima
-    // até a nuvem responder — é aí que chegam as marcas/dados novos, e assim
-    // não se vê a lista a "mudar" sozinha passados alguns segundos.
-    // Segurança: toque no ecrã ou 25 s fecham o copo, para nunca ficar preso.
-    (function arranqueComCopo_() {
+        if (!TOKEN_SESSAO_ || ultimoTokenArrancado_ === TOKEN_SESSAO_) return;   // entrada sem rede: fica só a cache
+        ultimoTokenArrancado_ = TOKEN_SESSAO_;
+        // Mesmo havendo cache (dados já visíveis), o copo a encher fica por cima
+        // até a nuvem responder — é aí que chegam as marcas/dados novos, e assim
+        // não se vê a lista a "mudar" sozinha passados alguns segundos.
+        // Segurança: toque no ecrã ou 25 s fecham o copo, para nunca ficar preso.
         const temCache = !!localStorage.getItem('baseDadosRotasCache');
         const btn = document.getElementById('btnSaltarLoading');
         let fechado = false;
@@ -6189,7 +6303,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         }
         mostrarLoading(true);
         puxarDadosDaNuvem(temCache).then(fechar, fechar);
-    })();
+    }
 
     // ---- Sync otimizado: verifica só a versão (leve) e puxa dados completos apenas se mudou ----
     let syncEmCurso_ = false, ultimoSync_ = 0;
@@ -6202,7 +6316,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     };
     let versaoLocal_ = null;
     async function verificarVersao_() {
-        if (syncEmCurso_ || !SESSAO_TOKEN_) return;
+        if (syncEmCurso_ || !TOKEN_SESSAO_) return;
         try {
             const r = await fetch(GOOGLE_SCRIPT_URL + '?tipo=versao&t=' + Date.now(), { cache: 'no-store' });
             const d = await r.json();
@@ -6470,9 +6584,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
   }
 
   async function carregar() {
-    if (aCarregar || !UTILIZADOR_ID_ || !SESSAO_TOKEN_) return; aCarregar = true;
-    let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&token=' + encodeURIComponent(SESSAO_TOKEN_) + '&t=' + Date.now())).json(); } catch (e) {}
-    aCarregar = false; if (d && d.sessaoInvalida) { sessaoExpirada_(); return; } if (d && d.ok) { rows = (d.rows || []).map(normRow_); ts = Date.now(); desenhar(); }
+    if (aCarregar || !UTILIZADOR_ID_) return; aCarregar = true;
+    let d = null; try { d = await (await fetch(GOOGLE_SCRIPT_URL + '?tipo=prospeccao&t=' + Date.now() + tokenQS_())).json(); } catch (e) {}
+    aCarregar = false; if (d && d.sessaoInvalida && TOKEN_SESSAO_) sessaoExpirada_(); if (d && d.ok) { rows = (d.rows || []).map(normRow_); ts = Date.now(); desenhar(); }
   }
   // O Google Sheets pode devolver a data como "2026-10-12T00:00:00.000Z" (ou com o fuso deslocado)
   // em vez de "2026-10-12". Normaliza sempre para AAAA-MM-DD (hora local) para o filtro por dia funcionar.
@@ -6532,8 +6646,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
   window.addEventListener('message', e => {
     if (e.origin !== PROSP_ORIGIN) return; const m = e.data || {}, ov = $('prospOverlay');
     if (m.tipo === 'propostas') { propIds = new Set(m.ids || []); desenhar(); return; }
-    if (m.tipo === 'sessaoExpirada') { sessaoExpirada_(); return; }
-    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, pinEditor: PIN_EDITOR_SESSAO_, token: SESSAO_TOKEN_, id: ov.dataset.id, prop: !!ov.dataset.prop, rows: rows }, PROSP_ORIGIN);
+    if (m.tipo === 'pronto' && ov.firstChild) ov.firstChild.contentWindow.postMessage({ tipo: 'sessao', utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, id: ov.dataset.id, prop: !!ov.dataset.prop, rows: rows }, PROSP_ORIGIN);
+    if (m.tipo === 'sessaoInvalida') { ov.style.display = 'none'; ov.innerHTML = ''; sessaoExpirada_(); return; }
     if (m.tipo === 'voltar') { ov.style.display = 'none'; ov.innerHTML = ''; ts = 0; carregar(); carregarPropostas_(); }
   });
   carregarPropostas_();
