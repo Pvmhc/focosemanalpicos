@@ -6658,6 +6658,94 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
 var mudarDiaOrig_;
 </script>
 
+<script>
+/* ===== Fecho automático do dia às 18:03 =====
+   Depois da hora, para o gestor com sessão iniciada e para as visitas de HOJE (semana do ciclo atual):
+   1) marcas em FOCO / FOCO SEMANAL  -> NÃO OK
+   2) marcas sem nada marcado         -> NÃO OK
+   Corre uma vez por gestor e por dia (guardado no dispositivo). Se a página for aberta depois das 18:03, aplica nessa altura. */
+(function () {
+    const HORA_FECHO = 18, MIN_FECHO = 3;
+    const NOMES_DIA = { 1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta' };
+    let aCorrer = false;
+
+    function chaveHoje_(agora) {
+        const d = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
+        return 'fecho1803_' + UTILIZADOR_ID_ + '_' + d;
+    }
+
+    function avisoFecho_(txt) {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0b0c10;color:#fff;padding:10px 16px;border-radius:10px;font-size:0.85rem;z-index:99998;box-shadow:0 2px 8px rgba(0,0,0,.3);max-width:90vw;text-align:center;';
+        el.textContent = txt;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 9000);
+    }
+
+    // Mesma regra de colunas que a tabela: Bar -> só Preta; restantes -> só 0.0%
+    function marcaAplicaAoRegisto_(m, r) {
+        if (ehMarcaImplementacao_(m)) return false;
+        if (marcaColocadaMes_(r, m)) return false;
+        const tip = String(r.tipologia || '').trim();
+        if (tip) {
+            const req = obterRegraTipologia_(r.tipologia);
+            const ehBar = !!(req && req.includes('preta'));
+            if (ehColunaZeroZero_(m) && ehBar) return false;
+            if (ehColunaPreta_(m) && !ehBar) return false;
+        }
+        return true;
+    }
+
+    async function fecharDia_() {
+        if (aCorrer || !UTILIZADOR_ID_ || !TOKEN_SESSAO_) return;
+        if (typeof MODO_VENDEDOR_ATIVO_ !== 'undefined' && MODO_VENDEDOR_ATIVO_) return;
+        if (!Array.isArray(baseDadosRotas) || baseDadosRotas.length === 0) return;
+        if (typeof syncEmCurso_ !== 'undefined' && syncEmCurso_) return;
+
+        const agora = new Date();
+        const dia = NOMES_DIA[agora.getDay()];
+        if (!dia) return;                                                        // fim de semana
+        if (agora.getHours() * 60 + agora.getMinutes() < HORA_FECHO * 60 + MIN_FECHO) return;
+        const chave = chaveHoje_(agora);
+        try { if (localStorage.getItem(chave)) return; } catch (e) { /* ignora */ }
+
+        aCorrer = true;
+        try {
+            const semana = String(calcularSemanaCiclo(obterSemanaISO(agora)));
+            const registos = baseDadosRotas.filter(r => r.comercial === UTILIZADOR_ID_ && r.semana === semana && r.dia === dia);
+            const alteracoes = [];
+            registos.forEach(r => {
+                if (!r.estados) r.estados = {};
+                marcasVisiveis_().forEach(m => {
+                    if (!marcaAplicaAoRegisto_(m, r)) return;
+                    const est = r.estados[m] || '';
+                    let novo = null;
+                    if (est === 'FOCO' || est === 'FOCOSEMANAL' || est === '') novo = 'NAO OK';
+                    if (novo === null) return;
+                    r.estados[m] = novo;
+                    marcarAlteracaoPendente_('estado', r.id, m, novo);
+                    alteracoes.push({ id: r.id, marca: m, estado: novo });
+                });
+            });
+            try { localStorage.setItem(chave, '1'); } catch (e) { /* ignora */ }
+            if (alteracoes.length === 0) return;
+
+            atualizarVisualizacao();
+            avisoFecho_('18:03 · fecho automático: ' + alteracoes.length + ' marcas → NÃO OK');
+            for (const a of alteracoes) {            // um de cada vez, para não sobrecarregar o servidor
+                await enviarAlteracaoNuvem(a.id, a.marca, a.estado);
+            }
+        } finally {
+            aCorrer = false;
+        }
+    }
+
+    setInterval(fecharDia_, 30000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fecharDia_(); });
+    setTimeout(fecharDia_, 8000);
+})();
+</script>
+
 <button id="btnVoltarTopo" type="button" aria-label="Voltar ao topo" title="Voltar ao topo" onclick="window.scrollTo({top:0,behavior:'smooth'})">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>
 </button>
