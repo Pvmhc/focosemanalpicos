@@ -1035,6 +1035,12 @@
         body.dark-mode .selo-colocada { background: #143d1b; color: #9be3a4; border-color: #1f5a2a; }
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+        /* Selo "costuma comprar": cliente que compra a marca quase todos os meses mas ainda não comprou este mês */
+        .prob-compra { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgba(245,158,11,.14); color: #b45309; border: 1px solid rgba(245,158,11,.35); cursor: help; }
+        .prob-compra.alta { background: rgba(234,88,12,.14); color: #c2410c; border-color: rgba(234,88,12,.45); }
+        .prob-compra svg { width: 9px; height: 9px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        body.dark-mode .prob-compra { background: rgba(251,191,36,.16); color: #fcd34d; border-color: rgba(251,191,36,.4); }
+        body.dark-mode .prob-compra.alta { background: rgba(251,146,60,.18); color: #fdba74; border-color: rgba(251,146,60,.5); }
         .dif-cli-card { display: none; }
         @media (max-width: 767px) { .dif-cli-card { display: inline-flex; margin-left: 8px; } .dif-cli-tab { display: none; } }
         .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
@@ -3878,6 +3884,44 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         return false;
     }
 
+    // --- "COSTUMA COMPRAR" (frequência de compra por marca) ---
+    // Coluna do Excel ao lado de "<marca> dif volume", p.ex. "Barril freq" (ou "... meses",
+    // "... recorrência", "... prob"), com o nº de meses em que o cliente comprou a marca
+    // dentro da janela abaixo (8 = comprou em 8 dos últimos 10 meses).
+    const JANELA_MESES_FREQ_ = 10;     // denominador (meses analisados) quando o Excel só traz o nº de meses
+    const LIMIAR_FREQ_MOSTRAR_ = 0.7;  // só mostra o selo a partir de 7/10
+    const LIMIAR_FREQ_ALTA_ = 0.8;     // a partir de 8/10 o selo fica a laranja forte
+    const RE_COL_FREQ_ = /[\s_.\-](freq\w*|meses|recorr\w*|prob\w*|consist\w*)\s*$/i;
+
+    function ehColunaFreq_(c) { return RE_COL_FREQ_.test(String(c)); }
+    function colunaFreqPertenceAMarca_(coluna, marca) {
+        if (!ehColunaFreq_(coluna)) return false;
+        const base = normNomeCab_(String(coluna).replace(RE_COL_FREQ_, ''));
+        if (base === normNomeCab_(marca)) return true;
+        if (ehColunaZeroZero_(marca)) return /^(heineken)?(00|zero|zerozero|0zero)$/.test(base);
+        return false;
+    }
+    /** Aceita 8 (meses), "8/10", "80%" ou 0.8. Devolve {n, d} ou null. */
+    function interpretarFreqMeses_(v) {
+        if (v === null || v === undefined || String(v).trim() === '') return null;
+        if (v instanceof Date) return null;   // o Excel converte "8/10" em data: usar só o número 8
+        const t = String(v).trim().replace(/\s/g, '');
+        // Texto do Excel, p.ex. "INCONSISTENTE | 2/9" ou "CONSISTENTE | 8/10": usa o n/d e guarda a etiqueta
+        const m = t.match(/(\d+)\/(\d+)/);
+        if (m) {
+            const d = parseInt(m[2], 10), n = Math.min(parseInt(m[1], 10), d);
+            const et = String(v).split('|')[0].trim();
+            return d > 0 ? { n, d, etiqueta: /\d/.test(et) ? '' : et } : null;
+        }
+        const ehPct = t.endsWith('%');
+        const num = parseFloat(t.replace('%', '').replace(',', '.'));
+        if (!isFinite(num) || num < 0) return null;
+        const d = JANELA_MESES_FREQ_;
+        if (ehPct) return { n: Math.min(d, Math.round(num / 100 * d)), d };
+        if (num > 0 && num < 1) return { n: Math.round(num * d), d };
+        return { n: Math.min(d, Math.round(num)), d };
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -3917,6 +3961,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
                     if (ehCabecalhoComprouMes_(c)) return false;
                     if (/dif\.?[\s_]*vol/i.test(c)) return false;   // "Barril dif volume": diferença de volume do mês, não é uma marca
+                    if (ehColunaFreq_(c)) return false;               // "Barril freq": meses em que comprou, não é uma marca
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 {
@@ -4054,6 +4099,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                             const chaveDif = Object.keys(linha).find(k => colunaDifPertenceAMarca_(k, nomeExibido));
                             const dif = chaveDif ? interpretarDifVolume_(linha[chaveDif]) : null;
                             if (dif !== null) historicoObj[nomeExibido].dif = dif;
+                            // Coluna "<marca> freq": em quantos meses (da janela) o cliente comprou esta marca
+                            const chaveFreq = Object.keys(linha).find(k => colunaFreqPertenceAMarca_(k, nomeExibido));
+                            const freq = chaveFreq ? interpretarFreqMeses_(linha[chaveFreq]) : null;
+                            if (freq) { historicoObj[nomeExibido].freqN = freq.n; historicoObj[nomeExibido].freqD = freq.d; if (freq.etiqueta) historicoObj[nomeExibido].freqEt = freq.etiqueta; }
                         });
                     }
 
@@ -4653,6 +4702,17 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 const difTab = (litragemPreferidaAtiva_() && difTxt) ? `<div class="dif-cli-tab" title="${difTitulo}"><span class="dif-cli ${difCls}">${difTxt}</span></div>` : '';
                 const difCard = (litragemPreferidaAtiva_() && difTxt) ? `<span class="dif-cli dif-cli-card ${difCls}" title="${difTitulo}">${difTxt}</span>` : '';
 
+                // Selo "costuma comprar": compra a marca em quase todos os meses, mas ainda não comprou este mês
+                let probHtml = '';
+                if (!ehPromoMensal && !hist.mes && !colocadaMes && !emImplementacao
+                    && typeof hist.freqN === 'number' && typeof hist.freqD === 'number' && hist.freqD > 0
+                    && !/^\s*inconsist/i.test(hist.freqEt || '')) {
+                    const razao = hist.freqN / hist.freqD;
+                    if (razao >= LIMIAR_FREQ_MOSTRAR_) {
+                        probHtml = `<span class="prob-compra ${razao >= LIMIAR_FREQ_ALTA_ ? 'alta' : ''}" title="Costuma comprar esta marca: comprou em ${hist.freqN} dos últimos ${hist.freqD} meses, mas ainda não comprou este mês"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>${hist.freqN}/${hist.freqD}</span>`;
+                    }
+                }
+
                 let badgeColocouHtml = '';
                 if (est === "NEGOCIADO") {
                     const estaColocou = !!(item.colocou && item.colocou[m]);
@@ -4666,7 +4726,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                                 ${ehPromoMensal
                                     ? `<span class="texto-elegibilidade ${hist.mes ? 'implementado' : 'elegivel'}">${hist.mes ? 'Implementado' : 'Elegível'}</span>`
                                     : `<svg class="${(hist.mes || colocadaMes)?'':'icon-disabled'}" title="${(hist.mes || colocadaMes)?'Já comprou este mês':'Ainda não comprou este mês'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><circle cx="12" cy="12" r="10"/></svg>
-                                       <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>`
+                                       <svg class="${hist.ano?'':'icon-disabled'}" viewBox="0 0 24 24" style="width:14px;fill:#008200;"><path d="M5 2h3v1.5h11L17 9l2 5.5H8V22H5V2z"/></svg>${probHtml}`
                                 }
                             </div>
                             ${colocadaMes
