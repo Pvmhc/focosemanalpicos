@@ -3893,7 +3893,9 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     const LIMIAR_FREQ_ALTA_ = 0.8;     // a partir de 8/10 o selo fica a laranja forte
     const RE_COL_FREQ_ = /[\s_.\-](freq\w*|meses|recorr\w*|prob\w*|consist\w*)\s*$/i;
 
-    function ehColunaFreq_(c) { return RE_COL_FREQ_.test(String(c)); }
+    // Colunas "freq", "freq2", "freq3"... soltas (sem nome de marca) pertencem à marca que vem imediatamente antes no cabeçalho
+    const RE_COL_FREQ_SOLTA_ = /^\s*freq\d*\s*$/i;
+    function ehColunaFreq_(c) { return RE_COL_FREQ_.test(String(c)) || RE_COL_FREQ_SOLTA_.test(String(c)); }
     function colunaFreqPertenceAMarca_(coluna, marca) {
         if (!ehColunaFreq_(coluna)) return false;
         const base = normNomeCab_(String(coluna).replace(RE_COL_FREQ_, ''));
@@ -3971,6 +3973,20 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         console.warn('Colunas "dif volume" sem marca correspondente:', difSemMarca_);
                         setTimeout(() => alert('Estas colunas de volume não correspondem a nenhuma marca e foram ignoradas:\n\n• ' + difSemMarca_.join('\n• ') + '\n\nO nome tem de ser "<marca> dif volume" (ex.: "0.0% dif volume").'), 300);
                     }
+                }
+                // Associa cada coluna "freq" solta à marca imediatamente anterior no cabeçalho.
+                // As chaves repetidas ganham o sufixo _1, _2... como no SheetJS.
+                const mapaFreqPorMarca_ = {};
+                {
+                    const contagem = {};
+                    const brandsSet = new Set(colunasMarcasDetectadas);
+                    let ultimaMarca = null;
+                    todasColunas.forEach(c => {
+                        const n = contagem[c] || 0; contagem[c] = n + 1;
+                        const chave = n === 0 ? c : c + '_' + n;
+                        if (brandsSet.has(c)) ultimaMarca = c.trim().replace(/^\*+/, '').trim();
+                        else if (RE_COL_FREQ_SOLTA_.test(c) && ultimaMarca && !mapaFreqPorMarca_[ultimaMarca]) mapaFreqPorMarca_[ultimaMarca] = chave;
+                    });
                 }
                 if (colunasMarcasDetectadas.length > 0) {
                     // Segue exatamente a ordem do cabeçalho do Excel — nada de reordenar
@@ -4100,7 +4116,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                             const dif = chaveDif ? interpretarDifVolume_(linha[chaveDif]) : null;
                             if (dif !== null) historicoObj[nomeExibido].dif = dif;
                             // Coluna "<marca> freq": em quantos meses (da janela) o cliente comprou esta marca
-                            const chaveFreq = Object.keys(linha).find(k => colunaFreqPertenceAMarca_(k, nomeExibido));
+                            const chaveFreq = mapaFreqPorMarca_[nomeExibido] || Object.keys(linha).find(k => colunaFreqPertenceAMarca_(k, nomeExibido));
                             const freq = chaveFreq ? interpretarFreqMeses_(linha[chaveFreq]) : null;
                             if (freq) { historicoObj[nomeExibido].freqN = freq.n; historicoObj[nomeExibido].freqD = freq.d; if (freq.etiqueta) historicoObj[nomeExibido].freqEt = freq.etiqueta; }
                         });
