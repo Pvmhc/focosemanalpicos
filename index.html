@@ -3912,8 +3912,10 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
         const m = t.match(/(\d+)\/(\d+)/);
         if (m) {
             const d = parseInt(m[2], 10), n = Math.min(parseInt(m[1], 10), d);
-            const et = String(v).split('|')[0].trim();
-            return d > 0 ? { n, d, etiqueta: /\d/.test(et) ? '' : et } : null;
+            // Etiqueta = texto antes do n/d, sem números e separadores ("INCONSISTENTE | 2/9", "Inconsistente 2/9"...)
+            const et = String(v).replace(/\d+\s*\/\s*\d+/, '').replace(/[|:;\-–()]/g, ' ').replace(/\s+/g, ' ').trim();
+            const inconsistente = /inconsist/i.test(String(v));
+            return d > 0 ? { n, d, etiqueta: inconsistente ? 'INCONSISTENTE' : et } : null;
         }
         const ehPct = t.endsWith('%');
         const num = parseFloat(t.replace('%', '').replace(',', '.'));
@@ -4721,11 +4723,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 // Selo "costuma comprar": compra a marca em quase todos os meses, mas ainda não comprou este mês
                 let probHtml = '';
                 if (!ehPromoMensal && !hist.mes && !colocadaMes && !emImplementacao
-                    && typeof hist.freqN === 'number' && typeof hist.freqD === 'number' && hist.freqD > 0
-                    && !/^\s*inconsist/i.test(hist.freqEt || '')) {
+                    && typeof hist.freqN === 'number' && typeof hist.freqD === 'number' && hist.freqD > 0) {
                     const razao = hist.freqN / hist.freqD;
-                    if (razao >= LIMIAR_FREQ_MOSTRAR_) {
-                        probHtml = `<span class="prob-compra ${razao >= LIMIAR_FREQ_ALTA_ ? 'alta' : ''}" title="Costuma comprar esta marca: comprou em ${hist.freqN} dos últimos ${hist.freqD} meses, mas ainda não comprou este mês"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>${hist.freqN}/${hist.freqD}</span>`;
+                    // Mostra sempre (consistente ou inconsistente) enquanto não houver compra este mês
+                    {
+                        probHtml = `<span class="prob-compra ${razao >= LIMIAR_FREQ_ALTA_ ? 'alta' : ''}" title="Frequência de compra: comprou em ${hist.freqN} dos últimos ${hist.freqD} meses, mas ainda não comprou este mês"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>${hist.freqN}/${hist.freqD}</span>`;
                     }
                 }
 
