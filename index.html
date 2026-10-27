@@ -1036,11 +1036,17 @@
         .dif-cli-tab { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
         .dif-rot { font-size: 0.64rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
         /* Selo "costuma comprar": cliente que compra a marca quase todos os meses mas ainda não comprou este mês */
-        .prob-compra { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgba(245,158,11,.14); color: #b45309; border: 1px solid rgba(245,158,11,.35); cursor: help; }
-        .prob-compra.alta { background: rgba(234,88,12,.14); color: #c2410c; border-color: rgba(234,88,12,.45); }
+        .prob-compra { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgba(234,179,8,.18); color: #a16207; border: 1px solid rgba(234,179,8,.5); cursor: help; }
+        .prob-compra.media { background: rgba(234,88,12,.14); color: #c2410c; border-color: rgba(234,88,12,.45); }
+        .prob-compra.baixa { background: rgba(220,38,38,.14); color: #b91c1c; border-color: rgba(220,38,38,.45); }
+        .selo-registo { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 8px 2px 4px; border-radius: 999px; font-size: 0.62rem; font-weight: 900; letter-spacing: .2px; line-height: 1.4; white-space: nowrap; vertical-align: middle; background: #fee2e2; color: #dc2626; border: 1.5px solid #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.45); }
+        .selo-registo svg { width: 13px; height: 13px; fill: #dc2626; flex-shrink: 0; }
+        body.dark-mode .selo-registo { background: rgba(239,68,68,.2); color: #fca5a5; border-color: #f87171; }
+        body.dark-mode .selo-registo svg { fill: #ef4444; }
         .prob-compra svg { width: 9px; height: 9px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-        body.dark-mode .prob-compra { background: rgba(251,191,36,.16); color: #fcd34d; border-color: rgba(251,191,36,.4); }
-        body.dark-mode .prob-compra.alta { background: rgba(251,146,60,.18); color: #fdba74; border-color: rgba(251,146,60,.5); }
+        body.dark-mode .prob-compra { background: rgba(250,204,21,.16); color: #fde047; border-color: rgba(250,204,21,.45); }
+        body.dark-mode .prob-compra.media { background: rgba(251,146,60,.18); color: #fdba74; border-color: rgba(251,146,60,.5); }
+        body.dark-mode .prob-compra.baixa { background: rgba(248,113,113,.18); color: #fca5a5; border-color: rgba(248,113,113,.5); }
         .dif-cli-card { display: none; }
         @media (max-width: 767px) { .dif-cli-card { display: inline-flex; margin-left: 8px; } .dif-cli-tab { display: none; } }
         .quebra-vol { font-weight: 700; font-size: 0.68rem; margin-top: 2px; color: #cbd5e1; text-transform: none; }
@@ -3966,6 +3972,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     if (ehCabecalhoComprouMes_(c)) return false;
                     if (/dif\.?[\s_]*vol/i.test(c)) return false;   // "Barril dif volume": diferença de volume do mês, não é uma marca
                     if (ehColunaFreq_(c)) return false;               // "Barril freq": meses em que comprou, não é uma marca
+                    if (linhaCabecalhos[12] !== undefined && String(linhaCabecalhos[12]) === c) return false; // coluna M = estado do registo, não é marca
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 {
@@ -3999,6 +4006,18 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     renderCabecalhoTabela();
                 }
 
+                // Coluna M (13.ª) = estado do registo ("por fazer" => falta fazer o registo).
+                // Descobre o nome da chave que o SheetJS deu a essa coluna (com sufixo _1, _2... se o cabeçalho se repetir).
+                let chaveColunaRegisto_ = null;
+                {
+                    const IDX_M = 12;
+                    const cab = linhaCabecalhos[IDX_M];
+                    if (cab !== undefined && cab !== null && String(cab).trim() !== '') {
+                        let rep = 0;
+                        for (let i = 0; i < IDX_M; i++) if (String(linhaCabecalhos[i]) === String(cab)) rep++;
+                        chaveColunaRegisto_ = rep === 0 ? String(cab) : String(cab) + '_' + rep;
+                    }
+                }
                 linhas.forEach(linha => {
                     const obterValor = (chaves) => {
                         // 1ª tentativa: correspondência exata (só minúsculas, sem
@@ -4033,6 +4052,13 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     const chaveColunaComprouMes = Object.keys(linha).find(k => ehCabecalhoComprouMes_(k));
                     let comprouMesRaw = chaveColunaComprouMes ? linha[chaveColunaComprouMes] : null;
                     let comprouMesVal = interpretarComprouMes_(comprouMesRaw);
+                    // Registo por fazer: coluna M com "por fazer" (aceita também "por registar"/"falta registo")
+                    let registoRaw = chaveColunaRegisto_ && linha[chaveColunaRegisto_] !== undefined ? linha[chaveColunaRegisto_] : '';
+                    if (!registoRaw && !chaveColunaRegisto_) {
+                        const kV = Object.keys(linha).find(k => /^__EMPTY/.test(k) && /por\s*(fazer|registar)|falta/i.test(String(linha[k])));
+                        if (kV) registoRaw = linha[kV];
+                    }
+                    const registoPorFazerVal = /por\s*(fazer|registar)|falta\s*(o\s*)?regist/i.test(String(registoRaw || ''));
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
                         ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
@@ -4161,6 +4187,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         tipologia: tipologiaVal,
                         localidade: localidadeVal,
                         comprouMes: comprouMesVal,
+                        registoPorFazer: registoPorFazerVal,
                         dia: diaVal,
                         diaVendedor: diaVendedorVal,
                         semana: semanaVal,
@@ -4668,9 +4695,12 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                 </div>` : '';
 
             const nomeClienteAcao = `<span class="nome-cliente-salesforce" role="button" tabindex="0" title="Copiar número de cliente e abrir Salesforce" onclick="event.stopPropagation(); copiarNumeroEAbrirSalesforce_(${JSON.stringify(String(item.numero || ''))})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();copiarNumeroEAbrirSalesforce_(${JSON.stringify(String(item.numero || ''))})}">${item.cliente}</span>`;
+            const registoHtml = item.registoPorFazer
+                ? `<span class="selo-registo" title="Falta fazer o registo deste cliente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><rect x="10.7" y="5.5" width="2.6" height="9" rx="1.3" fill="#fff"/><circle cx="12" cy="18.2" r="1.5" fill="#fff"/></svg>FALTA FAZER O REGISTO!</span>`
+                : '';
             let html = `<td>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div>${nomeClienteAcao}${numeroMeta}${diaMeta}</div>
+                    <div>${nomeClienteAcao}${registoHtml}${numeroMeta}${diaMeta}</div>
                     ${botaoEncomendarHtml}
                 </div>
             </td>`;
@@ -4727,7 +4757,7 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                     const razao = hist.freqN / hist.freqD;
                     // Mostra sempre (consistente ou inconsistente) enquanto não houver compra este mês
                     {
-                        probHtml = `<span class="prob-compra ${razao >= LIMIAR_FREQ_ALTA_ ? 'alta' : ''}" title="Frequência de compra: comprou em ${hist.freqN} dos últimos ${hist.freqD} meses, mas ainda não comprou este mês"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>${hist.freqN}/${hist.freqD}</span>`;
+                        probHtml = `<span class="prob-compra ${Math.round(razao * 100) <= 50 ? 'baixa' : (Math.round(razao * 100) <= 70 ? 'media' : '')}" title="Frequência de compra: comprou em ${hist.freqN} dos últimos ${hist.freqD} meses, mas ainda não comprou este mês"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>${hist.freqN}/${hist.freqD}</span>`;
                     }
                 }
 
