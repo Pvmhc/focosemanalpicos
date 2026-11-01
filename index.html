@@ -1041,6 +1041,9 @@
         .prob-compra.baixa { background: rgba(220,38,38,.14); color: #b91c1c; border-color: rgba(220,38,38,.45); }
         .btn-visita { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--accent, #16803c); background: transparent; color: var(--accent, #16803c); font-size: 0.72rem; font-weight: 800; cursor: pointer; }
         .btn-visita:hover { background: rgba(22,128,60,.1); }
+        .acoes-visita { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; align-self: flex-start; }
+        .btn-argumentario { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--accent, #16803c); background: transparent; color: var(--accent, #16803c); font-size: 0.72rem; font-weight: 800; cursor: pointer; text-decoration: none; }
+        .btn-argumentario:hover { background: rgba(22,128,60,.1); }
         #modalVisitaChecklist { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; padding: 14px; background: rgba(0,0,0,.55); }
         #modalVisitaChecklist.aberto { display: flex; }
         #modalVisitaChecklist .mv-caixa { width: 100%; max-width: 640px; max-height: 90vh; display: flex; flex-direction: column; border-radius: 16px; background: #fff; color: #1f2937; box-shadow: 0 20px 60px rgba(0,0,0,.4); overflow: hidden; }
@@ -2015,6 +2018,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
      *  falta, maiúsculas/minúsculas, espaços a mais). Compara só as letras,
      *  ignorando espaços e pontuação. */
     // ---- Perguntas da visita (lembrete): abre ao carregar em "Visita" no cliente ----
+// Link do PDF do Argumentário PICOS (Folha de Bolso). Se o PDF estiver noutro sítio, basta mudar aqui.
+const ARGUMENTARIO_PDF_URL_ = 'Argumentario_PICOS_Folha_de_Bolso.pdf';
 const PERGUNTAS_VISITA_ = [
  [
   "PLANEJAMENTO DIÁRIO",
@@ -4781,7 +4786,8 @@ function ehCabecalhoComprouMes_(header) {
             let html = `<td>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <div>${nomeClienteAcao}${registoHtml}${numeroMeta}${diaMeta}</div>
-                    <button class="btn-visita" onclick="event.stopPropagation(); abrirChecklistVisita_(${JSON.stringify(String(item.cliente || '')).replace(/"/g, '&quot;')}, ${JSON.stringify(String(item.numero || '')).replace(/"/g, '&quot;')})">📋 Visita</button>
+                    <div class="acoes-visita"><button class="btn-visita" onclick="event.stopPropagation(); abrirChecklistVisita_(${JSON.stringify(String(item.cliente || '')).replace(/"/g, '&quot;')}, ${JSON.stringify(String(item.numero || '')).replace(/"/g, '&quot;')})">📋 Visita</button>
+                        <a class="btn-argumentario" href="${ARGUMENTARIO_PDF_URL_}" target="_blank" rel="noopener" onclick="event.stopPropagation();">📄 Argumentário</a></div>
                     ${botaoEncomendarHtml}
                 </div>
             </td>`;
