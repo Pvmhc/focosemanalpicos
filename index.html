@@ -1041,6 +1041,14 @@
         .prob-compra.baixa { background: rgba(220,38,38,.14); color: #b91c1c; border-color: rgba(220,38,38,.45); }
         .btn-visita { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--accent, #16803c); background: transparent; color: var(--accent, #16803c); font-size: 0.72rem; font-weight: 800; cursor: pointer; }
         .btn-visita:hover { background: rgba(22,128,60,.1); }
+        /* Pop-up para abrir links (Argumentário / Visita) dentro da app */
+        .popup-link-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 10050; backdrop-filter: blur(3px); }
+        .popup-link-box { width: min(960px, 96vw); height: 92vh; height: 92dvh; background: #fff; border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+        .popup-link-topo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--accent, #16803c); color: #fff; }
+        .popup-link-titulo { flex: 1; font-weight: 800; font-size: 0.95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .popup-link-topo button { border: 1px solid rgba(255,255,255,.7); background: transparent; color: #fff; border-radius: 999px; padding: 5px 12px; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+        .popup-link-topo button.fechar { background: #fff; color: var(--accent, #16803c); border-color: #fff; }
+        .popup-link-box iframe { flex: 1; width: 100%; border: 0; background: #f3f4f6; }
         .acoes-visita { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; align-self: flex-start; }
         .btn-argumentario { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--accent, #16803c); background: transparent; color: var(--accent, #16803c); font-size: 0.72rem; font-weight: 800; cursor: pointer; text-decoration: none; }
         .btn-argumentario:hover { background: rgba(22,128,60,.1); }
@@ -2040,9 +2048,41 @@ function lerCfgLink_(chave) {
 }
 function lerLinkArgumentario_() { return lerCfgLink_(CHAVE_CFG_LINK_ARGUMENTARIO_) || ARGUMENTARIO_PDF_PADRAO_; }
 function lerLinkVisita_() { return lerCfgLink_(CHAVE_CFG_LINK_VISITA_); }
+function converterLinkParaEmbed_(url) {
+    // Google Drive / Docs: usar a versão /preview, que permite abrir dentro de uma janela
+    let m = url.match(/^https:\/\/drive\.google\.com\/file\/d\/([^\/?#]+)/i);
+    if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
+    m = url.match(/^(https:\/\/docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/[^\/?#]+)/i);
+    if (m) return m[1] + '/preview';
+    return url;
+}
+function fecharPopupLink_() {
+    const ov = document.getElementById('popupLinkOverlay');
+    if (!ov) return;
+    const fr = ov.querySelector('iframe');
+    if (fr) fr.src = 'about:blank';
+    ov.remove();
+    document.removeEventListener('keydown', teclaPopupLink_);
+}
+function teclaPopupLink_(e) { if (e.key === 'Escape') fecharPopupLink_(); }
+function abrirLinkPopup_(url, titulo) {
+    fecharPopupLink_();
+    const ov = document.createElement('div');
+    ov.id = 'popupLinkOverlay';
+    ov.className = 'popup-link-overlay';
+    ov.innerHTML = '<div class="popup-link-box"><div class="popup-link-topo"><div class="popup-link-titulo"></div><button type="button" class="fora">Abrir fora da app</button><button type="button" class="fechar">Fechar</button></div><iframe title="" allow="fullscreen"></iframe></div>';
+    ov.querySelector('.popup-link-titulo').textContent = titulo || '';
+    ov.querySelector('iframe').title = titulo || '';
+    ov.querySelector('iframe').src = converterLinkParaEmbed_(url);
+    ov.querySelector('.fechar').onclick = fecharPopupLink_;
+    ov.querySelector('.fora').onclick = () => window.open(url, '_blank', 'noopener');
+    ov.addEventListener('click', (e) => { if (e.target === ov) fecharPopupLink_(); });
+    document.addEventListener('keydown', teclaPopupLink_);
+    document.body.appendChild(ov);
+}
 function abrirArgumentario_(ev) {
     if (ev && ev.preventDefault) ev.preventDefault();
-    window.open(lerLinkArgumentario_(), '_blank', 'noopener');
+    abrirLinkPopup_(lerLinkArgumentario_(), 'Argumentário PICOS');
 }
 function editarLinkPartilhado_(chave, titulo, textoPadrao) {
     fecharMenuDefinicoes_();
@@ -2111,7 +2151,7 @@ const PERGUNTAS_VISITA_ = [
 ];
 function abrirChecklistVisita_(cliente, numero) {
     const linkVisita = lerLinkVisita_();
-    if (linkVisita) { window.open(linkVisita, '_blank', 'noopener'); return; }
+    if (linkVisita) { abrirLinkPopup_(linkVisita, 'Visita'); return; }
     let m = document.getElementById('modalVisitaChecklist');
     if (!m) {
         m = document.createElement('div');
