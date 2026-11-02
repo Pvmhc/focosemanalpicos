@@ -2035,7 +2035,8 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
      *  ignorando espaços e pontuação. */
     // ---- Perguntas da visita (lembrete): abre ao carregar em "Visita" no cliente ----
 // Link do PDF do Argumentário PICOS (Folha de Bolso). Se o PDF estiver noutro sítio, basta mudar aqui.
-const ARGUMENTARIO_PDF_PADRAO_ = 'Argumentario_PICOS_Folha_de_Bolso.pdf';
+const ARGUMENTARIO_PDF_PADRAO_ = 'Argumentario_PICOS_Livro.html';
+const VISITA_PADRAO_ = 'Visita_Pontos_Controlo_Livro.html';
 // Links partilhados por TODOS os utilizadores: ficam guardados no servidor
 // (guardar_config, mesmo mecanismo dos logotipos) e chegam a todos na sincronização.
 const CHAVE_CFG_LINK_ARGUMENTARIO_ = '__cfg_link_argumentario';
@@ -2047,7 +2048,7 @@ function lerCfgLink_(chave) {
     } catch (e) { return ''; }
 }
 function lerLinkArgumentario_() { return lerCfgLink_(CHAVE_CFG_LINK_ARGUMENTARIO_) || ARGUMENTARIO_PDF_PADRAO_; }
-function lerLinkVisita_() { return lerCfgLink_(CHAVE_CFG_LINK_VISITA_); }
+function lerLinkVisita_() { return lerCfgLink_(CHAVE_CFG_LINK_VISITA_) || VISITA_PADRAO_; }
 function converterLinkParaEmbed_(url) {
     // Google Drive / Docs: usar a versão /preview, que permite abrir dentro de uma janela
     let m = url.match(/^https:\/\/drive\.google\.com\/file\/d\/([^\/?#]+)/i);
