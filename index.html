@@ -1604,11 +1604,11 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l3-3A5 5 0 0013 2.93l-1.72 1.72"/><path d="M14 11a5 5 0 00-7.07 0l-3 3A5 5 0 0011 21.07l1.72-1.72"/></svg>
                         <span id="rotuloSalesforceLinkDef">Link do Salesforce</span>
                     </button>
-                    <button class="settings-menu-item" id="itemArgumentarioLinkDef" onclick="editarLinkArgumentario_()">
+                    <button class="settings-menu-item" id="itemArgumentarioLinkDef" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => editarLinkArgumentario_())">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l3-3A5 5 0 0013 2.93l-1.72 1.72"/><path d="M14 11a5 5 0 00-7.07 0l-3 3A5 5 0 0011 21.07l1.72-1.72"/></svg>
                         <span id="rotuloArgumentarioLinkDef">Link do Argumentário</span>
                     </button>
-                    <button class="settings-menu-item" id="itemVisitaLinkDef" onclick="editarLinkVisita_()">
+                    <button class="settings-menu-item" id="itemVisitaLinkDef" onclick="fecharMenuDefinicoes_(); pedirCodigoAcesso_(() => editarLinkVisita_())">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l3-3A5 5 0 0013 2.93l-1.72 1.72"/><path d="M14 11a5 5 0 00-7.07 0l-3 3A5 5 0 0011 21.07l1.72-1.72"/></svg>
                         <span id="rotuloVisitaLinkDef">Link da Visita</span>
                     </button>
@@ -2028,46 +2028,48 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     // ---- Perguntas da visita (lembrete): abre ao carregar em "Visita" no cliente ----
 // Link do PDF do Argumentário PICOS (Folha de Bolso). Se o PDF estiver noutro sítio, basta mudar aqui.
 const ARGUMENTARIO_PDF_PADRAO_ = 'Argumentario_PICOS_Folha_de_Bolso.pdf';
-const PREF_LINK_ARGUMENTARIO_ = 'picos_link_argumentario';
-const PREF_LINK_VISITA_ = 'picos_link_visita';
-function lerLinkArgumentario_() {
-    let l = '';
-    try { l = (localStorage.getItem(PREF_LINK_ARGUMENTARIO_) || '').trim(); } catch (e) {}
-    return (l || ARGUMENTARIO_PDF_PADRAO_).replace(/"/g, '%22').replace(/'/g, '%27');
+// Links partilhados por TODOS os utilizadores: ficam guardados no servidor
+// (guardar_config, mesmo mecanismo dos logotipos) e chegam a todos na sincronização.
+const CHAVE_CFG_LINK_ARGUMENTARIO_ = '__cfg_link_argumentario';
+const CHAVE_CFG_LINK_VISITA_ = '__cfg_link_visita';
+function lerCfgLink_(chave) {
+    try {
+        const v = (typeof LOGOTIPOS_MARCAS_ !== 'undefined') ? LOGOTIPOS_MARCAS_[chave] : '';
+        return (typeof v === 'string' && /^https?:\/\//i.test(v.trim())) ? v.trim() : '';
+    } catch (e) { return ''; }
 }
-function lerLinkVisita_() {
-    try { return (localStorage.getItem(PREF_LINK_VISITA_) || '').trim(); } catch (e) { return ''; }
+function lerLinkArgumentario_() { return lerCfgLink_(CHAVE_CFG_LINK_ARGUMENTARIO_) || ARGUMENTARIO_PDF_PADRAO_; }
+function lerLinkVisita_() { return lerCfgLink_(CHAVE_CFG_LINK_VISITA_); }
+function abrirArgumentario_(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    window.open(lerLinkArgumentario_(), '_blank', 'noopener');
 }
-function editarLinkPersonalizado_(chave, titulo, rotuloId, textoPadrao) {
+function editarLinkPartilhado_(chave, titulo, textoPadrao) {
     fecharMenuDefinicoes_();
-    let atual = '';
-    try { atual = (localStorage.getItem(chave) || '').trim(); } catch (e) {}
-    const novo = prompt('Cola aqui o link para ' + titulo + '.\n\nDeixa vazio para repor o comportamento padrão (' + textoPadrao + ').', atual);
+    const atual = lerCfgLink_(chave);
+    const novo = prompt('Cola aqui o link para ' + titulo + '.\n\nFica guardado para TODOS os utilizadores.\nDeixa vazio para repor o comportamento padrão (' + textoPadrao + ').', atual);
     if (novo === null) return;
     const link = novo.trim();
     if (link && !/^https?:\/\//i.test(link)) {
         alert('O link deve começar por https:// ou http://.');
         return;
     }
-    try {
-        if (link) localStorage.setItem(chave, link);
-        else localStorage.removeItem(chave);
-    } catch (e) {
-        alert('Não foi possível guardar o link neste dispositivo.');
-        return;
-    }
+    if (link) LOGOTIPOS_MARCAS_[chave] = link; else delete LOGOTIPOS_MARCAS_[chave];
+    try { localStorage.setItem('logotiposMarcasCache', JSON.stringify(LOGOTIPOS_MARCAS_)); } catch (e) { /* ignora */ }
     atualizarRotulosLinksPersonalizados_();
-    alert(link ? 'Link guardado neste dispositivo.' : 'Link removido. Voltou ao comportamento padrão.');
+    postComRetry_({ action: 'guardar_config', chave: 'logotipoMarca_' + chave, valor: link })
+        .then(r => {
+            if (!r || r.ok === false) alert('Não foi possível guardar no servidor. Tenta novamente.');
+            else alert(link ? 'Link guardado para todos os utilizadores.' : 'Link removido. Voltou ao comportamento padrão.');
+        });
 }
-function editarLinkArgumentario_() { editarLinkPersonalizado_(PREF_LINK_ARGUMENTARIO_, 'o Argumentário', 'rotuloArgumentarioLinkDef', 'o PDF que está junto da app'); }
-function editarLinkVisita_() { editarLinkPersonalizado_(PREF_LINK_VISITA_, 'a Visita', 'rotuloVisitaLinkDef', 'a checklist da app'); }
+function editarLinkArgumentario_() { editarLinkPartilhado_(CHAVE_CFG_LINK_ARGUMENTARIO_, 'o Argumentário', 'o PDF que está junto da app'); }
+function editarLinkVisita_() { editarLinkPartilhado_(CHAVE_CFG_LINK_VISITA_, 'a Visita', 'a checklist da app'); }
 function atualizarRotulosLinksPersonalizados_() {
     const ra = document.getElementById('rotuloArgumentarioLinkDef');
     const rv = document.getElementById('rotuloVisitaLinkDef');
-    let a = '', v = '';
-    try { a = (localStorage.getItem(PREF_LINK_ARGUMENTARIO_) || '').trim(); v = (localStorage.getItem(PREF_LINK_VISITA_) || '').trim(); } catch (e) {}
-    if (ra) ra.textContent = 'Link do Argumentário: ' + (a ? 'Configurado' : 'Padrão');
-    if (rv) rv.textContent = 'Link da Visita: ' + (v ? 'Configurado' : 'Padrão');
+    if (ra) ra.textContent = 'Link do Argumentário: ' + (lerCfgLink_(CHAVE_CFG_LINK_ARGUMENTARIO_) ? 'Configurado' : 'Padrão');
+    if (rv) rv.textContent = 'Link da Visita: ' + (lerCfgLink_(CHAVE_CFG_LINK_VISITA_) ? 'Configurado' : 'Padrão');
 }
 const PERGUNTAS_VISITA_ = [
  [
@@ -4839,7 +4841,7 @@ function ehCabecalhoComprouMes_(header) {
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <div>${nomeClienteAcao}${registoHtml}${numeroMeta}${diaMeta}</div>
                     <div class="acoes-visita"><button class="btn-visita" onclick="event.stopPropagation(); abrirChecklistVisita_(${JSON.stringify(String(item.cliente || '')).replace(/"/g, '&quot;')}, ${JSON.stringify(String(item.numero || '')).replace(/"/g, '&quot;')})">📋 Visita</button>
-                        <a class="btn-argumentario" href="${lerLinkArgumentario_()}" target="_blank" rel="noopener" onclick="event.stopPropagation();">📄 Argumentário</a></div>
+                        <a class="btn-argumentario" href="#" onclick="event.stopPropagation(); abrirArgumentario_(event); return false;">📄 Argumentário</a></div>
                     ${botaoEncomendarHtml}
                 </div>
             </td>`;
