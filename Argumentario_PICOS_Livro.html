@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Argumentário PICOS — Livro de Bolso</title>
+<style>
+:root{--bg1:#0f3d27;--bg2:#06180f;--paper:#fbfdfb;--tint:#f1f7f3;--ink:#1f2933;--mute:#6b7280;--g:#0b5d34;--gold:#f2b705;--red:#9b2c2c;--line:#c9dcd0;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg1:#0a2a1b;--bg2:#030c07}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(circle at 50% 30%,var(--bg1),var(--bg2));font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.book{position:relative;width:min(94vw,460px);height:min(80dvh,720px);perspective:2200px}
+.page{position:absolute;inset:0;transform-origin:left center;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.5,.1,.2,1);will-change:transform}
+.page.flipped{transform:rotateY(-180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:4px 12px 12px 4px;background:var(--paper);box-shadow:0 10px 30px rgba(0,0,0,.45);overflow:hidden;display:flex;flex-direction:column;border-left:5px solid var(--gold)}
+.back{transform:rotateY(180deg);background:linear-gradient(90deg,#dfe9e3,#f1f6f3);border-left:0;border-right:5px solid var(--gold)}
+.head{background:var(--g);color:#fff;padding:16px 18px 12px}
+.head h2{margin:0;font-size:clamp(20px,5.4vw,25px);letter-spacing:.5px}
+.head p{margin:4px 0 0;font-size:12px;color:#cfe5d8}
+.body{flex:1;overflow-y:auto;padding:12px 16px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.blk{background:var(--tint);border-radius:8px;padding:10px 12px;font-size:clamp(14px,3.9vw,16px);line-height:1.45}
+.blk i{display:block;font-style:normal;font-weight:800;font-size:11px;letter-spacing:1px;color:var(--g);margin-bottom:3px}
+.blk.o{border-left:4px solid var(--red)}.blk.o i{color:var(--red)}
+.blk.d{border-left:4px solid var(--g)}
+.blk.q{border-left:4px solid var(--gold)}
+.num{position:absolute;bottom:8px;right:14px;font-size:11px;color:var(--mute)}
+.cover{justify-content:center;align-items:center;text-align:center;background:var(--g);color:#fff;padding:30px}
+.cover h1{font-size:clamp(28px,8vw,38px);line-height:1.1;margin:0 0 14px}
+.cover .bar{width:70px;height:5px;background:var(--gold);border-radius:3px;margin:0 auto 18px}
+.cover p{font-size:16px;line-height:1.5;margin:0 0 6px}
+.cover small{display:block;margin-top:28px;color:var(--gold);font-weight:700;letter-spacing:1px}
+.row{display:flex;gap:12px;align-items:flex-start;background:var(--tint);border-radius:8px;padding:12px;font-size:clamp(14px,3.9vw,16px);line-height:1.45}
+.row b.n{flex:none;width:34px;height:34px;border-radius:50%;background:var(--g);color:var(--gold);display:grid;place-items:center;font-size:17px}
+.nav{display:flex;align-items:center;gap:18px;color:#cfe5d8;font-size:14px}
+.nav button{width:46px;height:46px;border-radius:50%;border:2px solid var(--gold);background:transparent;color:var(--gold);font-size:22px;cursor:pointer}
+.nav button:disabled{opacity:.3}
+</style>
+</head>
+<body>
+<div class="book" id="book"></div>
+<div class="nav"><button id="prev" aria-label="Página anterior">‹</button><span id="count"></span><button id="next" aria-label="Página seguinte">›</button></div>
+<script>
+const brands=[
+["SAGRES GARRAFA","One Way · Retornável","“<b>Que papel tem a garrafa aqui?</b> Quando é que os clientes a pedem mais?”","Serve para <b>todas as ocasiões</b>: refeição, convívio e take-away. <b>Mini</b> para petisco, <b>média</b> para refeição. Se o cliente não quer imperial, <b>há sempre a garrafa</b>.","<b>“Já tenho cerveja que chegue.”</b><br>Não venho trocar nada, <b>venho acrescentar</b>. Quantos clientes lhe pedem algo que não tem?"],
+["SAGRES BARRIL","Barril · Beerdrive","“<b>Em que dias e horas tem mais movimento?</b> Os clientes ficam muito tempo à mesa?”","O barril faz o cliente <b>beber mais em cada visita</b>. A cerveja sai fresca e ele repete. <b>70%</b> dos consumidores querem cerveja de pressão.","<b>“O barril não roda.”</b><br>Em que dia tem mais gente? Com pouco movimento, <b>fica só a garrafa</b>. Com movimento, <b>o barril vende mais</b>."],
+["HEINEKEN","Premium · Birra Moretti segue a mesma ideia","“<b>Recebe turistas</b> ou clientes que procuram algo mais especial?”","É uma marca que o <b>cliente estrangeiro conhece</b>. Dá mais valor à casa e <b>cada consumo rende mais</b>.","<b>“É muito cara.”</b><br>Olhe também para <b>quanto ganha em cada venda</b>: a premium rende mais por consumo."],
+["ZONA ZERO","Sagres 0.0 · Heineken 0.0 · Bandida 0.0","“E quando alguém <b>não quer álcool</b> ao almoço, ou está a conduzir? <b>O que lhe oferece?</b>”","Sem isto, o cliente pede água ou refrigerante e <b>a casa perde a venda</b>. O sem álcool cresce <b>20% ao ano</b>, é o que mais cresce.","<b>“Sem álcool não vende.”</b><br>Pense em quem conduz, em quem trabalha e nos mais novos. Hoje essa pessoa bebe água. <b>Podia beber uma Sagres 0.0.</b>"],
+["SIDRAS","Bandida","“Tem clientes que <b>não gostam de cerveja</b>, ou que preferem algo mais doce e leve?”","Alternativa para <b>convívio e celebração</b>. Atrai gente mais nova e mais mulheres. <b>30% menos açúcares</b> que a média. Sabores: maçã, frutos vermelhos e manga.","<b>“O meu cliente não pede isso.”</b><br>Muitas vezes <b>pede o que vê</b>. Se não tem, ele nem pergunta. <b>Testamos um mês.</b>"],
+["ZONA PRETA","Sagres Preta · Guinness · Bohemia Bock · Kilkenny","“Tem clientes que gostam de <b>sabores mais fortes</b>, ou que pedem cerveja depois da refeição ou na pastelaria?”","É uma <b>oferta diferente</b>, que poucos têm. Cresce cerca de <b>7%</b> e a <b>Guinness</b> é muito conhecida dos turistas.","<b>“Não tenho espaço.”</b><br>Que espaço tem livre? Começamos só com <b>uma referência</b>, a que mais se vende para o seu cliente."]
+];
+const pages=[];
+pages.push(`<div class="face cover"><div class="bar"></div><h1>Argumentário PICOS</h1><p><b>Folha de Bolso</b></p><p>Perguntar primeiro.<br>Só falar do que faz sentido para o cliente.</p><small>FOLHEIA →</small></div>`);
+brands.forEach(b=>pages.push(`<div class="face"><div class="head"><h2>${b[0]}</h2><p>${b[1]}</p></div><div class="body"><div class="blk q"><i>1 · PERGUNTAR</i>${b[2]}</div><div class="blk d"><i>2 · DIZER</i>${b[3]}</div><div class="blk o"><i>3 · SE O CLIENTE DISSER…</i>${b[4]}</div></div><span class="num"></span></div>`));
+pages.push(`<div class="face"><div class="head"><h2>PARA QUALQUER MARCA</h2><p>Duas respostas que servem sempre</p></div><div class="body"><div class="blk o"><i>“VOU PENSAR.”</i>Claro. <b>O que o faria decidir hoje?</b> Se quiser, deixo só <b>uma referência para experimentar</b> e falamos na próxima visita.</div><div class="blk o"><i>“JÁ TRABALHO COM OUTRA MARCA.”</i>Percebo. <b>Não precisa de mudar nada.</b> Esta marca serve outro cliente e outra ocasião.</div></div><span class="num"></span></div>`);
+pages.push(`<div class="face"><div class="head"><h2>COMO FECHAR A CONVERSA</h2><p>4 passos</p></div><div class="body"><div class="row"><b class="n">1</b><div><b>OUVIR</b><br>Faça 2 ou 3 perguntas e deixe o cliente falar.</div></div><div class="row"><b class="n">2</b><div><b>ESCOLHER</b><br>Use só os segmentos que fazem sentido para aquele estabelecimento.</div></div><div class="row"><b class="n">3</b><div><b>PROPOR</b><br>“Então, começamos por [marca]? Posso já deixar o pedido?”</div></div><div class="row"><b class="n">4</b><div><b>VOLTAR</b><br>Combine uma data para ver como está a correr.</div></div></div><span class="num"></span></div>`);
+
+const N=pages.length, book=document.getElementById('book'), els=[];
+let cur=0;
+pages.forEach((h,k)=>{
+  const p=document.createElement('div');p.className='page';
+  p.innerHTML=h+'<div class="face back"></div>';
+  const n=p.querySelector('.num'); if(n)n.textContent=(k+1)+' / '+N;
+  p.style.zIndex=N-k; book.appendChild(p); els.push(p);
+});
+function ui(){
+  document.getElementById('count').textContent=(cur+1)+' / '+N;
+  document.getElementById('prev').disabled=cur===0;
+  document.getElementById('next').disabled=cur===N-1;
+}
+function go(d){
+  const t=cur+d; if(t<0||t>=N)return;
+  const k=d>0?cur:t, p=els[k];
+  p.style.zIndex=100;
+  p.classList.toggle('flipped',d>0);
+  cur=t; ui();
+  setTimeout(()=>{p.style.zIndex=p.classList.contains('flipped')?k:N-k},760);
+}
+document.getElementById('next').onclick=()=>go(1);
+document.getElementById('prev').onclick=()=>go(-1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1)});
+let sx=0,sy=0;
+book.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});
+book.addEventListener('pointerup',e=>{
+  const dx=e.clientX-sx,dy=e.clientY-sy;
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.3)go(dx<0?1:-1);
+  else if(Math.abs(dx)<8&&Math.abs(dy)<8){const r=book.getBoundingClientRect();go(e.clientX>r.left+r.width/2?1:-1)}
+});
+ui();
+</script>
+</body>
+</html>
