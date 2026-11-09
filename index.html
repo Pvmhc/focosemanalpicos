@@ -4529,7 +4529,7 @@ function ehCabecalhoComprouMes_(header) {
                     ? ["", "FOCOSEMANAL", "NAO OK", "OK"] 
                     : ["", "FOCO", "NAO OK", "OK"]);
 
-            const atual = registo.estados[marca] || "";
+            const atual = (registo.estados[marca] === "NEGOCIADO" ? "OK" : registo.estados[marca]) || "";
             let idxAtual = ciclo.indexOf(atual);
             if (idxAtual === -1) idxAtual = 0;
 
@@ -4940,6 +4940,7 @@ function ehCabecalhoComprouMes_(header) {
                 const valExecCel = emImplementacao ? valorExecucao_(hist) : 0;
                 if (emImplementacao && valExecCel <= 0) { html += `<td data-label="${m}"></td>`; return; }
                 let est = item.estados[m] || "";
+                if (est === "NEGOCIADO") est = "OK";   // "Negociado" já não existe: estados antigos aparecem como OK
                 if (emImplementacao) {
                     // Excel: 1 = Disponível; 2 = Executado
                     if (valExecCel >= 2) est = "IMPLEMENTADO";
@@ -4970,7 +4971,7 @@ function ehCabecalhoComprouMes_(header) {
                 }
 
                 let badgeColocouHtml = '';
-                if (est === "NEGOCIADO") {
+                if (false) {   // selo "Colocou/Não colocou" removido
                     const estaColocou = !!(item.colocou && item.colocou[m]);
                     badgeColocouHtml = `<span class="badge-colocou ${estaColocou ? 'sim' : 'nao'}">${estaColocou ? '✓ Colocou' : 'Não colocou'}</span>`;
                 }
