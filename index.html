@@ -4142,7 +4142,15 @@ function ehCabecalhoComprouMes_(header) {
 
                 const linhaCabecalhos = XLSX.utils.sheet_to_json(folha, { header: 1 })[0] || [];
                 const todasColunas = linhaCabecalhos.filter(c => c !== undefined && c !== null && String(c).trim() !== '').map(String);
-                const colunasMarcasDetectadas = todasColunas.filter(c => {
+                // Só estas colunas do Excel contam como marcas: N, R, V, Z, AD, AH (índices 0-based)
+                const INDICES_COLUNAS_MARCAS_ = [13, 17, 21, 25, 29, 33];
+                const nomesColunasMarcasPermitidas_ = new Set(
+                    INDICES_COLUNAS_MARCAS_
+                        .map(i => linhaCabecalhos[i])
+                        .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+                        .map(String)
+                );
+                const colunasMarcasCandidatas_ = todasColunas.filter(c => {
                     const chave = c.trim().replace(/^\*+/, '').trim().toLowerCase();
                     if (ehCabecalhoComprouMes_(c)) return false;
                     if (/dif\.?[\s_]*vol/i.test(c)) return false;   // "Barril dif volume": diferença de volume do mês, não é uma marca
@@ -4150,8 +4158,9 @@ function ehCabecalhoComprouMes_(header) {
                     if (linhaCabecalhos[12] !== undefined && String(linhaCabecalhos[12]) === c) return false; // coluna M = estado do registo, não é marca
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
+                const colunasMarcasDetectadas = colunasMarcasCandidatas_.filter(c => nomesColunasMarcasPermitidas_.has(c));
                 {
-                    const nomesMarcasExcel_ = colunasMarcasDetectadas.map(c => c.trim().replace(/^\*+/, '').trim());
+                    const nomesMarcasExcel_ = colunasMarcasCandidatas_.map(c => c.trim().replace(/^\*+/, '').trim());
                     const difSemMarca_ = todasColunas.filter(c => /dif\.?[\s_]*vol/i.test(c) && !nomesMarcasExcel_.some(m => colunaDifPertenceAMarca_(c, m)));
                     if (difSemMarca_.length) {
                         console.warn('Colunas "dif volume" sem marca correspondente:', difSemMarca_);
