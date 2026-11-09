@@ -4526,8 +4526,8 @@ function ehCabecalhoComprouMes_(header) {
             const ciclo = ehMarcaImplementacao_(marca)
                 ? ["", "DISPONIVEL", "IMPLEMENTADO"]
                 : (ehMarcaFoco 
-                    ? ["", "FOCOSEMANAL", "NAO OK", "OK", "NEGOCIADO"] 
-                    : ["", "FOCO", "NAO OK", "OK", "NEGOCIADO"]);
+                    ? ["", "FOCOSEMANAL", "NAO OK", "OK"] 
+                    : ["", "FOCO", "NAO OK", "OK"]);
 
             const atual = registo.estados[marca] || "";
             let idxAtual = ciclo.indexOf(atual);
@@ -4890,7 +4890,8 @@ function ehCabecalhoComprouMes_(header) {
                 : '';
             
             const temNegociado = Object.keys(item.estados || {}).some(mk => item.estados[mk] === "NEGOCIADO" && !marcaColocadaMes_(item, mk));
-            const botaoEncomendarHtml = temNegociado ? `
+            const temOkParaEncomendar_ = Object.keys(item.estados || {}).some(mk => (item.estados[mk] === "OK" || item.estados[mk] === "NEGOCIADO") && !marcaColocadaMes_(item, mk));
+            const botaoEncomendarHtml = temOkParaEncomendar_ ? `
                 <div>
                     <button class="btn-cart" onclick="abrirModalEncomenda(${item.id})">
                         <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor;"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
@@ -6357,7 +6358,7 @@ function ehCabecalhoComprouMes_(header) {
             }
         });
         if (clienteAtualEncomenda) {
-            const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {}).filter(m => clienteAtualEncomenda.estados[m] === 'NEGOCIADO').map(m => m.toLowerCase());
+            const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {}).filter(m => clienteAtualEncomenda.estados[m] === 'OK' || clienteAtualEncomenda.estados[m] === 'NEGOCIADO');
             renderizarCatalogo(gamasNegociadas);
             atualizarTotalEncomenda();
         }
@@ -6374,9 +6375,9 @@ function ehCabecalhoComprouMes_(header) {
         quantidadesEncomenda = {};
         document.getElementById("modalClientName").innerText = `Encomenda: ${clienteAtualEncomenda.cliente}`;
         
+        // Mostra TODAS as marcas do portefólio; as que estão em OK ficam destacadas.
         const gamasNegociadas = Object.keys(clienteAtualEncomenda.estados || {})
-            .filter(m => clienteAtualEncomenda.estados[m] === "NEGOCIADO")
-            .map(m => m.toLowerCase());
+            .filter(m => clienteAtualEncomenda.estados[m] === "OK" || clienteAtualEncomenda.estados[m] === "NEGOCIADO");
         
         renderizarCatalogo(gamasNegociadas);
         atualizarTotalEncomenda();
@@ -6387,6 +6388,29 @@ function ehCabecalhoComprouMes_(header) {
     function fecharModalEncomenda() {
         document.getElementById("orderModal").style.display = "none";
         clienteAtualEncomenda = null;
+    }
+
+    /** Chave "canónica" de uma gama do portefólio (Sagres, Heineken, Bandida, 0.0%, PRETA...). */
+    function chaveCanonicaDaGama_(nomeGama) {
+        const n = normalizarTexto_(nomeGama);
+        if (n.includes('0.0')) return '0.0%';
+        if (n.includes('preta')) return 'preta';
+        if (n.includes('heineken')) return 'heineken';
+        if (n.includes('bandida') || n.includes('sidra')) return 'bandida';
+        if (n.includes('sagres') && !n.includes('sol')) return 'sagres';
+        return null;
+    }
+    /** A coluna de marca do Excel (ex.: Gfa, Barril, Premium, Zona Zero, Sidras, Preta) corresponde a esta gama? */
+    function marcaCorrespondeAGama_(marca, nomeGama) {
+        if (normalizarTexto_(marca) === normalizarTexto_(nomeGama)) return true;
+        const chave = chaveCanonicaDaGama_(nomeGama);
+        if (!chave) return false;
+        if (chave === '0.0%') return ehColunaZeroZero_(marca);
+        if (chave === 'preta') return ehColunaPreta_(marca);
+        if (chave === 'heineken') return resolverColunaMarca_('heineken') === marca;
+        if (chave === 'bandida') return resolverColunaMarca_('bandida') === marca;
+        if (chave === 'sagres') return resolverColunaMarca_('sagres_bar') === marca || resolverColunaMarca_('sagres_garrafa') === marca;
+        return false;
     }
 
     function renderizarCatalogo(gamasNegociadas) {
@@ -6401,15 +6425,17 @@ function ehCabecalhoComprouMes_(header) {
 
         let encontrouAlguma = false;
 
-        for (const [nomeGama, produtos] of Object.entries(agrupadosPorGama)) {
-            const estaNegociada = gamasNegociadas.includes(nomeGama.toLowerCase());
-            if (!estaNegociada) continue;
+        // Marcas em OK primeiro; as restantes a seguir (todas visíveis).
+        const gamasOrdenadas = Object.entries(agrupadosPorGama).sort((a, b) =>
+            (gamasNegociadas.some(m => marcaCorrespondeAGama_(m, b[0])) ? 1 : 0) - (gamasNegociadas.some(m => marcaCorrespondeAGama_(m, a[0])) ? 1 : 0));
+        for (const [nomeGama, produtos] of gamasOrdenadas) {
+            const estaNegociada = gamasNegociadas.some(m => marcaCorrespondeAGama_(m, nomeGama));
 
             encontrouAlguma = true;
             const rangeBlock = document.createElement("div");
             rangeBlock.className = "range-section";
             
-            const badge = `<span class="badge-negociado-modal">NEGOCIADO</span>`;
+            const badge = estaNegociada ? `<span class="badge-negociado-modal">OK</span>` : '';
             
             let html = `<h3 class="range-title">${nomeGama} ${badge}</h3>`;
             
@@ -6436,7 +6462,7 @@ function ehCabecalhoComprouMes_(header) {
         }
 
         if (!encontrouAlguma) {
-            container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted);">Nenhuma gama negociada encontrada para este cliente.</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted);">Não há marcas no portefólio. Adiciona-as em Portefólio.</div>`;
         }
     }
 
