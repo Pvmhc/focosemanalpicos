@@ -4265,9 +4265,14 @@ function ehCabecalhoComprouMes_(header) {
                     // M = Eazle (índice 12) e AM = B2B (índice 38).
                     // A coluna AM tem atualmente o cabeçalho com aspas: "B2B".
                     const valorColunaExcel_ = (indice) => {
-                        const cabecalho = linhaCabecalhos[indice];
-                        return cabecalho !== undefined && cabecalho !== null
-                            ? linha[String(cabecalho)] : null;
+                        // Ler a célula pela posição física da coluna na folha.
+                        // Evita falhas com cabeçalhos duplicados, aspas no nome (ex.: "B2B")
+                        // ou cabeçalhos que o SheetJS altera ao criar o objeto da linha.
+                        const numeroLinhaExcel = Number(linha.__rowNum__);
+                        if (!Number.isInteger(numeroLinhaExcel) || numeroLinhaExcel < 0) return null;
+                        const endereco = XLSX.utils.encode_cell({ r: numeroLinhaExcel, c: indice });
+                        const celula = folha[endereco];
+                        return celula && celula.v !== undefined ? celula.v : null;
                     };
                     const valorEhNao_ = (bruto) => {
                         if (bruto === null || bruto === undefined) return false;
