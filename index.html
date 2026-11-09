@@ -1071,6 +1071,8 @@
         body.dark-mode #modalVisitaChecklist .mv-topo small { color: #9ca3af; }
         .selo-registo { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 1px 7px 1px 4px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.5; white-space: nowrap; vertical-align: middle; background: rgba(220,38,38,.12); color: #b91c1c; border: 1px solid rgba(220,38,38,.45); cursor: help; }
         .selo-b2b { padding: 1px 8px; }
+        .selo-eazle { padding: 1px 8px; background: rgba(217,119,6,.12); color: #a16207; border-color: rgba(217,119,6,.45); }
+        body.dark-mode .selo-eazle { background: rgba(251,191,36,.16); color: #fcd34d; border-color: rgba(251,191,36,.5); }
         .selo-registo svg { width: 11px; height: 11px; fill: #dc2626; flex-shrink: 0; }
         body.dark-mode .selo-registo { background: rgba(248,113,113,.18); color: #fca5a5; border-color: rgba(248,113,113,.5); }
         body.dark-mode .selo-registo svg { fill: #f87171; }
@@ -4259,13 +4261,21 @@ function ehCabecalhoComprouMes_(header) {
                         if (kV) registoRaw = linha[kV];
                     }
                     const registoPorFazerVal = /por\s*(fazer|registar)|falta\s*(o\s*)?regist/i.test(String(registoRaw || ''));
-                    // Coluna "B2B": só o "não" explícito (não / n / no / false / 0) faz aparecer o selo vermelho "B2B"
-                    const b2bNaoVal = (() => {
-                        const bruto = obterValor(['b2b']);
+                    // Indicadores do estabelecimento: ler pelas posições reais do Excel.
+                    // M = Eazle (índice 12) e AM = B2B (índice 38).
+                    // A coluna AM tem atualmente o cabeçalho com aspas: "B2B".
+                    const valorColunaExcel_ = (indice) => {
+                        const cabecalho = linhaCabecalhos[indice];
+                        return cabecalho !== undefined && cabecalho !== null
+                            ? linha[String(cabecalho)] : null;
+                    };
+                    const valorEhNao_ = (bruto) => {
                         if (bruto === null || bruto === undefined) return false;
                         const t = normalizarTexto_(bruto).replace(/[^a-z0-9]/g, '');
-                        return t !== '' && ['nao', 'n', 'no', 'false', '0'].includes(t);
-                    })();
+                        return ['nao', 'n', 'no', 'false', '0'].includes(t);
+                    };
+                    const eazleNaoVal = valorEhNao_(valorColunaExcel_(12));
+                    const b2bNaoVal = valorEhNao_(valorColunaExcel_(38));
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
                         ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
@@ -4380,8 +4390,14 @@ function ehCabecalhoComprouMes_(header) {
                     // O servidor (Apps Script) só guarda os campos que já conhece; o histórico por marca é guardado
                     // como JSON completo, por isso o estado do registo viaja lá dentro (em cada marca).
                     if (registoPorFazerVal) Object.keys(historicoObj).forEach(m => { if (historicoObj[m] && typeof historicoObj[m] === 'object') historicoObj[m].regPorFazer = true; });
-                    // B2B = "não": viaja dentro do histórico (como o estado do registo), para o servidor o conservar
-                    if (b2bNaoVal) Object.keys(historicoObj).forEach(m => { if (historicoObj[m] && typeof historicoObj[m] === 'object') historicoObj[m].b2bNao = true; });
+                    // Os dois indicadores viajam dentro do histórico para serem conservados na nuvem.
+                    // Guardar também false evita manter uma etiqueta antiga quando o Excel muda para Sim/vazio.
+                    Object.keys(historicoObj).forEach(m => {
+                        if (historicoObj[m] && typeof historicoObj[m] === 'object') {
+                            historicoObj[m].eazleNao = eazleNaoVal;
+                            historicoObj[m].b2bNao = b2bNaoVal;
+                        }
+                    });
 
                     const chaveAtual = `${clienteVal}||${comercialVal}||${diaVal}||${semanaVal}`;
                     const registoAnterior = baseDadosRotas.find(r =>
@@ -4421,6 +4437,7 @@ function ehCabecalhoComprouMes_(header) {
                         localidade: localidadeVal,
                         comprouMes: comprouMesVal,
                         registoPorFazer: registoPorFazerVal,
+                        eazleNao: eazleNaoVal,
                         b2bNao: b2bNaoVal,
                         dia: diaVal,
                         diaVendedor: diaVendedorVal,
@@ -4993,11 +5010,13 @@ function ehCabecalhoComprouMes_(header) {
             const registoHtml = registoPorFazer_
                 ? `<span class="selo-registo" title="Falta fazer o registo deste cliente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><rect x="10.7" y="5.5" width="2.6" height="9" rx="1.3" fill="#fff"/><circle cx="12" cy="18.2" r="1.5" fill="#fff"/></svg>FALTA REGISTO</span>`
                 : '';
+            const eazleNao_ = !!item.eazleNao || Object.values(item.historico || {}).some(h => h && h.eazleNao);
             const b2bNao_ = !!item.b2bNao || Object.values(item.historico || {}).some(h => h && h.b2bNao);
-            const b2bHtml = b2bNao_ ? `<span class="selo-registo selo-b2b" title="Cliente sem B2B">B2B</span>` : '';
+            const eazleHtml = eazleNao_ ? `<span class="selo-registo selo-eazle" title="Cliente sem Eazle">Sem Eazle</span>` : '';
+            const b2bHtml = b2bNao_ ? `<span class="selo-registo selo-b2b" title="Cliente sem B2B">S/c B2B</span>` : '';
             let html = `<td>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div>${nomeClienteAcao}${registoHtml}${b2bHtml}${numeroMeta}${diaMeta}</div>
+                    <div>${nomeClienteAcao}${registoHtml}${eazleHtml}${b2bHtml}${numeroMeta}${diaMeta}</div>
                     <div class="acoes-visita"><button class="btn-visita" onclick="event.stopPropagation(); abrirChecklistVisita_(${JSON.stringify(String(item.cliente || '')).replace(/"/g, '&quot;')}, ${JSON.stringify(String(item.numero || '')).replace(/"/g, '&quot;')})">📋 Visita</button>
                         <a class="btn-argumentario" href="#" onclick="event.stopPropagation(); abrirArgumentario_(event); return false;">📄 Argumentário</a></div>
                     ${botaoEncomendarHtml}
