@@ -1098,6 +1098,9 @@
         .badge-colocou { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; text-align: center; }
         .badge-colocou.sim { background-color: var(--ok-bg); color: var(--ok-color); }
         .badge-colocou.nao { background-color: var(--vazio-bg); color: var(--vazio-color); }
+        /* Aviso de qualidade da Barril: comprou menos que o mínimo de barris */
+        .aviso-falta-barris { font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; white-space: normal; text-align: center; line-height: 1.25;
+            background-color: var(--negociado-bg); color: var(--negociado-color); }
         .svg-icon { width: 16px; height: 16px; fill: currentColor; }
         @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
         /* Cortina de carregamento a ecrã inteiro */
@@ -4325,6 +4328,21 @@ function ehCabecalhoComprouMes_(header) {
                                 ano: !!obterValor([chaveComAsterisco + '_yt', chaveSemAsterisco + '_yt']),
                                 promo: ehPromo
                             };
+                            // Coluna "Quality" (nº de barris comprados): guardada na marca Barril
+                            if (/barril/i.test(nomeExibido)) {
+                                const qBruto = obterValor(['quality']);
+                                const entradasQ = [];
+                                if (typeof qBruto === 'number' && isFinite(qBruto)) entradasQ.push({ q: qBruto, n: '' });
+                                else if (qBruto !== null && qBruto !== undefined) {
+                                    // Formato: "<quantidade><produto>", ex.: "1SAGRES Branca Barril 30L PT"
+                                    // (pode haver vários produtos separados por nova linha, ; ou |)
+                                    String(qBruto).split(/[\n\r;|]+/).forEach(parte => {
+                                        const mq = parte.match(/^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/);
+                                        if (mq) entradasQ.push({ q: parseFloat(mq[1].replace(',', '.')), n: mq[2].trim() });
+                                    });
+                                }
+                                if (entradasQ.length) historicoObj[nomeExibido].quality = entradasQ;
+                            }
                             // Coluna "<marca> dif volume" (diferença de volume do mês deste cliente nesta marca)
                             // Comparação tolerante: ignora maiúsculas, acentos, pontuação e símbolos
                             // (assim "0.0%", "0,0%" ou "0.0" dão o mesmo nome) e aceita
@@ -4438,7 +4456,9 @@ function ehCabecalhoComprouMes_(header) {
                 alert("Marcas importadas (colunas N, R, V, Z, AD, AH): " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + (() => {
                     const semTip_ = listaNovosDados.filter(r => !String(r.tipologia || '').trim()).length;
                     const naoReconhecidas_ = Array.from(new Set(listaNovosDados.map(r => String(r.tipologia || '').trim()).filter(t => t && obterRegraTipologia_(t) === null)));
-                    return "\n\nTipologia: " + semTip_ + " de " + listaNovosDados.length + " linhas sem tipologia" + (naoReconhecidas_.length ? "; sem regra: " + naoReconhecidas_.join(", ") : "") + ".";
+                    const temQuality_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
+                    const nQuality_ = listaNovosDados.filter(r => Object.values(r.historico || {}).some(h => h && h.quality && (h.quality.length || typeof h.quality === 'number'))).length;
+                    return "\n\nColuna Quality: " + (temQuality_ ? nQuality_ + " linhas com valor" : "NÃO encontrada no Excel") + "\n\nTipologia: " + semTip_ + " de " + listaNovosDados.length + " linhas sem tipologia" + (naoReconhecidas_.length ? "; sem regra: " + naoReconhecidas_.join(", ") : "") + ".";
                 })() + "\n\nRoteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
                     const nl = resultadoImport.novosLista || [];
                     if (!nl.length) return "";
@@ -4505,6 +4525,24 @@ function ehCabecalhoComprouMes_(header) {
 
     /** Marca já colocada este mês (Excel): aparece sempre como OK e fica bloqueada.
      *  Não se aplica às marcas em modo Implementação nem às promocionais, que têm outro fluxo. */
+    // Mínimo de barris por mês para manter a qualidade da cerveja de barril.
+    // Se o cliente comprou 1 ou mais mas menos que este valor, mostra "Falta X barris".
+    const MIN_BARRIS_MES_ = 4;
+    function avisoFaltaBarris_(marca, hist) {
+        if (!/barril/i.test(String(marca || ''))) return '';
+        // Coluna "Quality" do Excel (guardada em historico[Barril].quality): lista de {q: barris comprados, n: produto}
+        let lista = hist && hist.quality;
+        if (typeof lista === 'number') lista = [{ q: lista, n: '' }];
+        if (!Array.isArray(lista)) return '';
+        const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        return lista
+            .filter(e => e && isFinite(e.q) && e.q >= 1 && e.q < MIN_BARRIS_MES_)
+            .map(e => {
+                const falta = Math.ceil(MIN_BARRIS_MES_ - e.q);
+                const prod = e.n ? ' · ' + esc(e.n) : '';
+                return `<span class="aviso-falta-barris" title="Comprou ${e.q}; mínimo ${MIN_BARRIS_MES_} para manter a qualidade">Falta ${falta} ${falta === 1 ? 'barril' : 'barris'}${prod}</span>`;
+            }).join('');
+    }
     function marcaColocadaMes_(item, m) {
         const h = (item && item.historico && item.historico[m]) || {};
         return !!h.mes && !h.promo && !ehMarcaImplementacao_(m);
@@ -4990,6 +5028,7 @@ function ehCabecalhoComprouMes_(header) {
                                 ? `<span class="selo-colocada" title="Já colocada este mês"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Colocada</span>`
                                 : `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>`}
                             ${badgeColocouHtml}
+                            ${avisoFaltaBarris_(m, hist)}
                             ${difTab}
                         </div>
                     </td>`;
