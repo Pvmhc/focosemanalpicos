@@ -1007,6 +1007,9 @@
             .cell-container { width: auto; flex: 1 1 auto; min-width: 0; gap: 6px; }
             .cell-container .btn-estado, .cell-container .selo-colocada { width: 104px; flex: 0 1 104px; min-width: 0; padding: 6px 6px; }
             .cell-container .badge-colocou { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+            /* Aviso "Falta X barris": passa para ANTES do botão (como o selo 4/11 das outras marcas) */
+            .cell-container .aviso-falta-barris { order: 1; flex: 0 1 auto; min-width: 0; }
+            .cell-container .btn-estado, .cell-container .selo-colocada { order: 2; }
         }
         .cell-container { display: flex; align-items: center; gap: 12px; width: 65%; justify-content: flex-end; }
         .icons-row { display: flex; gap: 8px; align-items: center; }
