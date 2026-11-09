@@ -2846,8 +2846,9 @@ function ehCabecalhoComprouMes_(header) {
             // mas não estão na ordem guardada (caso raro/desalinhado) vão no fim.
             const ordemNorm = ORDEM_MARCAS_SERVIDOR.map(m => m.trim().toLowerCase());
             const naOrdem = ORDEM_MARCAS_SERVIDOR.filter(m => chaves.some(c => c.trim().toLowerCase() === m.trim().toLowerCase()));
-            const foraDaOrdem = chaves.filter(c => !ordemNorm.includes(c.trim().toLowerCase()));
-            marcasLista = naOrdem.concat(foraDaOrdem.sort((a, b) => a.localeCompare(b)));
+            // Marcas fora da ordem (antigas, gravadas no servidor) já NÃO são acrescentadas:
+            // só contam as colunas N, R, V, Z, AD, AH do último Excel importado.
+            marcasLista = naOrdem;
         } else {
             marcasLista = chaves.sort((a, b) => {
                 const idxA = ordemMarcasFixa.findIndex(m => m.toLowerCase() === a.toLowerCase());
@@ -4420,8 +4421,11 @@ function ehCabecalhoComprouMes_(header) {
                 // que todos os GC vejam sempre a mesma ordem em vez de recalculada
                 // localmente e de forma diferente em cada dispositivo.
                 if (ORDEM_MARCAS_SERVIDOR && ORDEM_MARCAS_SERVIDOR.length > 0) {
-                    postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR })
-                        .then(r => { if (!r || r.ok === false) console.error('Falha ao guardar ordem das marcas no servidor'); });
+                    // await: a ordem tem de estar gravada ANTES de puxarDadosDaNuvem(), senão volta a ordem antiga
+                    try {
+                        const rOrdem = await postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR });
+                        if (!rOrdem || rOrdem.ok === false) console.error('Falha ao guardar ordem das marcas no servidor');
+                    } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
                 }
                 alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
                     const nl = resultadoImport.novosLista || [];
@@ -7066,3 +7070,4 @@ var mudarDiaOrig_;
 </script>
 </body>
 </html>
+    
