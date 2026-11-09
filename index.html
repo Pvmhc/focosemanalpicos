@@ -2322,6 +2322,7 @@ function ehCabecalhoComprouMes_(header) {
     // todos os GC vejam sempre a mesma ordem — em vez de recalculada a cada
     // sincronização por ordem alfabética.
     let ORDEM_MARCAS_SERVIDOR = [];
+    let ORDEM_IMPORTADA_RECENTE_ = false;   // true depois de importar um Excel nesta sessão: a ordem local manda sobre a do servidor
 
     // Dados manuais "PICOS": a percentagem do objetivo é guardada por
     // GESTOR + MÊS. A semana selecionada NÃO faz parte da chave porque os PICOS
@@ -3898,7 +3899,7 @@ function ehCabecalhoComprouMes_(header) {
                 MARCA_FOCO_POR_SEMANA = { ...MARCA_FOCO_POR_SEMANA_DEFAULT, ...dados.marcaFocoPorSemana };
                 localStorage.setItem('marcaFocoPorSemana', JSON.stringify(MARCA_FOCO_POR_SEMANA));
             }
-            if (!Array.isArray(dados) && Array.isArray(dados.ordemMarcas) && dados.ordemMarcas.length > 0) {
+            if (!ORDEM_IMPORTADA_RECENTE_ && !Array.isArray(dados) && Array.isArray(dados.ordemMarcas) && dados.ordemMarcas.length > 0) {
                 ORDEM_MARCAS_SERVIDOR = dados.ordemMarcas;
                 try { localStorage.setItem('ordemMarcasCache', JSON.stringify(ORDEM_MARCAS_SERVIDOR)); } catch (e) { /* ignora */ }
             }
@@ -4424,10 +4425,14 @@ function ehCabecalhoComprouMes_(header) {
                     // await: a ordem tem de estar gravada ANTES de puxarDadosDaNuvem(), senão volta a ordem antiga
                     try {
                         const rOrdem = await postComRetry_({ action: 'guardar_config', chave: 'ordemMarcas', valor: ORDEM_MARCAS_SERVIDOR });
-                        if (!rOrdem || rOrdem.ok === false) console.error('Falha ao guardar ordem das marcas no servidor');
+                        if (!rOrdem || rOrdem.ok === false) {
+                            console.error('Falha ao guardar ordem das marcas no servidor', rOrdem);
+                            alert('Aviso: não foi possível guardar a lista de marcas no servidor' + (rOrdem && rOrdem.erro ? ' (' + rOrdem.erro + ')' : '') + '. Noutros dispositivos podem continuar a aparecer marcas antigas.');
+                        }
                     } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
+                    ORDEM_IMPORTADA_RECENTE_ = true;
                 }
-                alert("Roteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
+                alert("Marcas importadas (colunas N, R, V, Z, AD, AH): " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + "\n\nRoteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
                     const nl = resultadoImport.novosLista || [];
                     if (!nl.length) return "";
                     const linhas = nl.slice(0, 25).map(x => "• " + x.cliente + " — " + x.comercial + " (" + x.dia + ", sem. " + x.semana + (x.localidade ? ", " + x.localidade : "") + ")");
@@ -7070,4 +7075,3 @@ var mudarDiaOrig_;
 </script>
 </body>
 </html>
-    
