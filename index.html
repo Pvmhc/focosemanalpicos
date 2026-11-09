@@ -4435,7 +4435,11 @@ function ehCabecalhoComprouMes_(header) {
                     } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
                     ORDEM_IMPORTADA_RECENTE_ = true;
                 }
-                alert("Marcas importadas (colunas N, R, V, Z, AD, AH): " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + "\n\nRoteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
+                alert("Marcas importadas (colunas N, R, V, Z, AD, AH): " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + (() => {
+                    const semTip_ = listaNovosDados.filter(r => !String(r.tipologia || '').trim()).length;
+                    const naoReconhecidas_ = Array.from(new Set(listaNovosDados.map(r => String(r.tipologia || '').trim()).filter(t => t && obterRegraTipologia_(t) === null)));
+                    return "\n\nTipologia: " + semTip_ + " de " + listaNovosDados.length + " linhas sem tipologia" + (naoReconhecidas_.length ? "; sem regra: " + naoReconhecidas_.join(", ") : "") + ".";
+                })() + "\n\nRoteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
                     const nl = resultadoImport.novosLista || [];
                     if (!nl.length) return "";
                     const linhas = nl.slice(0, 25).map(x => "• " + x.cliente + " — " + x.comercial + " (" + x.dia + ", sem. " + x.semana + (x.localidade ? ", " + x.localidade : "") + ")");
