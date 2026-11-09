@@ -4546,6 +4546,20 @@ function ehCabecalhoComprouMes_(header) {
     // Mínimo de barris por mês para manter a qualidade da cerveja de barril.
     // Se o cliente comprou 1 ou mais mas menos que este valor, mostra "Falta X barris".
     const MIN_BARRIS_MES_ = 4;
+    /** "SAGRES Branca Barril 50L PT" -> "Sagres 50lt"; "HEINEKEN Barril 30L PT" -> "Heineken 30lt". */
+    function abreviarProdutoBarril_(nome) {
+        const original = String(nome || '').trim();
+        if (!original) return '';
+        const tamanho = original.match(/(\d+(?:[.,]\d+)?)\s*l\b/i);
+        const palavras = original.split(/\s+/);
+        const marca = palavras[0] || '';
+        const ignorar = new Set(['barril', 'barris', 'pt', 'branca', 'l', 'lt']);
+        const variante = palavras.slice(1).filter(w => !ignorar.has(w.toLowerCase()) && !/^\d+(?:[.,]\d+)?l$/i.test(w) && !/^\d+(?:[.,]\d+)?$/.test(w));
+        const cap = w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '';
+        const partes = [cap(marca), ...variante.map(cap)];
+        if (tamanho) partes.push(tamanho[1].replace(',', '.') + 'lt');
+        return partes.join(' ');
+    }
     function avisoFaltaBarris_(marca, hist, item) {
         if (!/barril/i.test(String(marca || ''))) return '';
         // Coluna "Quality" do Excel (guardada em historico[Barril].quality): lista de {q: barris comprados, n: produto}
@@ -4562,8 +4576,8 @@ function ehCabecalhoComprouMes_(header) {
             .filter(e => e && isFinite(e.q) && e.q >= 1 && e.q < MIN_BARRIS_MES_)
             .map(e => {
                 const falta = Math.ceil(MIN_BARRIS_MES_ - e.q);
-                const prod = e.n ? ' · ' + esc(e.n) : '';
-                return `<span class="aviso-falta-barris" title="Comprou ${e.q}; mínimo ${MIN_BARRIS_MES_} para manter a qualidade">Falta ${falta} ${falta === 1 ? 'barril' : 'barris'}${prod}</span>`;
+                const prod = e.n ? esc(abreviarProdutoBarril_(e.n)) + ' · ' : '';
+                return `<span class="aviso-falta-barris" title="${esc(e.n || '')} — comprou ${e.q}; mínimo ${MIN_BARRIS_MES_} para manter a qualidade">${prod}Falta ${falta} ${falta === 1 ? 'barril' : 'barris'}</span>`;
             }).join('');
     }
     function marcaColocadaMes_(item, m) {
