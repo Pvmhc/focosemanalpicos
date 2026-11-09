@@ -2218,14 +2218,14 @@ function ehCabecalhoComprouMes_(header) {
                 return col || null;
             }
             case 'sagres_garrafa': {
-                let col = achar(c => normalizarTexto_(c).includes('garrafa'));
+                let col = achar(c => normalizarTexto_(c).includes('garrafa') || normalizarTexto_(c).replace(/[^a-z]/g, '') === 'gfa');
                 if (!col) col = achar(c => normalizarTexto_(c).includes('sagres') && (normalizarTexto_(c).includes('garrafa') || normalizarTexto_(c).includes('gar')));
                 if (!col) col = achar(c => normalizarTexto_(c) === 'sagres');
                 return col || null;
             }
-            case 'heineken': return achar(c => normalizarTexto_(c).includes('heineken')) || null;
+            case 'heineken': return achar(c => normalizarTexto_(c).includes('heineken') || normalizarTexto_(c).includes('premium')) || null;
             case 'bandida': return achar(c => normalizarTexto_(c).includes('bandida') || normalizarTexto_(c).includes('sidra')) || null;
-            case '0.0%': return achar(c => normalizarTexto_(c).includes('0.0') || normalizarTexto_(c) === '00') || null;
+            case '0.0%': return achar(c => normalizarTexto_(c).includes('0.0') || normalizarTexto_(c) === '00' || ehColunaZeroZero_(c)) || null;
             case 'preta': return achar(c => normalizarTexto_(c).includes('preta')) || null;
             default: return null;
         }
@@ -2571,7 +2571,10 @@ function ehCabecalhoComprouMes_(header) {
 
     // Nomes normalizados das colunas "0.0%" e "Preta" — usados para decidir,
     // por cliente/linha, qual das duas aparece (ver ehColunaZeroZero_ / ehColunaPreta_).
-    function ehColunaZeroZero_(m) { return String(m || '').trim().toLowerCase() === '0.0%'; }
+    function ehColunaZeroZero_(m) {
+        const n = String(m || '').trim().toLowerCase();
+        return n === '0.0%' || n === '0.0' || /^(zona\s*)?zero(\s*zero)?$/.test(n);   // 0.0% / Zona Zero / Zero Zero
+    }
     function ehColunaPreta_(m) {
         const n = String(m || '').trim().toLowerCase();
         return n === 'preta' || n === 'sagres preta';
