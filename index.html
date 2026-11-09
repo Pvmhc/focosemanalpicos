@@ -4200,6 +4200,10 @@ function ehCabecalhoComprouMes_(header) {
 
                 // Coluna M (13.ª) = estado do registo ("por fazer" => falta fazer o registo).
                 // Descobre o nome da chave que o SheetJS deu a essa coluna (com sufixo _1, _2... se o cabeçalho se repetir).
+                // Quality (barris em falta) por cliente: guardado também na config partilhada (dadosPicos),
+                // porque o servidor pode não conservar campos novos dentro do histórico.
+                const qualityPorCliente_ = {};
+                const temQualityNoExcel_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
                 let chaveColunaRegisto_ = null;
                 {
                     const IDX_M = 12;
@@ -4342,6 +4346,11 @@ function ehCabecalhoComprouMes_(header) {
                                     });
                                 }
                                 if (entradasQ.length) historicoObj[nomeExibido].quality = entradasQ;
+                                {
+                                    const chQ_ = chaveClienteUnica_({ numero: numeroVal, cliente: clienteVal });
+                                    const baixas_ = entradasQ.filter(e => e.q >= 1 && e.q < MIN_BARRIS_MES_).map(e => [e.q, e.n]);
+                                    if (baixas_.length) qualityPorCliente_[chQ_] = baixas_;
+                                }
                             }
                             // Coluna "<marca> dif volume" (diferença de volume do mês deste cliente nesta marca)
                             // Comparação tolerante: ignora maiúsculas, acentos, pontuação e símbolos
@@ -4439,6 +4448,15 @@ function ehCabecalhoComprouMes_(header) {
                 if (!resultadoImport || resultadoImport.ok !== true) {
                     throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
                 }
+                // Guarda os avisos de barris (coluna Quality) na config partilhada
+                if (temQualityNoExcel_) {
+                    DADOS_PICOS_['__qualityBarris'] = qualityPorCliente_;
+                    try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+                    try {
+                        const rQ = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+                        if (!rQ || rQ.ok === false) console.error('Falha ao guardar Quality na nuvem', rQ);
+                    } catch (e) { console.error('Falha ao guardar Quality na nuvem', e); }
+                }
                 // Guarda a ordem das colunas (tal como veio do Excel) no servidor, para
                 // que todos os GC vejam sempre a mesma ordem em vez de recalculada
                 // localmente e de forma diferente em cada dispositivo.
@@ -4528,10 +4546,15 @@ function ehCabecalhoComprouMes_(header) {
     // Mínimo de barris por mês para manter a qualidade da cerveja de barril.
     // Se o cliente comprou 1 ou mais mas menos que este valor, mostra "Falta X barris".
     const MIN_BARRIS_MES_ = 4;
-    function avisoFaltaBarris_(marca, hist) {
+    function avisoFaltaBarris_(marca, hist, item) {
         if (!/barril/i.test(String(marca || ''))) return '';
         // Coluna "Quality" do Excel (guardada em historico[Barril].quality): lista de {q: barris comprados, n: produto}
         let lista = hist && hist.quality;
+        if (!lista && item) {
+            const mapa = DADOS_PICOS_ && DADOS_PICOS_['__qualityBarris'];
+            const reg = mapa && mapa[chaveClienteUnica_(item)];
+            if (Array.isArray(reg)) lista = reg.map(x => ({ q: x[0], n: x[1] }));
+        }
         if (typeof lista === 'number') lista = [{ q: lista, n: '' }];
         if (!Array.isArray(lista)) return '';
         const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -5028,7 +5051,7 @@ function ehCabecalhoComprouMes_(header) {
                                 ? `<span class="selo-colocada" title="Já colocada este mês"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Colocada</span>`
                                 : `<button class="btn-estado ${est.toLowerCase().replace(' ', '-') || 'vazio'}" onclick="alternarEstado(${item.id}, '${m}')">${obterInnerHtmlBotao(est)}</button>`}
                             ${badgeColocouHtml}
-                            ${avisoFaltaBarris_(m, hist)}
+                            ${avisoFaltaBarris_(m, hist, item)}
                             ${difTab}
                         </div>
                     </td>`;
