@@ -4086,7 +4086,7 @@ function ehCabecalhoComprouMes_(header) {
     const JANELA_MESES_FREQ_ = 10;     // denominador (meses analisados) quando o Excel só traz o nº de meses
     const LIMIAR_FREQ_MOSTRAR_ = 0.7;  // só mostra o selo a partir de 7/10
     const LIMIAR_FREQ_ALTA_ = 0.8;     // a partir de 8/10 o selo fica a laranja forte
-    const RE_COL_FREQ_ = /[\s_.\-](freq\w*|meses|recorr\w*|prob\w*|consist\w*)\s*$/i;
+    const RE_COL_FREQ_ = /[\s_.\-](freq\w*|meses|recorr\w*|prob\w*|consist\w*|cons\.?)\s*$/i;   // aceita também \"GFA Cons.\" (ficheiro Picos e Radar do mês)
 
     // Colunas "freq", "freq2", "freq3"... soltas (sem nome de marca) pertencem à marca que vem imediatamente antes no cabeçalho
     const RE_COL_FREQ_SOLTA_ = /^\s*freq\d*\s*$/i;
@@ -4109,7 +4109,7 @@ function ehCabecalhoComprouMes_(header) {
             const d = parseInt(m[2], 10), n = Math.min(parseInt(m[1], 10), d);
             // Etiqueta = texto antes do n/d, sem números e separadores ("INCONSISTENTE | 2/9", "Inconsistente 2/9"...)
             const et = String(v).replace(/\d+\s*\/\s*\d+/, '').replace(/[|:;\-–()]/g, ' ').replace(/\s+/g, ' ').trim();
-            const inconsistente = /inconsist/i.test(String(v));
+            const inconsistente = /inconsist|^\s*inc\b/i.test(String(v));   // "INCONSISTENTE | 2/9" ou "INC | 0/11"
             return d > 0 ? { n, d, etiqueta: inconsistente ? 'INCONSISTENTE' : et } : null;
         }
         const ehPct = t.endsWith('%');
@@ -4121,12 +4121,105 @@ function ehCabecalhoComprouMes_(header) {
         return { n: Math.min(d, Math.round(num)), d };
     }
 
+    // --- Importar o Quadro a partir da folha "Mapa" do Excel "Acompanhamento" ---
+    // Lê, para cada gestor, a coluna "DN vs LY" do mês corrente (1.º bloco da folha)
+    // e preenche o Quadro (Total / Marcas / Formatos) automaticamente.
+    function normNomeQuadro_(s) {
+        return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+            .replace(/\(.*?\)/g, ' ').replace(/^\s*(?:grc|gc):/, '').replace(/[^a-z0-9& ]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function idQuadroDeRotulo_(rotulo) {
+        const t = normNomeQuadro_(rotulo).replace(/\s/g, '');
+        if (t === 'cervejas') return 'cervejas';
+        if (t === 'aguas') return 'aguas';
+        if (t === 'sidras') return 'sidras';
+        if (t === 'sagres') return 'sagres';
+        if (t === 'sol&mar') return 'solemar';
+        if (t === 'heineken') return 'heineken';
+        if (t === 'castello') return 'castello';
+        if (t === 'bandida') return 'bandida';
+        if (t.indexOf('barril') !== -1) return 'barril';
+        if (t.indexOf('gfaret') !== -1) return 'sagresret';
+        if (t.indexOf('gfaow') !== -1) return 'sagresow';
+        if (t === 'lusoret') return 'lusoret';
+        if (t === 'bandidaverano') return 'verano';
+        return null;
+    }
+    /** Devolve { gestorDoExcel: {cervejas: n, ...} } ou null se a folha não tiver o formato esperado. */
+    function lerQuadroDoMapa_(folha) {
+        const linhas = XLSX.utils.sheet_to_json(folha, { header: 1, defval: null, raw: true });
+        const COL_ROTULO = 2, COL_DN_VS_LY = 6;   // C = rótulo, G = "DN vs LY" do mês corrente
+        const blocos = {};
+        let atual = null;
+        for (let i = 0; i < linhas.length; i++) {
+            const r = linhas[i] || [];
+            const prox = linhas[i + 1] || [];
+            if (typeof r[COL_ROTULO] === 'string' && String(prox[COL_ROTULO] || '').trim().toLowerCase() === 'total clientes carteira') {
+                atual = r[COL_ROTULO].trim();
+                if (!blocos[atual]) blocos[atual] = {};
+                continue;
+            }
+            if (!atual) continue;
+            const id = idQuadroDeRotulo_(r[COL_ROTULO]);
+            const v = r[COL_DN_VS_LY];
+            if (id && typeof v === 'number' && isFinite(v) && blocos[atual][id] === undefined) blocos[atual][id] = Math.round(v);
+        }
+        const nBlocos = Object.keys(blocos).filter(k => Object.keys(blocos[k]).length).length;
+        return nBlocos ? blocos : null;
+    }
+    /** Liga o nome do bloco do Excel ao gestor da app (1.º + último nome, sem acentos). */
+    function acharGestorQuadro_(nomeExcel, gestoresApp) {
+        const a = normNomeQuadro_(nomeExcel).split(' ').filter(Boolean);
+        if (a.length < 2) return null;
+        return gestoresApp.find(g => {
+            const b = normNomeQuadro_(g).split(' ').filter(Boolean);
+            return b.length >= 2 && b[0] === a[0] && b[b.length - 1] === a[a.length - 1];
+        }) || null;
+    }
+    async function importarQuadroDoMapa_(blocos) {
+        const sel = document.getElementById('comercialSelect');
+        const gestoresApp = sel ? Array.from(sel.options).map(o => o.value) : [];
+        const atualizados = [], semGestor = [];
+        Object.keys(blocos).forEach(nomeExcel => {
+            if (!Object.keys(blocos[nomeExcel]).length) return;
+            const g = acharGestorQuadro_(nomeExcel, gestoresApp);
+            if (!g) { semGestor.push(nomeExcel.replace(/^\s*(?:grc|gc):\s*/i, '')); return; }
+            const chave = chaveQuadro_(g);
+            const antigos = (DADOS_PICOS_[chave] && DADOS_PICOS_[chave].valores) || {};
+            DADOS_PICOS_[chave] = { valores: Object.assign({}, antigos, blocos[nomeExcel]) };
+            atualizados.push(g);
+        });
+        if (atualizados.length) {
+            quadroEmEdicao_ = null;
+            if (sel) rerenderQuadro_(sel.value);
+            try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+            mostrarIndicadorSync_(true);
+            const resultado = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+            if (!resultado || resultado.ok === false) {
+                console.error('Erro ao guardar Quadro na nuvem:', resultado && resultado.erro);
+                mostrarAvisoSync_();
+            }
+            mostrarIndicadorSync_(false);
+        }
+        alert('Quadro atualizado (DN vs LY do mês) para ' + atualizados.length + ' gestor(es): ' + (atualizados.join(', ') || '—') +
+            (semGestor.length ? '\n\nSem gestor correspondente na app (ignorados): ' + semGestor.join(', ') : ''));
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
         const leitor = new FileReader();
         leitor.onload = async function(e) {
             try {
+                // Excel "Acompanhamento" (folha "Mapa"): atualiza só o Quadro (DN vs LY do mês) e termina.
+                try {
+                    const nomesFolhas_ = XLSX.read(e.target.result, { type: 'binary', bookSheets: true }).SheetNames || [];
+                    if (nomesFolhas_.indexOf('Mapa') !== -1) {
+                        const livroMapa_ = XLSX.read(e.target.result, { type: 'binary', sheets: 'Mapa' });
+                        const blocosQuadro_ = lerQuadroDoMapa_(livroMapa_.Sheets['Mapa']);
+                        if (blocosQuadro_) { await importarQuadroDoMapa_(blocosQuadro_); try { event.target.value = ''; } catch (_) {} return; }
+                    }
+                } catch (erroMapa_) { console.warn('Folha Mapa não lida, segue importação normal:', erroMapa_); }
                 const livro = XLSX.read(e.target.result, { type: 'binary' });
                 const folha = livro.Sheets[livro.SheetNames[0]];
 
@@ -4158,8 +4251,19 @@ function ehCabecalhoComprouMes_(header) {
                 const todasColunas = linhaCabecalhos.filter(c => c !== undefined && c !== null && String(c).trim() !== '').map(String);
                 // Só estas colunas do Excel contam como marcas: N, R, V, Z, AD, AH (índices 0-based)
                 const INDICES_COLUNAS_MARCAS_ = [13, 17, 21, 25, 29, 33];
+                // Ficheiro "Picos e Radar do mês": cada marca tem ao lado uma coluna "<marca> Cons." (ex.: "GFA" + "GFA Cons.").
+                // Se existirem, as marcas são as colunas que têm esse par; senão mantém-se N, R, V, Z, AD, AH.
+                const marcasComCons_ = [];
+                linhaCabecalhos.forEach(h => {
+                    if (h === undefined || h === null) return;
+                    const t = String(h).trim();
+                    if (!/[\s_.\-]cons\.?$/i.test(t)) return;
+                    const base = normNomeCab_(t.replace(/[\s_.\-]cons\.?$/i, ''));
+                    const colMarca = linhaCabecalhos.find(x => x !== undefined && x !== null && String(x).trim() !== t && normNomeCab_(String(x)) === base);
+                    if (colMarca !== undefined) marcasComCons_.push(String(colMarca));
+                });
                 const nomesColunasMarcasPermitidas_ = new Set(
-                    INDICES_COLUNAS_MARCAS_
+                    marcasComCons_.length ? marcasComCons_ : INDICES_COLUNAS_MARCAS_
                         .map(i => linhaCabecalhos[i])
                         .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
                         .map(String)
@@ -4507,7 +4611,7 @@ function ehCabecalhoComprouMes_(header) {
                     } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
                     ORDEM_IMPORTADA_RECENTE_ = true;
                 }
-                alert("Marcas importadas (colunas N, R, V, Z, AD, AH): " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + (() => {
+                alert("Marcas importadas" + (marcasComCons_.length ? " (colunas com \"Cons.\")" : " (colunas N, R, V, Z, AD, AH)") + ": " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + (() => {
                     const semTip_ = listaNovosDados.filter(r => !String(r.tipologia || '').trim()).length;
                     const naoReconhecidas_ = Array.from(new Set(listaNovosDados.map(r => String(r.tipologia || '').trim()).filter(t => t && obterRegraTipologia_(t) === null)));
                     const temQuality_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
