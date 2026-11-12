@@ -4205,6 +4205,93 @@ function ehCabecalhoComprouMes_(header) {
             (semGestor.length ? '\n\nSem gestor correspondente na app (ignorados): ' + semGestor.join(', ') : ''));
     }
 
+    // --- Importar "Picos e Radar do mês": só atualiza marcas compradas no mês + frequência ---
+    // Gestor, tipologia, nº, nome, dia e semana NÃO são lidos daqui: ficam como estão na app
+    // (vêm do outro Excel). O cruzamento é feito pelo ID do estabelecimento (coluna "ID").
+    function paresMarcaCons_(cabecalhos) {
+        const pares = [];
+        (cabecalhos || []).forEach(h => {
+            if (h === undefined || h === null) return;
+            const t = String(h).trim();
+            if (!/[\s_.\-]cons\.?$/i.test(t)) return;
+            const base = normNomeCab_(t.replace(/[\s_.\-]cons\.?$/i, ''));
+            const col = (cabecalhos || []).find(x => x !== undefined && x !== null && String(x).trim() !== t && normNomeCab_(String(x)) === base);
+            if (col !== undefined) pares.push({ marca: String(col), cons: String(h) });
+        });
+        return pares;
+    }
+    function ehFicheiroRadarMes_(folha) {
+        const cab = (XLSX.utils.sheet_to_json(folha, { header: 1 })[0]) || [];
+        if (!paresMarcaCons_(cab).length) return false;
+        const temGestor = cab.some(h => ['comercial', 'gestor'].indexOf(String(h || '').trim().toLowerCase()) !== -1);
+        return !temGestor;
+    }
+    function idNumeroRadar_(v) {
+        const d = String(v === undefined || v === null ? '' : v).replace(/\D/g, '').replace(/^0+/, '');
+        return d;
+    }
+    async function importarRadarMes_(folha) {
+        const cab = (XLSX.utils.sheet_to_json(folha, { header: 1 })[0]) || [];
+        const pares = paresMarcaCons_(cab);
+        const chaveId = cab.map(String).find(h => ['id', 'numero', 'número', 'nº', 'codigo', 'código'].indexOf(h.trim().toLowerCase()) !== -1);
+        if (!chaveId) { alert('Não encontrei a coluna "ID" no ficheiro. Nada foi alterado.'); return; }
+        const linhas = XLSX.utils.sheet_to_json(folha);
+        // marca do Excel -> nome da marca usado na app (ex.: "Zona Zero" pode ser "0.0%")
+        const nomeNaApp_ = (nomeExcel) => {
+            const n = String(nomeExcel).trim().replace(/^\*+/, '').trim();
+            const lista = (typeof marcasLista !== 'undefined' && Array.isArray(marcasLista)) ? marcasLista : [];
+            const achada = lista.find(m => normNomeCab_(m) === normNomeCab_(n) || (ehColunaZeroZero_(m) && ehColunaZeroZero_(n)));
+            return achada || n;
+        };
+        const porId = new Map();
+        linhas.forEach(l => {
+            const id = idNumeroRadar_(l[chaveId]);
+            if (!id) return;
+            const marcas = {};
+            pares.forEach(p => {
+                const bruto = l[p.marca];
+                const n = parseFloat(String(bruto === undefined || bruto === null ? '' : bruto).trim().replace(',', '.'));
+                const mes = isFinite(n) ? n > 0 : !!String(bruto || '').trim();
+                const freq = interpretarFreqMeses_(l[p.cons]);
+                marcas[nomeNaApp_(p.marca)] = { mes: mes, valor: isFinite(n) ? n : (mes ? 1 : 0), freq: freq };
+            });
+            porId.set(id, marcas);
+        });
+        const rowsEnviar = [];
+        porId.forEach((marcas, id) => {
+            const m = {};
+            Object.keys(marcas).forEach(nome => {
+                const x = marcas[nome];
+                m[nome] = { mes: x.mes, valor: x.valor, freqN: x.freq ? x.freq.n : null, freqD: x.freq ? x.freq.d : null, freqEt: (x.freq && x.freq.etiqueta) ? x.freq.etiqueta : '' };
+            });
+            rowsEnviar.push({ numero: id, marcas: m });
+        });
+        if (!rowsEnviar.length) { alert('O ficheiro não tem estabelecimentos com ID. Nada foi alterado.'); return; }
+        mostrarLoading(true);
+        try {
+            // Ação própria do servidor: só altera, por nº de estabelecimento, as marcas do mês e a frequência.
+            const resp = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'atualizar_radar', rows: rowsEnviar, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, codigoAcesso: CODIGO_ACESSO_SESSAO_ })
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const res = await resp.json();
+            if (res && res.sessaoInvalida) sessaoExpirada_();
+            if (!res || res.ok !== true) throw new Error((res && res.erro) || 'resposta inesperada do Apps Script');
+            alert('Picos e Radar do mês importado.\n\nMarcas: ' + pares.map(p => nomeNaApp_(p.marca)).join(', ') +
+                '\nEstabelecimentos atualizados: ' + res.atualizados + ' (' + res.linhas + ' linhas)' +
+                '\nNo ficheiro mas sem correspondência na app: ' + res.naoEncontrados +
+                '\n\nSó foram alteradas as marcas compradas no mês e a frequência.');
+            await puxarDadosDaNuvem();
+        } catch (erro) {
+            alert('Erro ao importar para o Google Sheets: ' + erro.message);
+            console.error(erro);
+        } finally {
+            mostrarLoading(false);
+        }
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -4222,6 +4309,9 @@ function ehCabecalhoComprouMes_(header) {
                 } catch (erroMapa_) { console.warn('Folha Mapa não lida, segue importação normal:', erroMapa_); }
                 const livro = XLSX.read(e.target.result, { type: 'binary' });
                 const folha = livro.Sheets[livro.SheetNames[0]];
+
+                // Excel "Picos e Radar do mês" (colunas "<marca> Cons." e sem Gestor): só atualiza marcas do mês + frequência.
+                if (ehFicheiroRadarMes_(folha)) { await importarRadarMes_(folha); try { event.target.value = ''; } catch (_) {} return; }
 
                 // Preenche células fundidas (merged cells): o SheetJS só devolve
                 // valor na célula "principal" (canto superior-esquerdo) de uma
