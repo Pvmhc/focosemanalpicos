@@ -4230,9 +4230,16 @@ function ehCabecalhoComprouMes_(header) {
         const d = String(v === undefined || v === null ? '' : v).replace(/\D/g, '').replace(/^0+/, '');
         return d;
     }
-    async function importarRadarMes_(folha) {
+    // modo 'anual' (ficheiro "picos anual"): só atualiza as marcas compradas no ano; modo normal: marcas do mês + frequência.
+    async function importarRadarMes_(folha, modo) {
+        const anual = modo === 'anual';
         const cab = (XLSX.utils.sheet_to_json(folha, { header: 1 })[0]) || [];
-        const pares = paresMarcaCons_(cab);
+        let pares = paresMarcaCons_(cab);
+        if (anual && !pares.length) {   // ficheiro anual sem colunas "Cons.": todas as colunas que não são de identificação
+            const RESERVADAS = ['id', 'cliente', 'nome', 'numero', 'segporfazer', 'tipologia', 'gestor', 'comercial', 'dia', 'semana', 'localidade', 'vendedor'];
+            pares = cab.map(String).filter(h => h.trim() && RESERVADAS.indexOf(normNomeCab_(h)) === -1 && !/cons\.?$/i.test(h.trim())).map(h => ({ marca: h, cons: null }));
+        }
+        if (!pares.length) { alert('Não encontrei colunas de marcas no ficheiro. Nada foi alterado.'); return; }
         const chaveId = cab.map(String).find(h => ['id', 'numero', 'número', 'nº', 'codigo', 'código'].indexOf(h.trim().toLowerCase()) !== -1);
         if (!chaveId) { alert('Não encontrei a coluna "ID" no ficheiro. Nada foi alterado.'); return; }
         const linhas = XLSX.utils.sheet_to_json(folha);
@@ -4253,7 +4260,7 @@ function ehCabecalhoComprouMes_(header) {
                 const n = parseFloat(String(bruto === undefined || bruto === null ? '' : bruto).trim().replace(',', '.'));
                 const mes = isFinite(n) ? n > 0 : !!String(bruto || '').trim();
                 const freq = interpretarFreqMeses_(l[p.cons]);
-                marcas[nomeNaApp_(p.marca)] = { mes: mes, valor: isFinite(n) ? n : (mes ? 1 : 0), freq: freq };
+                marcas[nomeNaApp_(p.marca)] = anual ? { ano: mes } : { mes: mes, valor: isFinite(n) ? n : (mes ? 1 : 0), freq: freq };
             });
             porId.set(id, marcas);
         });
@@ -4262,7 +4269,7 @@ function ehCabecalhoComprouMes_(header) {
             const m = {};
             Object.keys(marcas).forEach(nome => {
                 const x = marcas[nome];
-                m[nome] = { mes: x.mes, valor: x.valor, freqN: x.freq ? x.freq.n : null, freqD: x.freq ? x.freq.d : null, freqEt: (x.freq && x.freq.etiqueta) ? x.freq.etiqueta : '' };
+                m[nome] = anual ? { ano: x.ano } : { mes: x.mes, valor: x.valor, freqN: x.freq ? x.freq.n : null, freqD: x.freq ? x.freq.d : null, freqEt: (x.freq && x.freq.etiqueta) ? x.freq.etiqueta : '' };
             });
             rowsEnviar.push({ numero: id, marcas: m });
         });
@@ -4273,16 +4280,16 @@ function ehCabecalhoComprouMes_(header) {
             const resp = await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'atualizar_radar', rows: rowsEnviar, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, codigoAcesso: CODIGO_ACESSO_SESSAO_ })
+                body: JSON.stringify({ action: 'atualizar_radar', modo: anual ? 'anual' : 'mes', rows: rowsEnviar, utilizador: UTILIZADOR_ID_, perfil: PERFIL_ACESSO_, token: TOKEN_SESSAO_, codigoAcesso: CODIGO_ACESSO_SESSAO_ })
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const res = await resp.json();
             if (res && res.sessaoInvalida) sessaoExpirada_();
             if (!res || res.ok !== true) throw new Error((res && res.erro) || 'resposta inesperada do Apps Script');
-            alert('Picos e Radar do mês importado.\n\nMarcas: ' + pares.map(p => nomeNaApp_(p.marca)).join(', ') +
+            alert((anual ? 'Picos anual importado.' : 'Picos e Radar do mês importado.') + '\n\nMarcas: ' + pares.map(p => nomeNaApp_(p.marca)).join(', ') +
                 '\nEstabelecimentos atualizados: ' + res.atualizados + ' (' + res.linhas + ' linhas)' +
                 '\nNo ficheiro mas sem correspondência na app: ' + res.naoEncontrados +
-                '\n\nSó foram alteradas as marcas compradas no mês e a frequência.');
+                '\n\n' + (anual ? 'Só foram alteradas as marcas compradas no ano.' : 'Só foram alteradas as marcas compradas no mês e a frequência.'));
             await puxarDadosDaNuvem();
         } catch (erro) {
             alert('Erro ao importar para o Google Sheets: ' + erro.message);
@@ -4310,8 +4317,24 @@ function ehCabecalhoComprouMes_(header) {
                 const livro = XLSX.read(e.target.result, { type: 'binary' });
                 const folha = livro.Sheets[livro.SheetNames[0]];
 
+                // Ficheiro "picos anual": só é tratado como anual se o NOME do ficheiro o disser; atualiza só as marcas compradas no ano.
+                const nomeFichNorm_ = normNomeCab_(ficheiro.name);
+                if (nomeFichNorm_.indexOf('picosanual') !== -1) { await importarRadarMes_(folha, 'anual'); try { event.target.value = ''; } catch (_) {} return; }
+                if (nomeFichNorm_.indexOf('anual') !== -1 && ehFicheiroRadarMes_(folha)) {
+                    alert('Este ficheiro parece ser o anual, mas o nome não contém "picos anual". Renomeia-o (ex.: "picos anual.xlsx") e importa de novo. Nada foi alterado.');
+                    try { event.target.value = ''; } catch (_) {}
+                    return;
+                }
                 // Excel "Picos e Radar do mês" (colunas "<marca> Cons." e sem Gestor): só atualiza marcas do mês + frequência.
-                if (ehFicheiroRadarMes_(folha)) { await importarRadarMes_(folha); try { event.target.value = ''; } catch (_) {} return; }
+                if (ehFicheiroRadarMes_(folha)) {
+                    // Só atualiza se o NOME do ficheiro for o certo ("picos e radar mes"); caso contrário não mexe em nada.
+                    if (nomeFichNorm_.indexOf('picoseradar') === -1) {
+                        alert('Este ficheiro tem o formato do "Picos e Radar do mês", mas o nome não contém "picos e radar". Renomeia-o (ex.: "picos e radar mes.xlsx") e importa de novo. Nada foi alterado.');
+                        try { event.target.value = ''; } catch (_) {}
+                        return;
+                    }
+                    await importarRadarMes_(folha); try { event.target.value = ''; } catch (_) {} return;
+                }
 
                 // Preenche células fundidas (merged cells): o SheetJS só devolve
                 // valor na célula "principal" (canto superior-esquerdo) de uma
