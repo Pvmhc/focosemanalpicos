@@ -4230,6 +4230,23 @@ function ehCabecalhoComprouMes_(header) {
         const d = String(v === undefined || v === null ? '' : v).replace(/\D/g, '').replace(/^0+/, '');
         return d;
     }
+    // Exporta para Excel os clientes que o import não atualizou: (1) estão no ficheiro mas não na app; (2) estão na app mas não vieram no ficheiro.
+    function exportarNaoAtualizadosRadar_(semCorrespondencia, naoAtualizadosApp, anual) {
+        try {
+            const wb = XLSX.utils.book_new();
+            const f1 = [['ID (ficheiro)', 'Cliente (ficheiro)']].concat(semCorrespondencia.map(x => [x.id, x.nome]));
+            const f2 = [['Nº (app)', 'Cliente', 'Gestor', 'Dia', 'Semana']].concat(naoAtualizadosApp.map(x => [x.numero || '(sem nº)', x.cliente, x.comercial, x.dia, x.semana]));
+            const w1 = XLSX.utils.aoa_to_sheet(f1); w1['!cols'] = [{ wch: 16 }, { wch: 42 }];
+            const w2 = XLSX.utils.aoa_to_sheet(f2); w2['!cols'] = [{ wch: 14 }, { wch: 42 }, { wch: 30 }, { wch: 12 }, { wch: 9 }];
+            XLSX.utils.book_append_sheet(wb, w1, 'No ficheiro sem app');
+            XLSX.utils.book_append_sheet(wb, w2, 'Na app fora do ficheiro');
+            const d = new Date(), dd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            XLSX.writeFile(wb, 'nao_atualizados_' + (anual ? 'picos_anual' : 'picos_radar_mes') + '_' + dd + '.xlsx');
+        } catch (e) {
+            console.error(e);
+            alert('Não foi possível gerar o Excel: ' + e.message);
+        }
+    }
     // modo 'anual' (ficheiro "picos anual"): só atualiza as marcas compradas no ano; modo normal: marcas do mês + frequência.
     async function importarRadarMes_(folha, modo) {
         const anual = modo === 'anual';
@@ -4251,9 +4268,12 @@ function ehCabecalhoComprouMes_(header) {
             return achada || n;
         };
         const porId = new Map();
+        const infoId = new Map();   // id normalizado -> { id (como vem no ficheiro), nome } (para a exportação)
+        const chaveNome = cab.map(String).find(h => ['cliente', 'nome', 'estabelecimento'].indexOf(normNomeCab_(h)) !== -1);
         linhas.forEach(l => {
             const id = idNumeroRadar_(l[chaveId]);
             if (!id) return;
+            if (!infoId.has(id)) infoId.set(id, { id: String(l[chaveId]).trim(), nome: chaveNome ? String(l[chaveNome] === undefined || l[chaveNome] === null ? '' : l[chaveNome]).trim() : '' });
             const marcas = {};
             pares.forEach(p => {
                 const bruto = l[p.marca];
@@ -4286,10 +4306,20 @@ function ehCabecalhoComprouMes_(header) {
             const res = await resp.json();
             if (res && res.sessaoInvalida) sessaoExpirada_();
             if (!res || res.ok !== true) throw new Error((res && res.erro) || 'resposta inesperada do Apps Script');
-            alert((anual ? 'Picos anual importado.' : 'Picos e Radar do mês importado.') + '\n\nMarcas: ' + pares.map(p => nomeNaApp_(p.marca)).join(', ') +
+            const semCorrespondencia = (res.naoEncontradosIds || []).map(id => infoId.get(id) || { id: id, nome: '' });
+            const naoAtualizadosApp = res.naoAtualizados || [];
+            const resumo = (anual ? 'Picos anual importado.' : 'Picos e Radar do mês importado.') + '\n\nMarcas: ' + pares.map(p => nomeNaApp_(p.marca)).join(', ') +
                 '\nEstabelecimentos atualizados: ' + res.atualizados + ' (' + res.linhas + ' linhas)' +
-                '\nNo ficheiro mas sem correspondência na app: ' + res.naoEncontrados +
-                '\n\n' + (anual ? 'Só foram alteradas as marcas compradas no ano.' : 'Só foram alteradas as marcas compradas no mês e a frequência.'));
+                '\nNo ficheiro mas sem correspondência na app: ' + semCorrespondencia.length +
+                '\nNa app mas não incluídos no ficheiro: ' + naoAtualizadosApp.length + ' linhas' +
+                '\n\n' + (anual ? 'Só foram alteradas as marcas compradas no ano.' : 'Só foram alteradas as marcas compradas no mês e a frequência.');
+            if (semCorrespondencia.length || naoAtualizadosApp.length) {
+                if (confirm(resumo + '\n\nQueres exportar para Excel os clientes que NÃO foram atualizados?\n(OK = exportar, Cancelar = não)')) {
+                    exportarNaoAtualizadosRadar_(semCorrespondencia, naoAtualizadosApp, anual);
+                }
+            } else {
+                alert(resumo);
+            }
             await puxarDadosDaNuvem();
         } catch (erro) {
             alert('Erro ao importar para o Google Sheets: ' + erro.message);
