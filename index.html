@@ -4456,6 +4456,21 @@ function ehCabecalhoComprouMes_(header) {
                 // Quality (barris em falta) por cliente: guardado também na config partilhada (dadosPicos),
                 // porque o servidor pode não conservar campos novos dentro do histórico.
                 const qualityPorCliente_ = {};
+                const indicadoresPorCliente_ = {};
+                // Posição real das colunas Eazle / B2B / Quality, procurada pelo NOME do cabeçalho
+                // (aceita aspas, maiúsculas, espaços). Só se não existir usa a posição antiga.
+                const idxCabecalho_ = (re, fallback) => {
+                    for (let i = 0; i < linhaCabecalhos.length; i++) {
+                        const h = linhaCabecalhos[i];
+                        if (h === undefined || h === null) continue;
+                        if (re.test(normalizarTexto_(h).replace(/[^a-z0-9]/g, ''))) return i;
+                    }
+                    return fallback;
+                };
+                const IDX_EAZLE_ = idxCabecalho_(/^eazle$/, 12);
+                const IDX_B2B_ = idxCabecalho_(/^b2b$/, 38);
+                const IDX_QUALITY_ = idxCabecalho_(/^quality$/, -1);
+                const temIndicadoresNoExcel_ = idxCabecalho_(/^eazle$/, -1) >= 0 || idxCabecalho_(/^b2b$/, -1) >= 0;
                 const temQualityNoExcel_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
                 let chaveColunaRegisto_ = null;
                 {
@@ -4526,8 +4541,28 @@ function ehCabecalhoComprouMes_(header) {
                         const t = normalizarTexto_(bruto).replace(/[^a-z0-9]/g, '');
                         return ['nao', 'n', 'no', 'false', '0'].includes(t);
                     };
-                    const eazleNaoVal = valorEhNao_(valorColunaExcel_(12));
-                    const b2bNaoVal = valorEhNao_(valorColunaExcel_(38));
+                    const eazleNaoVal = valorEhNao_(valorColunaExcel_(IDX_EAZLE_));
+                    const b2bNaoVal = valorEhNao_(valorColunaExcel_(IDX_B2B_));
+                    // Quality: lido pela posição real da coluna (pelo nome do cabeçalho), independente das marcas
+                    const entradasQLinha_ = [];
+                    {
+                        let qBruto = IDX_QUALITY_ >= 0 ? valorColunaExcel_(IDX_QUALITY_) : null;
+                        if (qBruto === null || qBruto === undefined) qBruto = obterValor(['quality']);
+                        if (typeof qBruto === 'number' && isFinite(qBruto)) entradasQLinha_.push({ q: qBruto, n: '' });
+                        else if (qBruto !== null && qBruto !== undefined) {
+                            // Formato: "<quantidade><produto>", ex.: "1SAGRES Branca Barril 30L PT"
+                            String(qBruto).split(/[\n\r;|]+/).forEach(parte => {
+                                const mq = parte.match(/^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/);
+                                if (mq) entradasQLinha_.push({ q: parseFloat(mq[1].replace(',', '.')), n: mq[2].trim() });
+                            });
+                        }
+                    }
+                    {
+                        const chI_ = chaveClienteUnica_({ numero: numeroVal, cliente: clienteVal });
+                        const baixasI_ = entradasQLinha_.filter(e => e.q >= 1 && e.q < MIN_BARRIS_MES_).map(e => [e.q, e.n]);
+                        if (baixasI_.length) qualityPorCliente_[chI_] = baixasI_;
+                        if (eazleNaoVal || b2bNaoVal) indicadoresPorCliente_[chI_] = { e: eazleNaoVal ? 1 : 0, b: b2bNaoVal ? 1 : 0 };
+                    }
                     let semanaValRaw = obterValor(['semana', 'semana do mês']);
                     let semanaVal = (semanaValRaw === null || semanaValRaw === undefined || String(semanaValRaw).trim() === '')
                         ? '' : String(semanaValRaw).trim().replace(/\.0$/, '');
@@ -4607,23 +4642,7 @@ function ehCabecalhoComprouMes_(header) {
                             };
                             // Coluna "Quality" (nº de barris comprados): guardada na marca Barril
                             if (/barril/i.test(nomeExibido)) {
-                                const qBruto = obterValor(['quality']);
-                                const entradasQ = [];
-                                if (typeof qBruto === 'number' && isFinite(qBruto)) entradasQ.push({ q: qBruto, n: '' });
-                                else if (qBruto !== null && qBruto !== undefined) {
-                                    // Formato: "<quantidade><produto>", ex.: "1SAGRES Branca Barril 30L PT"
-                                    // (pode haver vários produtos separados por nova linha, ; ou |)
-                                    String(qBruto).split(/[\n\r;|]+/).forEach(parte => {
-                                        const mq = parte.match(/^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/);
-                                        if (mq) entradasQ.push({ q: parseFloat(mq[1].replace(',', '.')), n: mq[2].trim() });
-                                    });
-                                }
-                                if (entradasQ.length) historicoObj[nomeExibido].quality = entradasQ;
-                                {
-                                    const chQ_ = chaveClienteUnica_({ numero: numeroVal, cliente: clienteVal });
-                                    const baixas_ = entradasQ.filter(e => e.q >= 1 && e.q < MIN_BARRIS_MES_).map(e => [e.q, e.n]);
-                                    if (baixas_.length) qualityPorCliente_[chQ_] = baixas_;
-                                }
+                                if (entradasQLinha_.length) historicoObj[nomeExibido].quality = entradasQLinha_;
                             }
                             // Coluna "<marca> dif volume" (diferença de volume do mês deste cliente nesta marca)
                             // Comparação tolerante: ignora maiúsculas, acentos, pontuação e símbolos
@@ -4732,8 +4751,9 @@ function ehCabecalhoComprouMes_(header) {
                     throw new Error((resultadoImport && resultadoImport.erro) || 'resposta inesperada do Apps Script');
                 }
                 // Guarda os avisos de barris (coluna Quality) na config partilhada
-                if (temQualityNoExcel_) {
-                    DADOS_PICOS_['__qualityBarris'] = qualityPorCliente_;
+                if (temQualityNoExcel_ || temIndicadoresNoExcel_) {
+                    if (temQualityNoExcel_) DADOS_PICOS_['__qualityBarris'] = qualityPorCliente_;
+                    if (temIndicadoresNoExcel_) DADOS_PICOS_['__indicadoresClientes'] = indicadoresPorCliente_;
                     try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
                     try {
                         const rQ = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
@@ -5262,8 +5282,9 @@ function ehCabecalhoComprouMes_(header) {
             const registoHtml = registoPorFazer_
                 ? `<span class="selo-registo" title="Falta fazer o registo deste cliente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><rect x="10.7" y="5.5" width="2.6" height="9" rx="1.3" fill="#fff"/><circle cx="12" cy="18.2" r="1.5" fill="#fff"/></svg>FALTA REGISTO</span>`
                 : '';
-            const eazleNao_ = !!item.eazleNao || Object.values(item.historico || {}).some(h => h && h.eazleNao);
-            const b2bNao_ = !!item.b2bNao || Object.values(item.historico || {}).some(h => h && h.b2bNao);
+            const indCli_ = (DADOS_PICOS_ && DADOS_PICOS_['__indicadoresClientes'] || {})[chaveClienteUnica_(item)];
+            const eazleNao_ = indCli_ ? !!indCli_.e : (!!item.eazleNao || Object.values(item.historico || {}).some(h => h && h.eazleNao));
+            const b2bNao_ = indCli_ ? !!indCli_.b : (!!item.b2bNao || Object.values(item.historico || {}).some(h => h && h.b2bNao));
             const eazleHtml = eazleNao_ ? `<span class="selo-registo selo-eazle" title="Cliente sem Eazle">Sem Eazle</span>` : '';
             const b2bHtml = b2bNao_ ? `<span class="selo-registo selo-b2b" title="Cliente sem B2B">S/c B2B</span>` : '';
             let html = `<td>
