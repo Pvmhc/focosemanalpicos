@@ -1107,6 +1107,9 @@
         /* Aviso de qualidade da Barril: comprou menos que o mínimo de barris */
         .aviso-falta-barris { font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; white-space: normal; text-align: center; line-height: 1.25;
             background-color: var(--negociado-bg); color: var(--negociado-color); }
+        /* Quality (ficheiro "Quality"): marca foco + barris comprados na coluna Barril, por baixo do botão/Colocada */
+        .aviso-falta-barris.quality-foco { background-color: #eef2f5; color: #52606d; }
+        .aviso-falta-barris.quality-foco.alerta { background-color: var(--negociado-bg); color: var(--negociado-color); }
         .svg-icon { width: 16px; height: 16px; fill: currentColor; }
         @media (max-width: 599px) { .svg-icon { width: 13px; height: 13px; } }
         /* Cortina de carregamento a ecrã inteiro */
@@ -4329,6 +4332,47 @@ function ehCabecalhoComprouMes_(header) {
         }
     }
 
+    // --- Importar ficheiro \"Quality\": só atualiza Marca Foco + Barris comprados da coluna Barril (cruzamento pelo ID) ---
+    async function importarQualityFoco_(folha) {
+        const matriz = XLSX.utils.sheet_to_json(folha, { header: 1, defval: '' });
+        const cab = (matriz[0] || []).map(h => normNomeCab_(String(h)));
+        const achar = (regex, pos) => { const i = cab.findIndex(h => regex.test(h)); return i >= 0 ? i : pos; };
+        const iId = achar(/^(id|numero|nº|codigo)$/, 0);
+        const iMarca = achar(/marcafoco/, 2);
+        const iBarris = achar(/barris/, 3);
+        const numerosApp = new Set((baseDadosRotas || []).map(r => idNumeroRadar_(r.numero)).filter(Boolean));
+        if (!numerosApp.size) { alert('Ainda não há estabelecimentos carregados na app. Nada foi alterado.'); return; }
+        const novo = {};
+        let linhasFicheiro = 0, comAviso = 0;
+        matriz.slice(1).forEach(l => {
+            const id = idNumeroRadar_(l[iId]);
+            const barris = parseFloat(String(l[iBarris] === undefined || l[iBarris] === null ? '' : l[iBarris]).replace(',', '.'));
+            if (!id || !isFinite(barris)) return;
+            linhasFicheiro++;
+            if (!numerosApp.has(id)) return;   // só guarda clientes que existem na app (mantém o ficheiro leve)
+            const marca = String(l[iMarca] || '').trim();
+            novo[id] = [ABREV_MARCA_QUALITY_[marca.toLowerCase()] || marca, barris];
+            if (barris <= LIMITE_AVISO_QUALITY_) comAviso++;
+        });
+        const nCorresp = Object.keys(novo).length;
+        if (!linhasFicheiro) { alert('Não encontrei linhas com ID e Barris Comprados no ficheiro. Nada foi alterado.'); return; }
+        DADOS_PICOS_['__qualityFoco'] = novo;
+        DADOS_PICOS_['__qualityFocoData'] = new Date().toISOString();
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+        atualizarVisualizacao();
+        mostrarIndicadorSync_(true);
+        try {
+            const r = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+            if (!r || r.ok === false) { console.error('Erro ao guardar Quality na nuvem:', r && r.erro); mostrarAvisoSync_(); }
+        } catch (e) { console.error('Erro ao guardar Quality na nuvem', e); mostrarAvisoSync_(); }
+        mostrarIndicadorSync_(false);
+        alert('Quality importado.\n\nLinhas no ficheiro: ' + linhasFicheiro +
+            '\nEstabelecimentos da app atualizados: ' + nCorresp +
+            '\nCom aviso (' + LIMITE_AVISO_QUALITY_ + ' barris ou menos): ' + comAviso +
+            '\nNo ficheiro mas sem correspondência na app: ' + (linhasFicheiro - nCorresp) +
+            '\n\nSó foi alterada a informação de Marca Foco / Barris na coluna Barril.');
+    }
+
     function carregarDadosDesdeExcel(event) {
         const ficheiro = event.target.files[0];
         if (!ficheiro) return;
@@ -4349,6 +4393,8 @@ function ehCabecalhoComprouMes_(header) {
 
                 // Ficheiro "picos anual": só é tratado como anual se o NOME do ficheiro o disser; atualiza só as marcas compradas no ano.
                 const nomeFichNorm_ = normNomeCab_(ficheiro.name);
+                // Ficheiro "Quality": só é tratado como tal se o NOME do ficheiro o disser; atualiza só Marca Foco + Barris comprados.
+                if (nomeFichNorm_.indexOf('quality') !== -1) { await importarQualityFoco_(folha); try { event.target.value = ''; } catch (_) {} return; }
                 if (nomeFichNorm_.indexOf('picosanual') !== -1) { await importarRadarMes_(folha, 'anual'); try { event.target.value = ''; } catch (_) {} return; }
                 if (nomeFichNorm_.indexOf('anual') !== -1 && ehFicheiroRadarMes_(folha)) {
                     alert('Este ficheiro parece ser o anual, mas o nome não contém "picos anual". Renomeia-o (ex.: "picos anual.xlsx") e importa de novo. Nada foi alterado.');
@@ -4420,10 +4466,15 @@ function ehCabecalhoComprouMes_(header) {
                     return !CABECALHOS_RESERVADOS.has(chave) && !chave.endsWith('_yt');
                 });
                 const colunasMarcasDetectadas = colunasMarcasCandidatas_.filter(c => nomesColunasMarcasPermitidas_.has(c));
+                // FICHEIRO SEMANAL: sem colunas de marcas, mas com Eazle / B2B / Quality.
+                // Só atualiza Eazle, B2B, Quality e os dados dos estabelecimentos/gestores.
+                // NÃO mexe nos Picos (estados, histórico das marcas, dif volume, marcas, comprou mês).
+                const modoSemanal_ = colunasMarcasDetectadas.length === 0 && linhaCabecalhos.some(h =>
+                    h !== undefined && h !== null && /^(eazle|b2b|quality)$/.test(normalizarTexto_(h).replace(/[^a-z0-9]/g, '')));
                 {
                     const nomesMarcasExcel_ = colunasMarcasCandidatas_.map(c => c.trim().replace(/^\*+/, '').trim());
                     const difSemMarca_ = todasColunas.filter(c => /dif\.?[\s_]*vol/i.test(c) && !nomesMarcasExcel_.some(m => colunaDifPertenceAMarca_(c, m)));
-                    if (difSemMarca_.length) {
+                    if (difSemMarca_.length && !modoSemanal_) {
                         console.warn('Colunas "dif volume" sem marca correspondente:', difSemMarca_);
                         setTimeout(() => alert('Estas colunas de volume não correspondem a nenhuma marca e foram ignoradas:\n\n• ' + difSemMarca_.join('\n• ') + '\n\nO nome tem de ser "<marca> dif volume" (ex.: "0.0% dif volume").'), 300);
                     }
@@ -4522,7 +4573,7 @@ function ehCabecalhoComprouMes_(header) {
                         const kV = Object.keys(linha).find(k => /^__EMPTY/.test(k) && /por\s*(fazer|registar)|falta/i.test(String(linha[k])));
                         if (kV) registoRaw = linha[kV];
                     }
-                    const registoPorFazerVal = /por\s*(fazer|registar)|falta\s*(o\s*)?regist/i.test(String(registoRaw || ''));
+                    let registoPorFazerVal = /por\s*(fazer|registar)|falta\s*(o\s*)?regist/i.test(String(registoRaw || ''));
                     // Indicadores do estabelecimento: ler pelas posições reais do Excel.
                     // M = Eazle (índice 12) e AM = B2B (índice 38).
                     // A coluna AM tem atualmente o cabeçalho com aspas: "B2B".
@@ -4670,6 +4721,29 @@ function ehCabecalhoComprouMes_(header) {
                         }
                     });
 
+                    // Registo já existente deste cliente (para o modo semanal conservar os Picos)
+                    let registoBaseSemanal_ = null;
+                    if (modoSemanal_) {
+                        const chK_ = chaveClienteUnica_({ numero: numeroVal, cliente: clienteVal });
+                        const mesmoCliente_ = baseDadosRotas.filter(r => chaveClienteUnica_(r) === chK_);
+                        registoBaseSemanal_ = mesmoCliente_.find(r => r.comercial === comercialVal && r.dia === diaVal && String(r.semana) === String(semanaVal))
+                            || mesmoCliente_.find(r => r.comercial === comercialVal) || mesmoCliente_[0] || null;
+                        if (registoBaseSemanal_) {
+                            const clonar_ = o => JSON.parse(JSON.stringify(o || {}));
+                            estadosObj = clonar_(registoBaseSemanal_.estados);
+                            historicoObj = clonar_(registoBaseSemanal_.historico);
+                            // o aviso de barris vem agora da coluna Quality deste ficheiro (mapa partilhado)
+                            Object.keys(historicoObj).forEach(m => { if (historicoObj[m] && typeof historicoObj[m] === 'object') delete historicoObj[m].quality; });
+                            comprouMesVal = registoBaseSemanal_.comprouMes;
+                            registoPorFazerVal = !!registoBaseSemanal_.registoPorFazer;
+                        } else {
+                            estadosObj = {}; historicoObj = {};
+                            marcasLista.forEach(m => { estadosObj[m] = ""; historicoObj[m] = { mes: false, ano: false, promo: false }; });
+                        }
+                    }
+                    Object.keys(historicoObj).forEach(m => {
+                        if (historicoObj[m] && typeof historicoObj[m] === 'object') { historicoObj[m].eazleNao = eazleNaoVal; historicoObj[m].b2bNao = b2bNaoVal; }
+                    });
                     const chaveAtual = `${clienteVal}||${comercialVal}||${diaVal}||${semanaVal}`;
                     const registoAnterior = baseDadosRotas.find(r =>
                         `${r.cliente}||${r.comercial}||${r.dia}||${r.semana}` === chaveAtual);
@@ -4690,7 +4764,9 @@ function ehCabecalhoComprouMes_(header) {
                     // do registo anterior, para o resumo de Foco não zerar
                     // sempre que se reimporta o Excel semanal.
                     let focoJaMarcadoObj = {};
-                    if (registoAnterior && registoAnterior.focoJaMarcado) {
+                    if (modoSemanal_) {
+                        if (registoBaseSemanal_ && registoBaseSemanal_.focoJaMarcado) focoJaMarcadoObj = JSON.parse(JSON.stringify(registoBaseSemanal_.focoJaMarcado));
+                    } else if (registoAnterior && registoAnterior.focoJaMarcado) {
                         Object.keys(registoAnterior.focoJaMarcado).forEach(marcaAntiga => {
                             const aindaExisteNoExcel = colunasMarcasDetectadas.some(c =>
                                 c.trim().replace(/^\*+/, '').trim().toLowerCase() === marcaAntiga.trim().toLowerCase());
@@ -4719,7 +4795,7 @@ function ehCabecalhoComprouMes_(header) {
                     });
                 });
 
-                if (colunasMarcasDetectadas.length === 0) {
+                if (colunasMarcasDetectadas.length === 0 && !modoSemanal_) {
                     const setMarcasDados = new Set();
                     listaNovosDados.forEach(r => {
                         Object.keys(r.estados || {}).forEach(m => setMarcasDados.add(m));
@@ -4774,11 +4850,11 @@ function ehCabecalhoComprouMes_(header) {
                     } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
                     ORDEM_IMPORTADA_RECENTE_ = true;
                 }
-                alert("Marcas importadas" + (marcasComCons_.length ? " (colunas com \"Cons.\")" : " (colunas N, R, V, Z, AD, AH)") + ": " + colunasMarcasDetectadas.map(c => c.trim()).join(", ") + (() => {
+                alert((modoSemanal_ ? "Ficheiro semanal: atualizados Eazle, B2B, Quality e dados de estabelecimentos/gestores (Picos não alterados)" : "Marcas importadas" + (marcasComCons_.length ? " (colunas com \"Cons.\")" : " (colunas N, R, V, Z, AD, AH)") + ": " + colunasMarcasDetectadas.map(c => c.trim()).join(", ")) + (() => {
                     const semTip_ = listaNovosDados.filter(r => !String(r.tipologia || '').trim()).length;
                     const naoReconhecidas_ = Array.from(new Set(listaNovosDados.map(r => String(r.tipologia || '').trim()).filter(t => t && obterRegraTipologia_(t) === null)));
                     const temQuality_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
-                    const nQuality_ = listaNovosDados.filter(r => Object.values(r.historico || {}).some(h => h && h.quality && (h.quality.length || typeof h.quality === 'number'))).length;
+                    const nQuality_ = modoSemanal_ ? Object.keys(qualityPorCliente_).length : listaNovosDados.filter(r => Object.values(r.historico || {}).some(h => h && h.quality && (h.quality.length || typeof h.quality === 'number'))).length;
                     return "\n\nColuna Quality: " + (temQuality_ ? nQuality_ + " linhas com valor" : "NÃO encontrada no Excel") + "\n\nTipologia: " + semTip_ + " de " + listaNovosDados.length + " linhas sem tipologia" + (naoReconhecidas_.length ? "; sem regra: " + naoReconhecidas_.join(", ") : "") + ".";
                 })() + "\n\nRoteiro enviado para o Google Sheets com sucesso! (" + resultadoImport.importados + " no Excel: " + (resultadoImport.atualizados || 0) + " atualizados, " + (resultadoImport.novos || 0) + " novos; " + (resultadoImport.mantidos || 0) + " existentes mantidos)" + (() => {
                     const nl = resultadoImport.novosLista || [];
@@ -4863,8 +4939,31 @@ function ehCabecalhoComprouMes_(header) {
         if (tamanho) partes.push(tamanho[1].replace(',', '.') + 'lt');
         return partes.join(' ');
     }
+    // --- Ficheiro "Quality": ID (col. A) | Marca Foco (col. C) | Barris Comprados (col. D); avisa com 4 ou menos ---
+    const LIMITE_AVISO_QUALITY_ = 4;
+    const ABREV_MARCA_QUALITY_ = { sagres: 'S', heineken: 'H' };
+    function expandirMarcaQuality_(c) {
+        const k = Object.keys(ABREV_MARCA_QUALITY_).find(n => ABREV_MARCA_QUALITY_[n] === c);
+        return k ? k.charAt(0).toUpperCase() + k.slice(1) : String(c || '');
+    }
+    function avisoQualityFoco_(item) {
+        const mapa = DADOS_PICOS_ && DADOS_PICOS_['__qualityFoco'];
+        if (!mapa || !item) return null;           // ficheiro Quality ainda não importado
+        const reg = mapa[idNumeroRadar_(item.numero)];
+        if (!Array.isArray(reg)) return '';        // cliente sem barris no Quality
+        const q = Number(reg[1]);
+        if (!isFinite(q)) return '';
+        const marca = expandirMarcaQuality_(reg[0]);
+        const alerta = q <= LIMITE_AVISO_QUALITY_;
+        if (!alerta) return '';                    // mais de 4 barris: não mostra nada
+        const txt = (alerta ? '⚠ ' : '') + (marca ? marca + ' · ' : '') + q + (q === 1 ? ' barril' : ' barris');
+        const titulo = (marca ? 'Marca foco ' + marca + ' — ' : '') + 'comprou ' + q + (q === 1 ? ' barril' : ' barris') + (alerta ? ' (' + LIMITE_AVISO_QUALITY_ + ' ou menos: atenção à qualidade)' : '');
+        return `<span class=\"aviso-falta-barris quality-foco${alerta ? ' alerta' : ''}\" title=\"${titulo}\">${txt}</span>`;
+    }
     function avisoFaltaBarris_(marca, hist, item) {
         if (!/barril/i.test(String(marca || ''))) return '';
+        const qualityNovo_ = avisoQualityFoco_(item);
+        if (qualityNovo_ !== null) return qualityNovo_;   // com ficheiro Quality importado, manda este
         // Coluna "Quality" do Excel (guardada em historico[Barril].quality): lista de {q: barris comprados, n: produto}
         let lista = hist && hist.quality;
         if (!lista && item) {
