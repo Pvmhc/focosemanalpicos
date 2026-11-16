@@ -1075,6 +1075,8 @@
         body.dark-mode #modalVisitaChecklist .mv-topo small { color: #9ca3af; }
         .selo-registo { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 1px 7px 1px 4px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.5; white-space: nowrap; vertical-align: middle; background: rgba(220,38,38,.12); color: #b91c1c; border: 1px solid rgba(220,38,38,.45); cursor: help; }
         .selo-b2b { padding: 1px 8px; }
+        .selo-registo.selo-b2b-sim { background: rgba(22,163,74,.12); color: #15803d; border-color: rgba(22,163,74,.45); }
+        body.dark-mode .selo-registo.selo-b2b-sim { background: rgba(74,222,128,.16); color: #86efac; border-color: rgba(74,222,128,.5); }
         .selo-eazle { padding: 1px 8px; background: rgba(217,119,6,.12); color: #a16207; border-color: rgba(217,119,6,.45); }
         body.dark-mode .selo-eazle { background: rgba(251,191,36,.16); color: #fcd34d; border-color: rgba(251,191,36,.5); }
         .selo-registo svg { width: 11px; height: 11px; fill: #dc2626; flex-shrink: 0; }
@@ -4355,6 +4357,41 @@ function ehCabecalhoComprouMes_(header) {
         }
     }
 
+    // --- Importar ficheiro b2bmensal: coluna A = nº cliente; coluna F = compras B2B (>0 = comprou) ---
+    async function importarB2BMensal_(folha) {
+        const matriz = XLSX.utils.sheet_to_json(folha, { header: 1, defval: '' });
+        const numerosApp = new Set((baseDadosRotas || []).map(r => idNumeroRadar_(r.numero)).filter(Boolean));
+        if (!numerosApp.size) { alert('Ainda não há estabelecimentos carregados na app. Nada foi alterado.'); return; }
+        const novo = {};
+        let linhasFicheiro = 0, comprou = 0;
+        matriz.slice(1).forEach(l => {
+            const id = idNumeroRadar_(l[0]);
+            if (!id) return;
+            const v = parseFloat(String(l[5] === undefined || l[5] === null ? '' : l[5]).replace(',', '.'));
+            linhasFicheiro++;
+            if (!numerosApp.has(id)) return;
+            novo[id] = (isFinite(v) && v > 0) ? 1 : 0;
+            if (novo[id]) comprou++;
+        });
+        if (!linhasFicheiro) { alert('Não encontrei linhas com número de cliente na coluna A. Nada foi alterado.'); return; }
+        const nCorresp = Object.keys(novo).length;
+        DADOS_PICOS_['__b2bMensal'] = novo;
+        DADOS_PICOS_['__b2bMensalData'] = new Date().toISOString();
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+        atualizarVisualizacao();
+        mostrarIndicadorSync_(true);
+        try {
+            const r = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+            if (!r || r.ok === false) { console.error('Erro ao guardar B2B na nuvem:', r && r.erro); mostrarAvisoSync_(); }
+        } catch (e) { console.error('Erro ao guardar B2B na nuvem', e); mostrarAvisoSync_(); }
+        mostrarIndicadorSync_(false);
+        alert('B2B mensal importado.\n\nLinhas no ficheiro: ' + linhasFicheiro +
+            '\nEstabelecimentos da app atualizados: ' + nCorresp +
+            '\nComprou B2B: ' + comprou + ' | Sem compras: ' + (nCorresp - comprou) +
+            '\nNo ficheiro mas sem correspondência na app: ' + (linhasFicheiro - nCorresp) +
+            '\n\nSó foi alterada a informação de B2B junto ao nome do cliente.');
+    }
+
     // --- Importar ficheiro \"Quality\": só atualiza Marca Foco + Barris comprados da coluna Barril (cruzamento pelo ID) ---
     async function importarQualityFoco_(folha) {
         const matriz = XLSX.utils.sheet_to_json(folha, { header: 1, defval: '' });
@@ -4417,6 +4454,8 @@ function ehCabecalhoComprouMes_(header) {
                 // Ficheiro "picos anual": só é tratado como anual se o NOME do ficheiro o disser; atualiza só as marcas compradas no ano.
                 const nomeFichNorm_ = normNomeCab_(ficheiro.name);
                 // Ficheiro "Quality": só é tratado como tal se o NOME do ficheiro o disser; atualiza só Marca Foco + Barris comprados.
+                // Ficheiro b2bmensal: só é tratado como tal se o NOME do ficheiro o disser; atualiza só se comprou B2B.
+                if (nomeFichNorm_.indexOf('b2bmensal') !== -1) { await importarB2BMensal_(folha); try { event.target.value = ''; } catch (_) {} return; }
                 if (nomeFichNorm_.indexOf('quality') !== -1) { await importarQualityFoco_(folha); try { event.target.value = ''; } catch (_) {} return; }
                 if (nomeFichNorm_.indexOf('picosanual') !== -1) { await importarRadarMes_(folha, 'anual'); try { event.target.value = ''; } catch (_) {} return; }
                 if (nomeFichNorm_.indexOf('anual') !== -1 && ehFicheiroRadarMes_(folha)) {
@@ -5133,7 +5172,7 @@ function ehCabecalhoComprouMes_(header) {
                 });
                 if (!focos.length) return;
                 vistos.add(chave);
-                linhas.push(`${i.cliente} - ${focos.map(nomeMarca).join('; ')}`);
+                linhas.push(`*${String(i.cliente || '').trim()}* - ${focos.map(nomeMarca).join('; ')}`);
             });
         if (!linhas.length) return;   // sem foco no dia: não envia nada
         abrirWhatsApp_(['*Foco Dia*'].concat(linhas).join('\n'));
@@ -5439,7 +5478,13 @@ function ehCabecalhoComprouMes_(header) {
             const eazleNao_ = indCli_ ? !!indCli_.e : (!!item.eazleNao || Object.values(item.historico || {}).some(h => h && h.eazleNao));
             const b2bNao_ = indCli_ ? !!indCli_.b : (!!item.b2bNao || Object.values(item.historico || {}).some(h => h && h.b2bNao));
             const eazleHtml = eazleNao_ ? `<span class="selo-registo selo-eazle" title="Cliente sem Eazle">Sem Eazle</span>` : '';
-            const b2bHtml = b2bNao_ ? `<span class="selo-registo selo-b2b" title="Cliente sem B2B">S/c B2B</span>` : '';
+            const b2bMensalMapa_ = DADOS_PICOS_ && DADOS_PICOS_['__b2bMensal'];
+            const b2bMensal_ = b2bMensalMapa_ ? b2bMensalMapa_[idNumeroRadar_(item.numero)] : undefined;   // 1 = comprou B2B, 0 = não comprou (ficheiro b2bmensal)
+            const b2bHtml = (b2bMensal_ === 1 || b2bMensal_ === 0)
+                ? (b2bMensal_ === 1
+                    ? `<span class="selo-registo selo-b2b selo-b2b-sim" title="Comprou B2B (ficheiro b2bmensal)">Comprou B2B</span>`
+                    : `<span class="selo-registo selo-b2b" title="Ainda não comprou B2B (ficheiro b2bmensal)">Sem compras B2B</span>`)
+                : (b2bNao_ ? `<span class="selo-registo selo-b2b" title="Cliente sem B2B">S/c B2B</span>` : '');
             let html = `<td>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <div>${nomeClienteAcao}${registoHtml}${eazleHtml}${b2bHtml}${numeroMeta}${diaMeta}</div>
