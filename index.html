@@ -7729,7 +7729,7 @@ var mudarDiaOrig_;
                     if (!marcaAplicaAoRegisto_(m, r)) return;
                     const est = r.estados[m] || '';
                     let novo = null;
-                    if (est === 'FOCO' || est === 'FOCOSEMANAL' || est === '') novo = 'NAO OK';
+                    if (est === 'FOCO' || est === 'FOCOSEMANAL') novo = 'NAO OK';   // só as marcas em Foco / Foco Semanal
                     if (novo === null) return;
                     r.estados[m] = novo;
                     marcarAlteracaoPendente_('estado', r.id, m, novo);
