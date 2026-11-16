@@ -5172,7 +5172,9 @@ function ehCabecalhoComprouMes_(header) {
                 });
                 if (!focos.length) return;
                 vistos.add(chave);
-                linhas.push(`*${String(i.cliente || '').trim()}* - ${focos.map(nomeMarca).join('; ')}`);
+                const b2bMapa_ = DADOS_PICOS_ && DADOS_PICOS_['__b2bMensal'];
+                const semB2B_ = b2bMapa_ && b2bMapa_[idNumeroRadar_(i.numero)] === 0;
+                linhas.push(`*${String(i.cliente || '').trim()}* - ${focos.map(nomeMarca).join('; ')}${semB2B_ ? ' (Sem compras B2B)' : ''}`);
             });
         if (!linhas.length) return;   // sem foco no dia: não envia nada
         abrirWhatsApp_(['*Foco Dia*'].concat(linhas).join('\n'));
