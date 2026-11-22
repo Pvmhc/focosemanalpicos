@@ -2382,7 +2382,47 @@ function ehCabecalhoComprouMes_(header) {
                 if (hist && hist.mes) efetuadas++;
             });
         });
-        return { totalPossivel: totalPossivel, efetuadas: efetuadas, clientesComCompraMes: clientesComCompraMes, clientesDetalhe: clientesDetalhe };
+        // Marcas já compradas este mês por TODOS os clientes únicos do gestor (não só os assinalados
+        // como "comprou"): serve o modo manual do cartão Picos (nº de clientes colocado à mão).
+        let efetuadasTodos = 0;
+        Object.values(porCliente).forEach(cli => {
+            const marcasReq = obterRegraTipologia_(cli.tipologia);
+            if (!marcasReq || marcasReq.length === 0) return;
+            marcasReq.forEach(chaveCanonica => {
+                const coluna = resolverColunaMarca_(chaveCanonica);
+                if (!coluna) return;
+                const hist = cli.historico[coluna];
+                if (hist && hist.mes) efetuadasTodos++;
+            });
+        });
+        return { totalPossivel: totalPossivel, efetuadas: efetuadas, efetuadasTodos: efetuadasTodos, clientesComCompraMes: clientesComCompraMes, clientesDetalhe: clientesDetalhe };
+    }
+    /** Números do cartão Picos (usado no cartão e na barra fixa, para nunca desalinharem).
+     *  Automático: soma, por cliente com compras, as marcas exigidas pela tipologia.
+     *  Manual (nº de clientes colocado à mão): DN possível = clientes × marcas por cliente (por defeito 5);
+     *  efetuadas = marcas compradas este mês pelos clientes do gestor. */
+    function calcularPicosFinal_(com, override) {
+        const auto = calcularPicosAutomatico_(com);
+        const manualBruto = override ? override.clientesComprasManual : null;
+        const clientesManual = (manualBruto !== undefined && manualBruto !== null && manualBruto !== '' && !isNaN(Number(manualBruto)))
+            ? Number(manualBruto) : null;
+        const mpcBruto = override ? override.marcasPorCliente : null;
+        const marcasPorCliente = (mpcBruto !== undefined && mpcBruto !== null && mpcBruto !== '' && !isNaN(Number(mpcBruto)) && Number(mpcBruto) > 0)
+            ? Number(mpcBruto) : 5;
+        const clientesAuto = auto.clientesComCompraMes || 0;
+        if (clientesManual !== null) {
+            return {
+                totalPossivel: Math.round(clientesManual * marcasPorCliente),
+                efetuadas: auto.efetuadasTodos || 0,
+                clientes: clientesManual, clientesAuto: clientesAuto, clientesManual: clientesManual,
+                marcasPorCliente: marcasPorCliente
+            };
+        }
+        return {
+            totalPossivel: auto.totalPossivel, efetuadas: auto.efetuadas,
+            clientes: clientesAuto, clientesAuto: clientesAuto, clientesManual: null,
+            marcasPorCliente: marcasPorCliente
+        };
     }
     // Ordem real das colunas de marca, tal como aparece no cabeçalho do último
     // Excel importado. Persistida no servidor (config 'ordemMarcas') para que
@@ -4562,7 +4602,7 @@ function ehCabecalhoComprouMes_(header) {
                 // Só atualiza Eazle, B2B, Quality e os dados dos estabelecimentos/gestores.
                 // NÃO mexe nos Picos (estados, histórico das marcas, dif volume, marcas, comprou mês).
                 const modoSemanal_ = colunasMarcasDetectadas.length === 0 && linhaCabecalhos.some(h =>
-                    h !== undefined && h !== null && /^(eazle|b2b|quality)$/.test(normalizarTexto_(h).replace(/[^a-z0-9]/g, '')));
+                    h !== undefined && h !== null && (/^(eazle|b2b|quality)$/.test(normalizarTexto_(h).replace(/[^a-z0-9]/g, '')) || ehCabecalhoComprouMes_(h)));
                 {
                     const nomesMarcasExcel_ = colunasMarcasCandidatas_.map(c => c.trim().replace(/^\*+/, '').trim());
                     const difSemMarca_ = todasColunas.filter(c => /dif\.?[\s_]*vol/i.test(c) && !nomesMarcasExcel_.some(m => colunaDifPertenceAMarca_(c, m)));
@@ -4826,7 +4866,7 @@ function ehCabecalhoComprouMes_(header) {
                             historicoObj = clonar_(registoBaseSemanal_.historico);
                             // o aviso de barris vem agora da coluna Quality deste ficheiro (mapa partilhado)
                             Object.keys(historicoObj).forEach(m => { if (historicoObj[m] && typeof historicoObj[m] === 'object') delete historicoObj[m].quality; });
-                            comprouMesVal = registoBaseSemanal_.comprouMes;
+                            if (!chaveColunaComprouMes) comprouMesVal = registoBaseSemanal_.comprouMes;   // sem coluna "Compras" no ficheiro: mantém o valor anterior
                             registoPorFazerVal = !!registoBaseSemanal_.registoPorFazer;
                         } else {
                             estadosObj = {}; historicoObj = {};
@@ -4942,7 +4982,7 @@ function ehCabecalhoComprouMes_(header) {
                     } catch (e) { console.error('Falha ao guardar ordem das marcas no servidor', e); }
                     ORDEM_IMPORTADA_RECENTE_ = true;
                 }
-                alert((modoSemanal_ ? "Ficheiro semanal: atualizados Eazle, B2B, Quality e dados de estabelecimentos/gestores (Picos não alterados)" : "Marcas importadas" + (marcasComCons_.length ? " (colunas com \"Cons.\")" : " (colunas N, R, V, Z, AD, AH)") + ": " + colunasMarcasDetectadas.map(c => c.trim()).join(", ")) + (() => {
+                alert((modoSemanal_ ? "Ficheiro semanal: atualizados Compras (clientes com compras este mês), Eazle, B2B, Quality e dados de estabelecimentos/gestores (marcas e Picos não alterados)" : "Marcas importadas" + (marcasComCons_.length ? " (colunas com \"Cons.\")" : " (colunas N, R, V, Z, AD, AH)") + ": " + colunasMarcasDetectadas.map(c => c.trim()).join(", ")) + (() => {
                     const semTip_ = listaNovosDados.filter(r => !String(r.tipologia || '').trim()).length;
                     const naoReconhecidas_ = Array.from(new Set(listaNovosDados.map(r => String(r.tipologia || '').trim()).filter(t => t && obterRegraTipologia_(t) === null)));
                     const temQuality_ = todasColunas.some(c => c.trim().toLowerCase() === 'quality');
@@ -6460,9 +6500,9 @@ function ehCabecalhoComprouMes_(header) {
         const override = DADOS_PICOS_[chave];
         const objetivoPercent = (override && override.objetivoPercent !== undefined && override.objetivoPercent !== null)
             ? Number(override.objetivoPercent) : 100;
-        const auto = calcularPicosAutomatico_(com);
-        const totalPossivel = auto.totalPossivel;
-        const efetuadas = auto.efetuadas;
+        const calc_ = calcularPicosFinal_(com, override);
+        const totalPossivel = calc_.totalPossivel;
+        const efetuadas = calc_.efetuadas;
         const total = Math.round(totalPossivel * (objetivoPercent / 100));
         const diferenca = total - efetuadas;
         const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((efetuadas / total) * 100))) : 0;
@@ -6493,13 +6533,12 @@ function ehCabecalhoComprouMes_(header) {
         const override = DADOS_PICOS_[chave];
         const objetivoPercent = (override && override.objetivoPercent !== undefined && override.objetivoPercent !== null)
             ? Number(override.objetivoPercent) : 100;
-        const auto = calcularPicosAutomatico_(com);
-        const totalPossivel = auto.totalPossivel;
-        const efetuadas = auto.efetuadas;
-        const clientesAuto = auto.clientesComCompraMes || 0;
-        const clientesManual = (override && override.clientesComprasManual !== undefined && override.clientesComprasManual !== null && override.clientesComprasManual !== '')
-            ? Number(override.clientesComprasManual) : null;
-        const clientesComCompraMes = clientesManual !== null && !isNaN(clientesManual) ? clientesManual : clientesAuto;
+        const calc_ = calcularPicosFinal_(com, override);
+        const totalPossivel = calc_.totalPossivel;
+        const efetuadas = calc_.efetuadas;
+        const clientesAuto = calc_.clientesAuto;
+        const clientesManual = calc_.clientesManual;
+        const clientesComCompraMes = calc_.clientes;
         const total = Math.round(totalPossivel * (objetivoPercent / 100));
         const diferenca = total - efetuadas;
         const comEscapado = String(com || '').replace(/'/g, "\\'");
@@ -6540,8 +6579,14 @@ function ehCabecalhoComprouMes_(header) {
                             <input type="number" min="0" step="1" inputmode="numeric" id="picosInputClientes" placeholder="auto: ${clientesAuto}" value="${clientesManual !== null && !isNaN(clientesManual) ? clientesManual : ''}">
                         </div>
                     </div>
+                    <div class="picos-edit-grid">
+                        <div class="picos-edit-field">
+                            <label>Marcas por cliente (modo manual)</label>
+                            <input type="number" min="1" step="1" inputmode="numeric" id="picosInputMarcasCliente" value="${calc_.marcasPorCliente}">
+                        </div>
+                    </div>
                     <div style="font-size:0.7rem; color:var(--muted); margin-bottom:9px;">
-                        Deixa vazio para usar o valor automático (${clientesAuto}).
+                        Com nº de clientes manual: DN possível = clientes × marcas por cliente. Vazio = automático (${clientesAuto}).
                     </div>
                     <button class="picos-guardar-btn" onclick="guardarPicos_('${comEscapado}', '${sem}')">Guardar Objetivo</button>
                 </div>`;
@@ -6619,6 +6664,9 @@ function ehCabecalhoComprouMes_(header) {
         const nClientes = parseInt(txtClientes, 10);
         const novoRegisto = { objetivoPercent: objetivoPercent };
         if (txtClientes !== '' && !isNaN(nClientes) && nClientes >= 0) novoRegisto.clientesComprasManual = nClientes;
+        const inputMpc = document.getElementById('picosInputMarcasCliente');
+        const nMpc = inputMpc ? parseInt(String(inputMpc.value).trim(), 10) : NaN;
+        if (!isNaN(nMpc) && nMpc > 0 && nMpc !== 5) novoRegisto.marcasPorCliente = nMpc;
         DADOS_PICOS_[chavePicos_(com, sem)] = novoRegisto;
         picosEmEdicao_ = null;
         renderResumoFoco(com, sem);
