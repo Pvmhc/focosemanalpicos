@@ -5074,6 +5074,18 @@ function ehCabecalhoComprouMes_(header) {
     // --- Ficheiro "Quality": ID (col. A) | Marca Foco (col. C) | Barris Comprados (col. D); avisa com 4 ou menos ---
     const LIMITE_AVISO_QUALITY_ = 4;
     const ABREV_MARCA_QUALITY_ = { sagres: 'S', heineken: 'H' };
+    // O Quality cumpre-se com 4 barris no mês.
+    const META_BARRIS_QUALITY_ = 4;
+    /** Barris do cliente no ficheiro Quality: { marca, q (comprados), falta (para a meta) }.
+     *  null = ficheiro Quality ainda não importado; { semRegisto:true } = cliente não consta no ficheiro. */
+    function dadosQualityCliente_(item) {
+        const mapa = DADOS_PICOS_ && DADOS_PICOS_['__qualityFoco'];
+        if (!mapa || !item) return null;
+        const reg = mapa[idNumeroRadar_(item.numero)];
+        const q = Array.isArray(reg) ? Number(reg[1]) : NaN;
+        if (!isFinite(q)) return { semRegisto: true };
+        return { marca: expandirMarcaQuality_(reg[0]), q: q, falta: Math.max(0, META_BARRIS_QUALITY_ - q) };
+    }
     function expandirMarcaQuality_(c) {
         const k = Object.keys(ABREV_MARCA_QUALITY_).find(n => ABREV_MARCA_QUALITY_[n] === c);
         return k ? k.charAt(0).toUpperCase() + k.slice(1) : String(c || '');
@@ -5520,7 +5532,7 @@ function ehCabecalhoComprouMes_(header) {
                 MARCAS_FILTRO_SELECIONADAS_.forEach(m => {
                     matrizEstado_[m] = marcaNaoAplicaAoCliente_(item, m) ? '' : (marcaColocadaNoPeriodo_(historicoCliente[m]) ? 'comprou' : 'colocar');
                 });
-                ultimaListaMarcasFalta_.push({ cliente: item.cliente, numero: item.numero || '', marcas: marcasEmFalta.slice(), matriz: matrizEstado_, vendedor: String(item.vendedor || '').trim() });
+                ultimaListaMarcasFalta_.push({ cliente: item.cliente, numero: item.numero || '', marcas: marcasEmFalta.slice(), matriz: matrizEstado_, vendedor: String(item.vendedor || '').trim(), quality: dadosQualityCliente_(item) });
                 const marcasNegociadasCliente = marcasEmFalta.filter(m => item.estados[m] === 'NEGOCIADO');
                 if (marcasNegociadasCliente.length > 0) {
                     ultimaListaNegociadosFiltrada_.push({ cliente: item.cliente, marcasNegociadas: marcasNegociadasCliente });
@@ -6895,15 +6907,59 @@ function ehCabecalhoComprouMes_(header) {
             alert('A biblioteca de Excel ainda não carregou. Verifica a ligação à internet e tenta novamente.');
             return;
         }
-        // Matriz: uma linha por estabelecimento, uma coluna por marca (comprou / colocar / vazio se não se aplica)
+        // Uma linha por estabelecimento, uma coluna por marca: "Comprou" / "Falta" / vazio (marca não se aplica ao cliente)
         const marcasCols = marcasVisiveis_().filter(m => MARCAS_FILTRO_SELECIONADAS_.includes(m));
         const nomeCol = m => /^gfa$/i.test(String(m).trim()) ? 'Garrafa' : m;
-        const linhas = [['', ...marcasCols.map(nomeCol), 'Vendedor']];
-        d.dados.forEach(x => linhas.push([x.cliente, ...marcasCols.map(m => (x.matriz && x.matriz[m]) || ''), x.vendedor || '']));
+        const txtEstado = e => e === 'comprou' ? 'Comprou' : (e === 'colocar' ? 'Falta' : '');
+        const temQuality_ = d.dados.some(x => x.quality);
+        const cab = ['Nº cliente', 'Estabelecimento', ...marcasCols.map(nomeCol), 'Nº marcas em falta'];
+        if (temQuality_) cab.push('Marca foco Quality', 'Barris comprados', 'Faltam para o Quality');
+        cab.push('Vendedor');
+        const linhas = [cab];
+        d.dados.forEach(x => {
+            const estados = marcasCols.map(m => (x.matriz && x.matriz[m]) || '');
+            const linha = [x.numero || '', x.cliente, ...estados.map(txtEstado), estados.filter(e => e === 'colocar').length];
+            if (temQuality_) {
+                const q = x.quality;
+                if (q && !q.semRegisto) linha.push(q.marca || '', q.q, q.falta);
+                else linha.push('', '', '');
+            }
+            linha.push(x.vendedor || '');
+            linhas.push(linha);
+        });
         const folha = XLSX.utils.aoa_to_sheet(linhas);
-        folha['!cols'] = [{ wch: 38 }, ...marcasCols.map(() => ({ wch: 12 })), { wch: 26 }];
+        folha['!cols'] = [{ wch: 11 }, { wch: 38 }, ...marcasCols.map(() => ({ wch: 11 })), { wch: 12 },
+            ...(temQuality_ ? [{ wch: 14 }, { wch: 12 }, { wch: 14 }] : []), { wch: 26 }];
+        folha['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: linhas.length - 1, c: cab.length - 1 } }) };
+
+        // Folha de ajuda: explica o que cada coluna quer dizer e o que o gestor pode fazer
+        const ajuda = [
+            ['Como ler este ficheiro'],
+            [''],
+            ['Cada linha é um estabelecimento de ' + d.com + ' (' + d.dados.length + ' no total). Período: ' + d.periodo + '. Gerado em ' + new Date().toLocaleDateString('pt-PT') + '.'],
+            [''],
+            ['Colunas das marcas'],
+            ['Comprou = a marca já foi colocada neste ' + d.periodo + '.'],
+            ['Falta = a marca ainda não foi colocada: é a oportunidade a trabalhar.'],
+            ['Vazio = a marca não se aplica a este cliente (não conta).'],
+            ['Nº marcas em falta = quantas marcas ainda faltam colocar neste cliente.']
+        ];
+        if (temQuality_) {
+            ajuda.push([''], ['Quality (barris)'],
+                ['Barris comprados = barris de ' + 'cerveja de pressão comprados este mês, segundo o ficheiro Quality.'],
+                ['Faltam para o Quality = quantos barris ainda faltam para chegar a ' + META_BARRIS_QUALITY_ + ' (o mínimo para cumprir). 0 = já cumpre.'],
+                ['Se estas três colunas estiverem vazias, o cliente não consta no ficheiro Quality.']);
+        }
+        ajuda.push([''], ['O que podes fazer'],
+            ['1. Usa as setas do cabeçalho (filtro) para ver só os clientes com "Falta" numa marca.'],
+            ['2. Ordena "Nº marcas em falta" do maior para o menor para começar pelos clientes com mais oportunidades.']);
+        if (temQuality_) ajuda.push(['3. Ordena "Faltam para o Quality" do maior para o menor: os primeiros são os clientes mais longe da meta de barris.']);
+        const folhaAjuda = XLSX.utils.aoa_to_sheet(ajuda);
+        folhaAjuda['!cols'] = [{ wch: 110 }];
+
         const livro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(livro, folha, 'Marcas em falta');
+        XLSX.utils.book_append_sheet(livro, folhaAjuda, 'Como ler');
         XLSX.writeFile(livro, d.nomeBase + '.xlsx');
     }
 
