@@ -841,6 +841,21 @@
             font-size: 0.68rem; font-weight: 800; padding: 4px 9px; border-radius: 999px; cursor: pointer; text-transform: uppercase; }
         .marcas-filtro-exportar button svg { width: 12px; height: 12px; }
         .marcas-filtro-exportar button:disabled { opacity: .4; cursor: not-allowed; }
+        .marcas-filtro-exportar button.ativo { background: var(--primary); color: #fff; border-color: var(--primary); }
+        /* Vista "Tabela" do filtro de marcas: linhas normais por baixo do cabeçalho preto, texto pequeno e pouca cor */
+        .linha-plano td { padding: 7px 6px; vertical-align: middle; }
+        .plano-nome { font-weight: 700; font-size: 0.85rem; line-height: 1.2; }
+        .plano-meta { font-size: 0.66rem; color: var(--muted); margin-top: 2px; line-height: 1.25; }
+        .linha-plano td.plano-cel { text-align: center; }
+        .plano-ok { color: var(--muted); font-size: 0.8rem; }
+        .plano-falta { color: #b3261e; font-weight: 700; font-size: 0.72rem; }
+        .plano-falta.marcada { background: #fff1c9; box-shadow: 0 0 0 1px #d9a800 inset; border-radius: 6px; padding: 2px 6px; }
+        .linha-plano td.plano-clicavel { cursor: pointer; }
+        .linha-plano-filtros td { padding: 6px 5px; background: var(--bg); }
+        .linha-plano-filtros input, .linha-plano-filtros select { width: 100%; box-sizing: border-box; font-size: 0.7rem; padding: 4px 3px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); }
+        .plano-limpar { display: inline-block; margin-top: 4px; font-size: 0.66rem; font-weight: 700; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0; }
+        .linha-plano-total td { text-align: center; font-weight: 800; font-size: 0.75rem; padding: 8px 6px; border-top: 2px solid var(--border); }
+        .linha-plano-total td:first-child { text-align: left; }
         .marcas-filtro-periodo { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 2px; flex: 0 0 auto; }
         .marcas-filtro-periodo button { border: none; background: none; color: var(--muted); font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; cursor: pointer; text-transform: uppercase; }
         .marcas-filtro-periodo button.ativo { background: var(--primary); color: #fff; }
@@ -1728,17 +1743,20 @@ body.dark-mode #consultaSemana{background:#3a2f12;border-color:#6b5420;color:#f1
     <div class="filters-grid">
         <div class="filter-control full-largura">
             <div class="marcas-filtro-header">
-                <span class="marcas-filtro-titulo">Marcas não colocadas <span id="marcasFiltroPeriodoRotulo">(mês)</span></span>
+                <span class="marcas-filtro-titulo">Planeamento <span id="marcasFiltroPeriodoRotulo">do mês</span></span>
                 <span class="marcas-filtro-contagem" id="marcasFiltroContagem">Todas</span>
                 <div class="marcas-filtro-periodo" role="group" aria-label="Período">
                     <button type="button" data-periodo="mes" onclick="definirPeriodoMarcasFiltro_('mes')">Mês</button>
                     <button type="button" data-periodo="ano" onclick="definirPeriodoMarcasFiltro_('ano')">Ano</button>
                 </div>
                 <div class="marcas-filtro-exportar" role="group" aria-label="Exportar lista">
-                    <button type="button" id="btnExportarMarcasExcel" onclick="exportarMarcasFaltaExcel_()" title="Exportar a lista para Excel">
+                    <button type="button" id="btnVistaTabelaMarcas" onclick="alternarVistaTabelaMarcas_()" title="Usar o planeamento na tabela (todas as marcas)" aria-pressed="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Tabela
+                    </button>
+                    <button type="button" id="btnExportarMarcasExcel" onclick="exportarMarcasFaltaExcel_()" title="Exportar o planeamento para Excel (todas as marcas)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Excel
                     </button>
-                    <button type="button" id="btnExportarMarcasPdf" onclick="exportarMarcasFaltaPDF_()" title="Exportar a lista para PDF">
+                    <button type="button" id="btnExportarMarcasPdf" onclick="exportarMarcasFaltaPDF_()" title="Exportar o planeamento para PDF (todas as marcas)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>PDF
                     </button>
                 </div>
@@ -2487,6 +2505,11 @@ function ehCabecalhoComprouMes_(header) {
     // no ecrã nesse momento (respeitando marcas, dia, semana e vendedor).
     let ultimaListaNegociadosFiltrada_ = null;
     let ultimaListaMarcasFalta_ = null;   // [{cliente, numero, marcas:[...]}] do filtro "Marcas não colocadas" (para exportar)
+    // Vista "Tabela" do filtro de marcas: mostra a lista no mesmo formato do Excel (para planear o mês)
+    let VISTA_TABELA_MARCAS_ = false;      // a app abre sempre na rota normal; "Tabela" liga o planeamento
+    let marcasAutoSelecionadas_ = false;   // true quando as marcas foram todas selecionadas automaticamente (Tabela/Excel/PDF)
+    let FILTROS_PLANO_ = { texto: '', marcas: {}, quality: '' };   // filtros por coluna da vista Tabela
+    let ultimaColQHeader_ = -2;                                      // última posição da coluna Quality desenhada no cabeçalho
 
     function chaveMesPicos_() {
         const agora = new Date();
@@ -2918,13 +2941,22 @@ function ehCabecalhoComprouMes_(header) {
         if (!copiado) alert('Número do cliente: ' + n + '\nSe não foi copiado automaticamente, copia-o e cola-o na pesquisa do Salesforce.');
     }
 
+    /** Posição (nas marcas visíveis) da coluna Barril, quando a vista Tabela mostra a coluna Quality ao lado dela; -1 se não há. */
+    function indiceColunaQualityPlano_() {
+        if (!VISTA_TABELA_MARCAS_ || !MARCAS_FILTRO_SELECIONADAS_.length) return -1;
+        if (!(DADOS_PICOS_ && DADOS_PICOS_['__qualityFoco'])) return -1;
+        return marcasVisiveis_().findIndex(m => /barril/i.test(String(m)));
+    }
+
     function renderCabecalhoTabela() {
         const linha = document.getElementById('cabecalhoTabela');
         if (!linha) return;
+        ultimaColQHeader_ = indiceColunaQualityPlano_();
+        const idxQ_ = ultimaColQHeader_;
         const cobertura = calcularCoberturaPorMarca_();
         const quebra = calcularQuebraPorMarca_();
         quebraGestorRender_ = (document.getElementById('comercialSelect') || {}).value || '';
-        linha.innerHTML = `<th>Estabelecimento</th>` + marcasVisiveis_().map(m => {
+        linha.innerHTML = `<th>Estabelecimento</th>` + marcasVisiveis_().map((m, idxM_) => {
             const pct = cobertura[m];
             const pctHtml = (pct === null || pct === undefined || ehMarcaImplementacao_(m))
                 ? ''
@@ -2934,7 +2966,8 @@ function ehCabecalhoComprouMes_(header) {
                 `<div class="quebra-vol ${dq < 0 ? 'neg' : (dq > 0 ? 'pos' : '')}" title="Diferença de volume do mês, em litros: soma dos clientes do gestor selecionado">${dq < 0 ? '▼' : (dq > 0 ? '▲' : '■')} ${(dq > 0 ? '+' : '') + Math.round(dq).toLocaleString('pt-PT')} lt · vol. mês</div>`;
             const implAtiva = ehMarcaImplementacao_(m);
             const implHtml = MODO_VENDEDOR_ATIVO_ ? '' : `<div class="modo-marca-toggle" title="Modo da marca: Foco ou Execução"><button type="button" data-modo="foco" class="${implAtiva ? '' : 'ativo'}" data-marca="${escapeHtml_(m)}" onclick="if (${implAtiva ? 'true' : 'false'}) alternarMarcaImplementacao_(this.dataset.marca)">Foco</button><button type="button" data-modo="execucao" class="${implAtiva ? 'ativo' : ''}" data-marca="${escapeHtml_(m)}" onclick="if (${implAtiva ? 'false' : 'true'}) alternarMarcaImplementacao_(this.dataset.marca)">Execução</button></div>`;
-            return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>`;
+            const thQuality_ = idxM_ === idxQ_ ? `<th title="Barris comprados no mês (meta: ${META_BARRIS_QUALITY_})">Quality<div style="font-weight:400;font-size:0.68rem;opacity:0.8;">barris/mês</div></th>` : '';
+            return `<th>${m}${pctHtml}${quebraHtml}${implHtml}</th>` + thQuality_;
         }).join('');
     }
 
@@ -5076,6 +5109,17 @@ function ehCabecalhoComprouMes_(header) {
     const ABREV_MARCA_QUALITY_ = { sagres: 'S', heineken: 'H' };
     // O Quality cumpre-se com 4 barris no mês.
     const META_BARRIS_QUALITY_ = 4;
+    /** B2B do cliente para o Excel: 'Comprou' / 'Não comprou' (ficheiro b2bmensal), 'Sem B2B' (cliente sem B2B) ou '' (sem informação). */
+    function estadoB2BCliente_(item) {
+        if (!item) return '';
+        const mapa = DADOS_PICOS_ && DADOS_PICOS_['__b2bMensal'];
+        const v = mapa ? mapa[idNumeroRadar_(item.numero)] : undefined;
+        if (v === 1) return 'Comprou';
+        if (v === 0) return 'Não comprou';
+        const ind = (DADOS_PICOS_ && DADOS_PICOS_['__indicadoresClientes'] || {})[chaveClienteUnica_(item)];
+        const semB2B = ind ? !!ind.b : (!!item.b2bNao || Object.values(item.historico || {}).some(h => h && h.b2bNao));
+        return semB2B ? 'Sem B2B' : '';
+    }
     /** Barris do cliente no ficheiro Quality: { marca, q (comprados), falta (para a meta) }.
      *  null = ficheiro Quality ainda não importado; { semRegisto:true } = cliente não consta no ficheiro. */
     function dadosQualityCliente_(item) {
@@ -5351,7 +5395,7 @@ function ehCabecalhoComprouMes_(header) {
     }
 
     function atualizarVisualizacao() {
-        if (((document.getElementById('comercialSelect') || {}).value || '') !== quebraGestorRender_) renderCabecalhoTabela();
+        if (((document.getElementById('comercialSelect') || {}).value || '') !== quebraGestorRender_ || indiceColunaQualityPlano_() !== ultimaColQHeader_) renderCabecalhoTabela();
         const com = document.getElementById('comercialSelect').value;
         const sem = document.getElementById('semanaSelect').value;
         const badgeSemanaCiclo = document.getElementById('numeroSemanaCiclo');
@@ -5523,6 +5567,12 @@ function ehCabecalhoComprouMes_(header) {
         if (emModoMarcasColocadas) {
             ultimaListaNegociadosFiltrada_ = [];
             ultimaListaMarcasFalta_ = [];
+            if (VISTA_TABELA_MARCAS_) {
+                const trFiltros = document.createElement('tr');
+                trFiltros.className = 'linha-plano-filtros';
+                trFiltros.innerHTML = htmlFiltrosPlanoMarcas_();
+                corpo.appendChild(trFiltros);
+            }
             filtrados.forEach(item => {
                 const tr = document.createElement('tr');
                 const historicoCliente = (historicoMergeadoPorCliente_ && historicoMergeadoPorCliente_[chaveClienteUnica_(item)]) || {};
@@ -5532,10 +5582,19 @@ function ehCabecalhoComprouMes_(header) {
                 MARCAS_FILTRO_SELECIONADAS_.forEach(m => {
                     matrizEstado_[m] = marcaNaoAplicaAoCliente_(item, m) ? '' : (marcaColocadaNoPeriodo_(historicoCliente[m]) ? 'comprou' : 'colocar');
                 });
-                ultimaListaMarcasFalta_.push({ cliente: item.cliente, numero: item.numero || '', marcas: marcasEmFalta.slice(), matriz: matrizEstado_, vendedor: String(item.vendedor || '').trim(), quality: dadosQualityCliente_(item) });
+                const chaveCli_ = chaveClienteUnica_(item);
+                const entradaLista_ = { cliente: item.cliente, numero: item.numero || '', marcas: marcasEmFalta.slice(), matriz: matrizEstado_, vendedor: String(item.vendedor || '').trim(), diaVendedor: String(item.diaVendedor || item.dia || '').trim(), b2b: estadoB2BCliente_(item), quality: dadosQualityCliente_(item), chave: chaveCli_, assinaladas: marcasAssinaladasDe_(chaveCli_) };
+                if (VISTA_TABELA_MARCAS_ && !passaFiltrosPlano_(entradaLista_)) return;   // filtros por coluna da vista Tabela
+                ultimaListaMarcasFalta_.push(entradaLista_);
                 const marcasNegociadasCliente = marcasEmFalta.filter(m => item.estados[m] === 'NEGOCIADO');
                 if (marcasNegociadasCliente.length > 0) {
                     ultimaListaNegociadosFiltrada_.push({ cliente: item.cliente, marcasNegociadas: marcasNegociadasCliente });
+                }
+                if (VISTA_TABELA_MARCAS_) {   // vista Tabela: linha simples por baixo do cabeçalho
+                    tr.className = 'linha-plano';
+                    tr.innerHTML = htmlLinhaPlanoMarcas_(entradaLista_);
+                    corpo.appendChild(tr);
+                    return;
                 }
                 const badges = marcasEmFalta.map(m => {
                     const mEscapado = m.replace(/'/g, "\\'");
@@ -5556,6 +5615,16 @@ function ehCabecalhoComprouMes_(header) {
                     </td>`;
                 corpo.appendChild(tr);
             });
+            if (VISTA_TABELA_MARCAS_ && ultimaListaMarcasFalta_.length) {
+                const trTotal = document.createElement('tr');
+                trTotal.className = 'linha-plano-total';
+                trTotal.innerHTML = htmlTotaisPlanoMarcas_(ultimaListaMarcasFalta_);
+                corpo.appendChild(trTotal);
+            } else if (VISTA_TABELA_MARCAS_) {
+                const trVazio = document.createElement('tr');
+                trVazio.innerHTML = `<td colspan="${2 + marcasVisiveis_().length}" style="text-align:center; color:var(--muted); padding:16px;">Nenhum cliente com estes filtros.</td>`;
+                corpo.appendChild(trVazio);
+            }
             requestAnimationFrame(atualizarFocoCartaoCentral_);
             return;
         }
@@ -5796,7 +5865,50 @@ function ehCabecalhoComprouMes_(header) {
             b.classList.toggle('ativo', b.dataset.periodo === MARCAS_FILTRO_PERIODO_);
         });
         const r = document.getElementById('marcasFiltroPeriodoRotulo');
-        if (r) r.textContent = MARCAS_FILTRO_PERIODO_ === 'ano' ? '(ano)' : '(mês)';
+        if (r) r.textContent = MARCAS_FILTRO_PERIODO_ === 'ano' ? 'do ano' : 'do mês';
+        const bt = document.getElementById('btnVistaTabelaMarcas');
+        if (bt) { bt.classList.toggle('ativo', !!VISTA_TABELA_MARCAS_); bt.setAttribute('aria-pressed', VISTA_TABELA_MARCAS_ ? 'true' : 'false'); }
+    }
+
+    /** Liga/desliga a vista Tabela (a mesma tabela do Excel, dentro da app). */
+    function alternarVistaTabelaMarcas_() {
+        VISTA_TABELA_MARCAS_ = !VISTA_TABELA_MARCAS_;
+        if (VISTA_TABELA_MARCAS_ && MARCAS_FILTRO_SELECIONADAS_.length === 0) selecionarTodasMarcasPlano_();   // todas as marcas por defeito
+        else if (!VISTA_TABELA_MARCAS_) limparSelecaoAutoMarcas_();                                           // volta à rota normal
+        atualizarUiPeriodoMarcasFiltro_();
+        atualizarVisualizacao();
+    }
+
+    /** Seleciona todas as marcas visíveis (planeamento: todas por defeito). */
+    function selecionarTodasMarcasPlano_() {
+        MARCAS_FILTRO_SELECIONADAS_.splice(0);
+        marcasVisiveis_().forEach(m => MARCAS_FILTRO_SELECIONADAS_.push(m));
+        marcasAutoSelecionadas_ = true;
+        renderMarcasFiltroChips_();
+        atualizarContagemMarcasFiltro_();
+    }
+    /** Desfaz a seleção automática (só se o utilizador não mexeu nas marcas entretanto). */
+    function limparSelecaoAutoMarcas_() {
+        if (!marcasAutoSelecionadas_) return;
+        MARCAS_FILTRO_SELECIONADAS_.splice(0);
+        marcasAutoSelecionadas_ = false;
+        renderMarcasFiltroChips_();
+        atualizarContagemMarcasFiltro_();
+    }
+    /** Corre uma exportação com todas as marcas, mesmo que nenhuma esteja selecionada, sem mexer no ecrã. */
+    function comTodasAsMarcasPlano_(fn) {
+        const auto = MARCAS_FILTRO_SELECIONADAS_.length === 0;
+        if (auto) { selecionarTodasMarcasPlano_(); atualizarVisualizacao(); }
+        try { fn(); }
+        finally {
+            if (auto) {
+                MARCAS_FILTRO_SELECIONADAS_.splice(0);
+                marcasAutoSelecionadas_ = false;
+                renderMarcasFiltroChips_();
+                atualizarContagemMarcasFiltro_();
+                atualizarVisualizacao();
+            }
+        }
     }
 
     /** Alterna o filtro de marcas entre "este mês" e "este ano". */
@@ -5811,11 +5923,12 @@ function ehCabecalhoComprouMes_(header) {
         const el = document.getElementById('marcasFiltroContagem');
         if (!el) return;
         const n = MARCAS_FILTRO_SELECIONADAS_.length;
-        el.textContent = n === 0 ? 'Todas' : `${n} selecionada${n === 1 ? '' : 's'}`;
-        ['btnExportarMarcasExcel', 'btnExportarMarcasPdf'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = n === 0; });
+        el.textContent = n === 0 ? 'Todas as marcas' : `${n} selecionada${n === 1 ? '' : 's'}`;
+        ['btnVistaTabelaMarcas', 'btnExportarMarcasExcel', 'btnExportarMarcasPdf'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = marcasVisiveis_().length === 0; });
     }
 
     function alternarMarcaFiltro_(marca) {
+        marcasAutoSelecionadas_ = false;
         const idx = MARCAS_FILTRO_SELECIONADAS_.indexOf(marca);
         if (idx === -1) MARCAS_FILTRO_SELECIONADAS_.push(marca);
         else MARCAS_FILTRO_SELECIONADAS_.splice(idx, 1);
@@ -6880,7 +6993,7 @@ function ehCabecalhoComprouMes_(header) {
         }
         const com = document.getElementById('comercialSelect').value;
         const periodo = MARCAS_FILTRO_PERIODO_ === 'ano' ? 'ano' : 'mês';
-        const nomeBase = `${obterPrimeiroEUltimoNome(com)} marcas em falta (${periodo})`.replace(/[\\/:*?"<>|]/g, '');
+        const nomeBase = `${obterPrimeiroEUltimoNome(com)} planeamento ${periodo}`.replace(/[\\/:*?"<>|]/g, '');
         return { dados, com, periodo, nomeBase };
     }
 
@@ -6900,36 +7013,205 @@ function ehCabecalhoComprouMes_(header) {
         return false;
     }
 
-    function exportarMarcasFaltaExcel_() {
+    /** Tabela do filtro "Marcas não colocadas" para o Excel (o Quality fica numa coluna ao lado do Barril). */
+    function construirTabelaMarcasFalta_(dados) {
+        const marcasCols = marcasVisiveis_().filter(m => MARCAS_FILTRO_SELECIONADAS_.includes(m));
+        const nomeCol = m => /^gfa$/i.test(String(m).trim()) ? 'Garrafa' : m;
+        const txtEstado = e => e === 'comprou' ? 'Comprou' : (e === 'colocar' ? 'Falta' : '');
+        const temQuality_ = dados.some(x => x.quality);
+        const temAssin_ = dados.some(x => (x.assinaladas || []).length);
+        const idxBarril = marcasCols.findIndex(m => /barril/i.test(String(m)));
+        const qualNaColuna_ = temQuality_ && idxBarril >= 0;
+        const nomeBarris = qualNaColuna_ ? 'Quality (barris)' : 'Barris Quality';
+        const valorQ = x => (x.quality && !x.quality.semRegisto) ? x.quality.q : '';
+        const cab = ['Nº cliente', 'Estabelecimento', 'B2B'];
+        marcasCols.forEach((m, i) => { cab.push(nomeCol(m)); if (qualNaColuna_ && i === idxBarril) cab.push(nomeBarris); });
+        cab.push('Nº marcas em falta');
+        if (temAssin_) cab.push('Marcas assinaladas');
+        if (temQuality_) { if (!qualNaColuna_) cab.push(nomeBarris); cab.push('Marca foco Quality'); }
+        cab.push('Vendedor', 'Dia de visita do vendedor');
+        const linhas = dados.map(x => {
+            const estados = marcasCols.map(m => (x.matriz && x.matriz[m]) || '');
+            const l = [x.numero || '', x.cliente, x.b2b || ''];
+            estados.forEach((e, i) => { l.push(txtEstado(e)); if (qualNaColuna_ && i === idxBarril) l.push(valorQ(x)); });
+            l.push(estados.filter(e => e === 'colocar').length);
+            if (temAssin_) l.push((x.assinaladas || []).filter(m => marcasCols.includes(m)).map(nomeCol).join(', '));
+            if (temQuality_) { if (!qualNaColuna_) l.push(valorQ(x)); l.push(x.quality && !x.quality.semRegisto ? (x.quality.marca || '') : ''); }
+            l.push(x.vendedor || '', x.diaVendedor || '');
+            return l;
+        });
+        return { cab, linhas, temQuality_, temAssin_, nomeBarris };
+    }
+
+    const escHtmlPlano_ = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const encPlano_ = t => encodeURIComponent(String(t == null ? '' : t)).replace(/'/g, '%27');
+
+    // ---- Marcas "assinaladas" (toque numa marca em falta para a assinalar; fica guardado por gestor e por mês) ----
+    function marcasAssinaladasDe_(chaveCliente) {
+        const b = DADOS_PICOS_ && DADOS_PICOS_['__marcasAssinaladas'];
+        if (!b || b.mes !== chaveMesPicos_()) return [];
+        const com = (document.getElementById('comercialSelect') || {}).value || '';
+        return ((b.porGestor || {})[com] || {})[chaveCliente] || [];
+    }
+
+    async function alternarAssinaladaMarca_(chaveEnc, marcaEnc) {
+        if (MODO_VENDEDOR_ATIVO_) return;   // link do vendedor é só de leitura
+        const chave = decodeURIComponent(chaveEnc), marca = decodeURIComponent(marcaEnc);
+        const com = (document.getElementById('comercialSelect') || {}).value || '';
+        const mes = chaveMesPicos_();
+        let base = DADOS_PICOS_['__marcasAssinaladas'];
+        if (!base || base.mes !== mes) base = DADOS_PICOS_['__marcasAssinaladas'] = { mes: mes, porGestor: {} };
+        base.porGestor = base.porGestor || {};
+        const g = base.porGestor[com] = base.porGestor[com] || {};
+        const lista = (g[chave] || []).slice();
+        const i = lista.indexOf(marca);
+        if (i >= 0) lista.splice(i, 1); else lista.push(marca);
+        if (lista.length) g[chave] = lista; else delete g[chave];
+        try { localStorage.setItem('dadosPicosCache', JSON.stringify(DADOS_PICOS_)); } catch (e) { /* ignora */ }
+        atualizarVisualizacao();
+        mostrarIndicadorSync_(true);
+        try {
+            const r = await postComRetry_({ action: 'guardar_config', chave: 'dadosPicos', valor: DADOS_PICOS_ });
+            if (!r || r.ok === false) { console.error('Erro ao guardar marcas assinaladas na nuvem:', r && r.erro); mostrarAvisoSync_(); }
+        } catch (e) { console.error('Erro ao guardar marcas assinaladas na nuvem', e); mostrarAvisoSync_(); }
+        mostrarIndicadorSync_(false);
+    }
+
+    // ---- Filtros por coluna da vista Tabela ----
+    function filtrosPlanoAtivos_() {
+        const f = FILTROS_PLANO_;
+        return !!(f.texto || f.quality || Object.keys(f.marcas).some(m => f.marcas[m]));
+    }
+    function passaFiltrosPlano_(x) {
+        const f = FILTROS_PLANO_;
+        if (f.texto) {
+            const alvo = normalizarTexto_(x.cliente + ' ' + (x.numero || '') + ' ' + (x.vendedor || ''));
+            if (alvo.indexOf(normalizarTexto_(f.texto)) === -1) return false;
+        }
+        for (const m of Object.keys(f.marcas)) {
+            const v = f.marcas[m];
+            if (!v) continue;
+            const e = x.matriz ? x.matriz[m] : '';
+            if (v === 'falta' && e !== 'colocar') return false;
+            if (v === 'ok' && e !== 'comprou') return false;
+            if (v === 'marcada' && !(x.assinaladas || []).includes(m)) return false;
+        }
+        if (f.quality) {
+            const q = x.quality && !x.quality.semRegisto ? x.quality.q : null;
+            if (f.quality === 'abaixo' && !(q !== null && q < META_BARRIS_QUALITY_)) return false;
+            if (f.quality === 'cumpre' && !(q !== null && q >= META_BARRIS_QUALITY_)) return false;
+            if (f.quality === 'sem' && q !== null) return false;
+        }
+        return true;
+    }
+    let _timerFiltroPlano_ = null;
+    function definirFiltroPlanoTexto_(v) {
+        FILTROS_PLANO_.texto = String(v || '');
+        clearTimeout(_timerFiltroPlano_);
+        _timerFiltroPlano_ = setTimeout(() => {
+            atualizarVisualizacao();
+            const el = document.getElementById('planoFiltroTexto');
+            if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { /* ignora */ } }
+        }, 180);
+    }
+    function definirFiltroPlano_(marcaEnc, valor) {
+        const m = decodeURIComponent(marcaEnc);
+        if (m === '__quality') FILTROS_PLANO_.quality = valor || '';
+        else FILTROS_PLANO_.marcas[m] = valor || '';
+        atualizarVisualizacao();
+    }
+    function limparFiltrosPlano_() {
+        FILTROS_PLANO_ = { texto: '', marcas: {}, quality: '' };
+        atualizarVisualizacao();
+    }
+
+    /** Linha de filtros (por baixo do cabeçalho): pesquisa por cliente + um filtro por marca + um para o Quality. */
+    function htmlFiltrosPlanoMarcas_() {
+        const f = FILTROS_PLANO_;
+        const idxQ = indiceColunaQualityPlano_();
+        const opt = (v, txt, atual) => `<option value="${v}"${atual === v ? ' selected' : ''}>${txt}</option>`;
+        let h = `<td><input id="planoFiltroTexto" type="search" placeholder="Procurar cliente…" value="${escHtmlPlano_(f.texto)}" oninput="definirFiltroPlanoTexto_(this.value)">`
+            + (filtrosPlanoAtivos_() ? `<button type="button" class="plano-limpar" onclick="limparFiltrosPlano_()">Limpar filtros</button>` : '') + `</td>`;
+        marcasVisiveis_().forEach((m, i) => {
+            if (MARCAS_FILTRO_SELECIONADAS_.includes(m)) {
+                const atual = f.marcas[m] || '';
+                h += `<td data-label="${escHtmlPlano_(m)}"><select aria-label="Filtrar ${escHtmlPlano_(m)}" onchange="definirFiltroPlano_('${encPlano_(m)}', this.value)">`
+                    + opt('', 'Todos', atual) + opt('falta', 'Falta', atual) + opt('ok', '✓', atual) + opt('marcada', 'Assinaladas', atual) + `</select></td>`;
+            } else h += `<td data-label="${escHtmlPlano_(m)}"></td>`;
+            if (i === idxQ) {
+                h += `<td data-label="Quality"><select aria-label="Filtrar Quality" onchange="definirFiltroPlano_('__quality', this.value)">`
+                    + opt('', 'Todos', f.quality) + opt('abaixo', 'Abaixo de ' + META_BARRIS_QUALITY_, f.quality) + opt('cumpre', 'Cumpre', f.quality) + opt('sem', 'Sem dados', f.quality) + `</select></td>`;
+            }
+        });
+        return h;
+    }
+
+    function htmlCelulaQualityPlano_(x) {
+        const q = x.quality && !x.quality.semRegisto ? x.quality : null;
+        if (!q) return `<td data-label="Quality"></td>`;
+        const tit = q.marca ? ` title="Marca foco ${escHtmlPlano_(q.marca)}"` : '';
+        return `<td data-label="Quality" class="plano-cel"${tit}>` + (q.q >= META_BARRIS_QUALITY_
+            ? `<span class="plano-ok">✓ ${q.q}</span>`
+            : `<span class="plano-falta">${q.q}/${META_BARRIS_QUALITY_}</span>`) + `</td>`;
+    }
+
+    /** Linha da vista "Tabela": nome + linha de contexto pequena, e uma célula por marca (✓ ou Falta) alinhada com o cabeçalho. */
+    function htmlLinhaPlanoMarcas_(x) {
+        const vend = String(x.vendedor || '').trim();
+        const meta = [
+            x.numero ? 'Nº ' + x.numero : '',
+            vend ? (typeof obterPrimeiroEUltimoNome === 'function' ? obterPrimeiroEUltimoNome(vend) : vend) : '',
+            x.diaVendedor || '',
+            x.b2b === 'Comprou' ? 'B2B: comprou' : (x.b2b === 'Não comprou' ? 'B2B: não comprou' : (x.b2b === 'Sem B2B' ? 'Sem B2B' : ''))
+        ].filter(Boolean).join(' · ');
+        const idxQ = indiceColunaQualityPlano_();
+        let h = `<td><div class="plano-nome">${escHtmlPlano_(x.cliente)}</div>${meta ? `<div class="plano-meta">${escHtmlPlano_(meta)}</div>` : ''}</td>`;
+        marcasVisiveis_().forEach((m, i) => {
+            const e = MARCAS_FILTRO_SELECIONADAS_.includes(m) && x.matriz ? x.matriz[m] : '';
+            const nome = escHtmlPlano_(m);
+            if (e === 'comprou') h += `<td data-label="${nome}" class="plano-cel"><span class="plano-ok">✓</span></td>`;
+            else if (e === 'colocar') {
+                const marcada = (x.assinaladas || []).includes(m);
+                const clique = MODO_VENDEDOR_ATIVO_ ? '' : ` plano-clicavel" title="Toca para ${marcada ? 'retirar a marca' : 'assinalar esta marca'}" onclick="alternarAssinaladaMarca_('${encPlano_(x.chave)}','${encPlano_(m)}')`;
+                h += `<td data-label="${nome}" class="plano-cel${clique}"><span class="plano-falta${marcada ? ' marcada' : ''}">Falta</span></td>`;
+            } else h += `<td data-label="${nome}"></td>`;
+            if (i === idxQ) h += htmlCelulaQualityPlano_(x);
+        });
+        return h;
+    }
+
+    /** Última linha da vista "Tabela": quantos clientes têm "Falta" em cada marca (e quantas estão assinaladas). */
+    function htmlTotaisPlanoMarcas_(lista) {
+        const idxQ = indiceColunaQualityPlano_();
+        let h = `<td>Em falta (${lista.length} clientes)</td>`;
+        marcasVisiveis_().forEach((m, i) => {
+            const nome = escHtmlPlano_(m);
+            if (MARCAS_FILTRO_SELECIONADAS_.includes(m)) {
+                const n = lista.filter(x => x.matriz && x.matriz[m] === 'colocar').length;
+                const nm = lista.filter(x => x.matriz && x.matriz[m] === 'colocar' && (x.assinaladas || []).includes(m)).length;
+                h += `<td data-label="${nome}">${n}${nm ? `<div class="plano-meta">${nm} assinal.</div>` : ''}</td>`;
+            } else h += `<td data-label="${nome}"></td>`;
+            if (i === idxQ) h += `<td data-label="Quality"></td>`;
+        });
+        return h;
+    }
+
+    function exportarMarcasFaltaExcel_() { comTodasAsMarcasPlano_(exportarMarcasFaltaExcelInterno_); }
+    function exportarMarcasFaltaPDF_() { comTodasAsMarcasPlano_(exportarMarcasFaltaPDFInterno_); }
+
+    function exportarMarcasFaltaExcelInterno_() {
         const d = dadosExportMarcasFalta_();
         if (!d) return;
         if (typeof XLSX === 'undefined') {
             alert('A biblioteca de Excel ainda não carregou. Verifica a ligação à internet e tenta novamente.');
             return;
         }
-        // Uma linha por estabelecimento, uma coluna por marca: "Comprou" / "Falta" / vazio (marca não se aplica ao cliente)
-        const marcasCols = marcasVisiveis_().filter(m => MARCAS_FILTRO_SELECIONADAS_.includes(m));
-        const nomeCol = m => /^gfa$/i.test(String(m).trim()) ? 'Garrafa' : m;
-        const txtEstado = e => e === 'comprou' ? 'Comprou' : (e === 'colocar' ? 'Falta' : '');
-        const temQuality_ = d.dados.some(x => x.quality);
-        const cab = ['Nº cliente', 'Estabelecimento', ...marcasCols.map(nomeCol), 'Nº marcas em falta'];
-        if (temQuality_) cab.push('Marca foco Quality', 'Barris comprados', 'Faltam para o Quality');
-        cab.push('Vendedor');
-        const linhas = [cab];
-        d.dados.forEach(x => {
-            const estados = marcasCols.map(m => (x.matriz && x.matriz[m]) || '');
-            const linha = [x.numero || '', x.cliente, ...estados.map(txtEstado), estados.filter(e => e === 'colocar').length];
-            if (temQuality_) {
-                const q = x.quality;
-                if (q && !q.semRegisto) linha.push(q.marca || '', q.q, q.falta);
-                else linha.push('', '', '');
-            }
-            linha.push(x.vendedor || '');
-            linhas.push(linha);
-        });
+        const t = construirTabelaMarcasFalta_(d.dados);
+        const cab = t.cab, temQuality_ = t.temQuality_;
+        const linhas = [cab, ...t.linhas];
         const folha = XLSX.utils.aoa_to_sheet(linhas);
-        folha['!cols'] = [{ wch: 11 }, { wch: 38 }, ...marcasCols.map(() => ({ wch: 11 })), { wch: 12 },
-            ...(temQuality_ ? [{ wch: 14 }, { wch: 12 }, { wch: 14 }] : []), { wch: 26 }];
+        const larg = h => ({ 'Nº cliente': 11, 'Estabelecimento': 38, 'B2B': 12, 'Nº marcas em falta': 12, 'Marcas assinaladas': 22, 'Marca foco Quality': 14, 'Vendedor': 26, 'Dia de visita do vendedor': 16, 'Quality (barris)': 12, 'Barris Quality': 12 }[h] || 11);
+        folha['!cols'] = cab.map(h => ({ wch: larg(h) }));
         folha['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: linhas.length - 1, c: cab.length - 1 } }) };
 
         // Folha de ajuda: explica o que cada coluna quer dizer e o que o gestor pode fazer
@@ -6937,6 +7219,9 @@ function ehCabecalhoComprouMes_(header) {
             ['Como ler este ficheiro'],
             [''],
             ['Cada linha é um estabelecimento de ' + d.com + ' (' + d.dados.length + ' no total). Período: ' + d.periodo + '. Gerado em ' + new Date().toLocaleDateString('pt-PT') + '.'],
+            [''],
+            ['B2B'],
+            ['Comprou / Não comprou = se o cliente já comprou B2B este mês. Sem B2B = cliente sem B2B. Vazio = sem informação.'],
             [''],
             ['Colunas das marcas'],
             ['Comprou = a marca já foi colocada neste ' + d.periodo + '.'],
@@ -6946,24 +7231,27 @@ function ehCabecalhoComprouMes_(header) {
         ];
         if (temQuality_) {
             ajuda.push([''], ['Quality (barris)'],
-                ['Barris comprados = barris de ' + 'cerveja de pressão comprados este mês, segundo o ficheiro Quality.'],
-                ['Faltam para o Quality = quantos barris ainda faltam para chegar a ' + META_BARRIS_QUALITY_ + ' (o mínimo para cumprir). 0 = já cumpre.'],
-                ['Se estas três colunas estiverem vazias, o cliente não consta no ficheiro Quality.']);
+                [t.nomeBarris + ' = barris comprados este mês, segundo o ficheiro Quality. O Quality cumpre-se com ' + META_BARRIS_QUALITY_ + ' barris no mês.'],
+                ['Se estas colunas estiverem vazias, o cliente não consta no ficheiro Quality.']);
         }
-        ajuda.push([''], ['O que podes fazer'],
+        if (t.temAssin_) ajuda.push([''], ['Marcas assinaladas = as marcas que assinalaste na app (toque em "Falta") para trabalhar neste cliente.']);
+        ajuda.push([''], ['Vendedor'],
+            ['Dia de visita do vendedor = o dia da semana em que o vendedor visita este cliente.'],
+            [''], ['O que podes fazer'],
             ['1. Usa as setas do cabeçalho (filtro) para ver só os clientes com "Falta" numa marca.'],
-            ['2. Ordena "Nº marcas em falta" do maior para o menor para começar pelos clientes com mais oportunidades.']);
-        if (temQuality_) ajuda.push(['3. Ordena "Faltam para o Quality" do maior para o menor: os primeiros são os clientes mais longe da meta de barris.']);
+            ['2. Ordena "Nº marcas em falta" do maior para o menor para começar pelos clientes com mais oportunidades.'],
+            ['3. Filtra "Dia de visita do vendedor" para preparar as visitas de cada dia.']);
+        if (temQuality_) ajuda.push(['4. Ordena "' + t.nomeBarris + '" do menor para o maior: os primeiros são os clientes mais longe dos ' + META_BARRIS_QUALITY_ + ' barris do Quality.']);
         const folhaAjuda = XLSX.utils.aoa_to_sheet(ajuda);
         folhaAjuda['!cols'] = [{ wch: 110 }];
 
         const livro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(livro, folha, 'Marcas em falta');
+        XLSX.utils.book_append_sheet(livro, folha, 'Planeamento');
         XLSX.utils.book_append_sheet(livro, folhaAjuda, 'Como ler');
         XLSX.writeFile(livro, d.nomeBase + '.xlsx');
     }
 
-    function exportarMarcasFaltaPDF_() {
+    function exportarMarcasFaltaPDFInterno_() {
         const d = dadosExportMarcasFalta_();
         if (!d) return;
         if (!window.jspdf) {
@@ -6975,7 +7263,7 @@ function ehCabecalhoComprouMes_(header) {
         const margem = 40;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text('Marcas não colocadas (' + d.periodo + ') — ' + d.com, margem, margem);
+        doc.text('Planeamento do ' + d.periodo + ' — ' + d.com, margem, margem);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(120);
